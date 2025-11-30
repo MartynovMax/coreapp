@@ -1,41 +1,38 @@
-# Prerequisites
-*.d
+# Build directories
+/build/
+/build*/
 
-# Compiled Object files
-*.slo
-*.lo
-*.o
-*.obj
+# CMake
+CMakeFiles/
+CMakeCache.txt
+cmake_install.cmake
+Makefile
 
-# Precompiled Headers
-*.gch
-*.pch
+# Ninja
+.ninja*
+build.ninja
+rules.ninja
 
-# Linker files
-*.ilk
-
-# Debugger Files
+# Visual Studio
+*.sln
+*.vcxproj*
+*.vcxproj.filters
+*.vcxproj.user
 *.pdb
+*.obj
+*.idb
+*.ipch
+*.opensdf
+*.sdf
+*.db
+*.tlog
+*.log
 
-# Compiled Dynamic libraries
-*.so
-*.dylib
-*.dll
+# VS folders
+/.vs/
+.vscode/
+.idea/
 
-# Fortran module files
-*.mod
-*.smod
-
-# Compiled Static libraries
-*.lai
-*.la
-*.a
-*.lib
-
-# Executables
-*.exe
-*.out
-*.app
-
-# debug information files
-*.dwo
+# OS files
+.DS_Store
+Thumbs.db

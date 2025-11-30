@@ -1,0 +1,3 @@
+# coreapp
+
+**coreapp** is a low-level C++ foundation library...
