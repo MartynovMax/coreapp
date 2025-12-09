@@ -1,5 +1,16 @@
 #pragma once
 
+// ============================================================================
+// core_config.hpp
+// Unified compile-time configuration for Core module.
+// - Compiler detection
+// - Platform detection
+// - CPU architecture
+// - Endianness
+// - Global config flags
+// - Utility macros
+// ============================================================================
+
 
 // ----------------------------------------------------------------------------
 // C++ standard check (C++20 required)
