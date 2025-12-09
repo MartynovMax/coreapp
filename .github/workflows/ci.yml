@@ -54,7 +54,14 @@ jobs:
 
       # ---------- Build ----------
       - name: Build
-        run: cmake --build build --config Debug -- -j 4
+        run: |
+            echo "Building on ${{ runner.os }} with ${{ matrix.compiler }}"
+            if [ "${{ runner.os }}" = "Windows" ]; then
+              cmake --build build --config Debug -- /m
+            else
+              cmake --build build --config Debug -- -j 4
+            fi
+        shell: bash
 
       # ---------- Run tests ----------
       - name: Run tests
