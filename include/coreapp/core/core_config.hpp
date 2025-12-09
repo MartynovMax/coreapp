@@ -111,3 +111,24 @@
 #else
 #error "Cannot determine endianness for this platform."
 #endif
+
+// ----------------------------------------------------------------------------
+// Global configuration flags
+// ----------------------------------------------------------------------------
+
+// Allow manual override from build system
+#ifndef CORE_DEBUG
+#if defined(_DEBUG) || !defined(NDEBUG)
+#define CORE_DEBUG 1
+#else
+#define CORE_DEBUG 0
+#endif
+#endif
+
+#ifndef CORE_ASSERTIONS_ENABLED
+#define CORE_ASSERTIONS_ENABLED CORE_DEBUG
+#endif
+
+#ifndef CORE_ENABLE_LOGS
+#define CORE_ENABLE_LOGS CORE_DEBUG
+#endif
