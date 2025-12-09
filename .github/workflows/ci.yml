@@ -16,6 +16,7 @@ jobs:
       matrix:
         os: [ubuntu-latest, windows-latest, macos-latest]
         compiler: [gcc, clang, msvc]
+        config: [Debug, Release]
         exclude:
           # GCC/Clang на Windows не используем
           - os: windows-latest
@@ -45,21 +46,21 @@ jobs:
             export CC=clang
             export CXX=clang++
           fi
-          cmake -S . -B build -DCMAKE_BUILD_TYPE=Debug
+          cmake -S . -B build -DCMAKE_BUILD_TYPE=${{ matrix.config }}
 
       # ---------- Configure (Windows / MSVC) ----------
       - name: Configure CMake (Windows / MSVC)
         if: runner.os == 'Windows'
-        run: cmake -S . -B build -DCMAKE_BUILD_TYPE=Debug
+        run: cmake -S . -B build -DCMAKE_BUILD_TYPE=${{ matrix.config }}
 
       # ---------- Build ----------
       - name: Build
         run: |
-          echo "Building on ${{ runner.os }} with ${{ matrix.compiler }}"
-          cmake --build build --config Debug --parallel 4
+          echo "Building on ${{ runner.os }} with ${{ matrix.compiler }} / config: ${{ matrix.config }}"
+          cmake --build build --config ${{ matrix.config }} --parallel 4
         shell: bash
 
       # ---------- Run tests ----------
       - name: Run tests
         working-directory: build
-        run: ctest --output-on-failure -C Debug
+        run: ctest --output-on-failure -C ${{ matrix.config }}

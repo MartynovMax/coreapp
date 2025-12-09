@@ -57,6 +57,16 @@ static_assert(CORE_COMPILER_CLANG,
 static_assert(CORE_COMPILER_GCC, "GCC compiler must define CORE_COMPILER_GCC.");
 #endif
 
+// 5. CORE_DEBUG must match NDEBUG / _DEBUG configuration
+#if defined(NDEBUG)
+static_assert(CORE_DEBUG == 0,
+              "Release-like build (NDEBUG defined) must set CORE_DEBUG to 0.");
+#else
+static_assert(
+    CORE_DEBUG == 1,
+    "Debug-like build (NDEBUG not defined) must set CORE_DEBUG to 1.");
+#endif
+
 int main() {
   // No runtime tests for now, everything is compile-time.
   return 0;
