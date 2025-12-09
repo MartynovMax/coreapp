@@ -8,7 +8,7 @@ on:
 
 jobs:
   build-and-test:
-    name: ${{ matrix.os }} / ${{ matrix.compiler }}
+    name: ${{ matrix.os }} / ${{ matrix.compiler }} / ${{ matrix.config }}
     runs-on: ${{ matrix.os }}
 
     strategy:
