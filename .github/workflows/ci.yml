@@ -1,9 +1,62 @@
 name: CI
-on: { push: { branches: [ main ] }, pull_request: {} }
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
 jobs:
-  build:
-    runs-on: ubuntu-latest
+  build-and-test:
+    name: ${{ matrix.os }} / ${{ matrix.compiler }}
+    runs-on: ${{ matrix.os }}
+
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+        compiler: [gcc, clang, msvc]
+        exclude:
+          # GCC/Clang на Windows не используем
+          - os: windows-latest
+            compiler: gcc
+          - os: windows-latest
+            compiler: clang
+          # MSVC только на Windows
+          - os: ubuntu-latest
+            compiler: msvc
+          - os: macos-latest
+            compiler: msvc
+
     steps:
-      - uses: actions/checkout@v4
-      - run: cmake -S . -B build
-      - run: cmake --build build
+      - name: Checkout sources
+        uses: actions/checkout@v4
+
+      # ---------- Configure (Linux/macOS) ----------
+      - name: Configure CMake (Unix)
+        if: runner.os != 'Windows'
+        shell: bash
+        run: |
+          echo "Using compiler: ${{ matrix.compiler }}"
+          if [ "${{ matrix.compiler }}" = "gcc" ]; then
+            export CC=gcc
+            export CXX=g++
+          elif [ "${{ matrix.compiler }}" = "clang" ]; then
+            export CC=clang
+            export CXX=clang++
+          fi
+          cmake -S . -B build -DCMAKE_BUILD_TYPE=Debug
+
+      # ---------- Configure (Windows / MSVC) ----------
+      - name: Configure CMake (Windows / MSVC)
+        if: runner.os == 'Windows'
+        run: cmake -S . -B build -DCMAKE_BUILD_TYPE=Debug
+
+      # ---------- Build ----------
+      - name: Build
+        run: cmake --build build --config Debug -- -j 4
+
+      # ---------- Run tests ----------
+      - name: Run tests
+        working-directory: build
+        run: ctest --output-on-failure -C Debug
