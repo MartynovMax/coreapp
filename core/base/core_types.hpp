@@ -88,4 +88,14 @@ namespace core
 
     /// Boolean stored explicitly as 1 byte (0 = false, non-zero = true).
     using b8 = u8;
+
+    //--------------------------------------------------------------------------
+    // Identifier types
+    //--------------------------------------------------------------------------
+
+    /// 32-bit identifier type.
+    using id32 = u32;
+
+    /// 64-bit identifier type.
+    using id64 = u64;
 }
