@@ -25,4 +25,47 @@ namespace core
     using i64 = long long;
     /// Unsigned 64-bit integer.
     using u64 = unsigned long long;
+
+    //--------------------------------------------------------------------------
+    // Size / pointer-sized types
+    //--------------------------------------------------------------------------
+
+    namespace detail
+    {
+        template <unsigned PointerSize>
+        struct pointer_sized_signed;
+
+        template <>
+        struct pointer_sized_signed<4>
+        {
+            using type = i32;
+        };
+
+        template <>
+        struct pointer_sized_signed<8>
+        {
+            using type = i64;
+        };
+
+        template <unsigned PointerSize>
+        struct pointer_sized_unsigned;
+
+        template <>
+        struct pointer_sized_unsigned<4>
+        {
+            using type = u32;
+        };
+
+        template <>
+        struct pointer_sized_unsigned<8>
+        {
+            using type = u64;
+        };
+    } // namespace detail
+
+    /// Unsigned integer large enough to hold a pointer.
+    using usize = typename detail::pointer_sized_unsigned<sizeof(void*)>::type;
+
+    /// Signed integer large enough to hold a pointer difference.
+    using isize = typename detail::pointer_sized_signed<sizeof(void*)>::type;
 }
