@@ -1,38 +1,70 @@
-# Build directories
+############################################
+# Build artifacts (CMake, MSVC, Ninja)
+############################################
 /build/
-/build*/
-
-# CMake
-CMakeFiles/
-CMakeCache.txt
+/out/
+/cmake-build*/
+/CMakeFiles/
+/CMakeCache.txt
 cmake_install.cmake
-Makefile
+CTestTestfile.cmake
+Testing/
 
-# Ninja
-.ninja*
-build.ninja
-rules.ninja
+############################################
+# CMake File API (used by Visual Studio)
+############################################
+.cmake/
+*.json
 
-# Visual Studio
+############################################
+# Visual Studio generated files
+############################################
+.vs/
+*.VC.db
+*.VC.db-shm
+*.VC.db-wal
+*.opendb
+*.suo
+*.user
+*.userosscache
+*.sln.docstates
+
+# Ignore IDE-generated solution/project files
+# (CMake will regenerate them)
 *.sln
-*.vcxproj*
+*.vcxproj
 *.vcxproj.filters
 *.vcxproj.user
-*.pdb
-*.obj
-*.idb
-*.ipch
-*.opensdf
-*.sdf
-*.db
-*.tlog
-*.log
 
-# VS folders
-/.vs/
+############################################
+# Visual Studio Code
+############################################
 .vscode/
-.idea/
 
-# OS files
-.DS_Store
+############################################
+# Python cache (if build scripts are used)
+############################################
+__pycache__/
+*.pyc
+
+############################################
+# Temporary / backup files
+############################################
+*.tmp
+*.log
+*.bak
+*.swp
+*.swo
+
+############################################
+# OS-specific junk files
+############################################
+# Windows
 Thumbs.db
+ehthumbs.db
+Desktop.ini
+
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
