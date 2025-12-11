@@ -115,4 +115,14 @@ namespace core
     /// Time duration in nanoseconds.
     using time_ns = i64;
 
+    //--------------------------------------------------------------------------
+    // Offset / pointer-diff types
+    //--------------------------------------------------------------------------
+
+    /// Generic offset type (typically used for byte offsets).
+    using offset_t = isize;
+
+    /// Pointer difference type.
+    using ptrdiff = isize;
+
 }
