@@ -125,4 +125,34 @@ namespace core
     /// Pointer difference type.
     using ptrdiff = isize;
 
+    //--------------------------------------------------------------------------
+    // Constants
+    //--------------------------------------------------------------------------
+
+    // Invalid identifier sentinel values.
+    constexpr id32 kInvalidId32 = static_cast<id32>(0xFFFFFFFFu);
+    constexpr id64 kInvalidId64 = static_cast<id64>(0xFFFFFFFFFFFFFFFFull);
+
+    // Integer limits (assuming two's complement representation).
+
+    // 8-bit.
+    constexpr u8  kU8Max = static_cast<u8>(0xFFu);
+    constexpr i8  kI8Min = static_cast<i8>(-0x80);
+    constexpr i8  kI8Max = static_cast<i8>(0x7F);
+
+    // 16-bit.
+    constexpr u16 kU16Max = static_cast<u16>(0xFFFFu);
+    constexpr i16 kI16Min = static_cast<i16>(-0x8000);
+    constexpr i16 kI16Max = static_cast<i16>(0x7FFF);
+
+    // 32-bit.
+    constexpr u32 kU32Max = static_cast<u32>(0xFFFFFFFFu);
+    constexpr i32 kI32Min = static_cast<i32>(-0x80000000);
+    constexpr i32 kI32Max = static_cast<i32>(0x7FFFFFFF);
+
+    // 64-bit.
+    constexpr u64 kU64Max = static_cast<u64>(0xFFFFFFFFFFFFFFFFull);
+    constexpr i64 kI64Min = static_cast<i64>(-0x8000000000000000ll);
+    constexpr i64 kI64Max = static_cast<i64>(0x7FFFFFFFFFFFFFFFll);
+
 }
