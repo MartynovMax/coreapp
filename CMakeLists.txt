@@ -24,9 +24,8 @@ file(GLOB_RECURSE COREAPP_HEADERS
     core/*.hpp
 )
 
-target_sources(coreapp INTERFACE
-    ${COREAPP_HEADERS}>
-)
+# IDE-friendly header-only target (does not affect build)
+add_custom_target(coreapp_headers SOURCES ${COREAPP_HEADERS})
 
 source_group(TREE ${CMAKE_CURRENT_SOURCE_DIR}/core
              FILES ${COREAPP_HEADERS})
