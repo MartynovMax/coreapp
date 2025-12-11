@@ -1,5 +1,26 @@
 #pragma once
 
+//------------------------------------------------------------------------------
+// core_types.hpp
+// Fundamental Core-level primitive type definitions.
+//------------------------------------------------------------------------------
+//
+// This header defines all low-level primitive types used across Core:
+//  - Fixed-width integers (i8/u8, i16/u16, i32/u32, i64/u64)
+//  - Pointer-sized integers (usize/isize)
+//  - Floating-point types (f32/f64)
+//  - Byte / boolean storage types (byte, b8)
+//  - Identifier types (id32/id64)
+//  - Time-related types (tick_t, time_ms/time_us/time_ns)
+//  - Offset / pointer-diff types (offset_t, ptrdiff)
+//  - Common constants (invalid IDs, integer limits)
+//
+// Constraints:
+//  - No STL (no <cstdint>, <cstddef>, <limits>, etc.).
+//  - No dependencies on other Core headers.
+//  - Assumes 8/16/32/64-bit fundamental integer types and 32- or 64-bit pointers.
+//
+
 namespace core
 {
     //--------------------------------------------------------------------------
