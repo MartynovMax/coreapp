@@ -68,4 +68,14 @@ namespace core
 
     /// Signed integer large enough to hold a pointer difference.
     using isize = typename detail::pointer_sized_signed<sizeof(void*)>::type;
+
+    //--------------------------------------------------------------------------
+    // Floating-point types
+    //--------------------------------------------------------------------------
+
+    /// 32-bit floating-point.
+    using f32 = float;
+
+    /// 64-bit floating-point.
+    using f64 = double;
 }
