@@ -78,4 +78,14 @@ namespace core
 
     /// 64-bit floating-point.
     using f64 = double;
+
+    //--------------------------------------------------------------------------
+    // Byte / boolean storage types
+    //--------------------------------------------------------------------------
+
+    /// Raw byte (8-bit unsigned).
+    using byte = u8;
+
+    /// Boolean stored explicitly as 1 byte (0 = false, non-zero = true).
+    using b8 = u8;
 }
