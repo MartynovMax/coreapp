@@ -98,4 +98,21 @@ namespace core
 
     /// 64-bit identifier type.
     using id64 = u64;
+
+    //--------------------------------------------------------------------------
+    // Time-related types
+    //--------------------------------------------------------------------------
+
+    /// Engine tick counter type (monotonic, wraps on overflow).
+    using tick_t = u64;
+
+    /// Time duration in milliseconds.
+    using time_ms = i64;
+
+    /// Time duration in microseconds.
+    using time_us = i64;
+
+    /// Time duration in nanoseconds.
+    using time_ns = i64;
+
 }
