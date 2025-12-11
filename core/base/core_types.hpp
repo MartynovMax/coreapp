@@ -155,4 +155,58 @@ namespace core
     constexpr i64 kI64Min = static_cast<i64>(-0x8000000000000000ll);
     constexpr i64 kI64Max = static_cast<i64>(0x7FFFFFFFFFFFFFFFll);
 
+    //--------------------------------------------------------------------------
+    // Static asserts
+    //--------------------------------------------------------------------------
+
+    // Fixed-width integer sizes.
+    static_assert(sizeof(i8) == 1, "core::i8 must be 8 bits");
+    static_assert(sizeof(u8) == 1, "core::u8 must be 8 bits");
+
+    static_assert(sizeof(i16) == 2, "core::i16 must be 16 bits");
+    static_assert(sizeof(u16) == 2, "core::u16 must be 16 bits");
+
+    static_assert(sizeof(i32) == 4, "core::i32 must be 32 bits");
+    static_assert(sizeof(u32) == 4, "core::u32 must be 32 bits");
+
+    static_assert(sizeof(i64) == 8, "core::i64 must be 64 bits");
+    static_assert(sizeof(u64) == 8, "core::u64 must be 64 bits");
+
+    // Pointer size assumptions (32-bit or 64-bit only).
+    static_assert(sizeof(void*) == 4 || sizeof(void*) == 8,
+        "core only supports 32-bit and 64-bit pointer sizes");
+
+    // Pointer-sized integer sizes.
+    static_assert(sizeof(usize) == sizeof(void*),
+        "core::usize must match pointer size");
+    static_assert(sizeof(isize) == sizeof(void*),
+        "core::isize must match pointer size");
+
+    // Floating-point sizes.
+    static_assert(sizeof(f32) == 4, "core::f32 must be 32-bit float");
+    static_assert(sizeof(f64) == 8, "core::f64 must be 64-bit float");
+
+    // Byte / boolean sizes.
+    static_assert(sizeof(byte) == 1, "core::byte must be 8 bits");
+    static_assert(sizeof(b8) == 1, "core::b8 must be 8 bits");
+
+    // ID sizes.
+    static_assert(sizeof(id32) == sizeof(u32), "core::id32 must be 32 bits");
+    static_assert(sizeof(id64) == sizeof(u64), "core::id64 must be 64 bits");
+
+    // Time type sizes.
+    static_assert(sizeof(tick_t) == sizeof(u64),
+        "core::tick_t must be 64-bit");
+    static_assert(sizeof(time_ms) == sizeof(i64),
+        "core::time_ms must be 64-bit");
+    static_assert(sizeof(time_us) == sizeof(i64),
+        "core::time_us must be 64-bit");
+    static_assert(sizeof(time_ns) == sizeof(i64),
+        "core::time_ns must be 64-bit");
+
+    // Offset / ptrdiff sizes.
+    static_assert(sizeof(offset_t) == sizeof(isize),
+        "core::offset_t must match isize");
+    static_assert(sizeof(ptrdiff) == sizeof(isize),
+        "core::ptrdiff must match isize");
 }
