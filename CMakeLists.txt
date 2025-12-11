@@ -19,17 +19,55 @@ target_include_directories(coreapp INTERFACE
     $<INSTALL_INTERFACE:include>
 )
 
+file(GLOB_RECURSE COREAPP_HEADERS
+    CONFIGURE_DEPENDS
+    core/*.hpp
+)
+
+target_sources(coreapp INTERFACE
+    ${COREAPP_HEADERS}>
+)
+
+source_group(TREE ${CMAKE_CURRENT_SOURCE_DIR}/core
+             FILES ${COREAPP_HEADERS})
+		
+# ---------------------------------------------------------------------------
+# GoogleTest
+# ---------------------------------------------------------------------------
+
+include(FetchContent)
+
+FetchContent_Declare(
+    googletest
+    URL https://github.com/google/googletest/archive/refs/tags/v1.14.0.zip
+	DOWNLOAD_EXTRACT_TIMESTAMP TRUE
+)
+
+set(gtest_force_shared_crt ON CACHE BOOL "" FORCE)
+set(BUILD_GMOCK OFF CACHE BOOL "" FORCE)
+set(INSTALL_GTEST OFF CACHE BOOL "" FORCE)
+
+FetchContent_MakeAvailable(googletest)
+
 # ---------------------------------------------------------------------------
 # Tests
 # ---------------------------------------------------------------------------
+
+enable_testing()
 
 add_executable(core_config_tests
     tests/core_base/test_core_config.cpp
 )
 
 # Test target uses the same includes as the core library
-target_link_libraries(core_config_tests PRIVATE coreapp)
+target_link_libraries(core_config_tests PRIVATE coreapp gtest_main)
 
 # Optional: integrate with CTest
-enable_testing()
 add_test(NAME core_config_tests COMMAND core_config_tests)
+
+# core_types tests
+add_executable(core_types_tests
+	tests/core_base/test_core_types.cpp
+)
+target_link_libraries(core_types_tests PRIVATE coreapp gtest_main)
+add_test(NAME core_types_tests COMMAND core_types_tests)
