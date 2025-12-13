@@ -19,3 +19,13 @@
 // -----------------------------------------------------------------------------
 
 #define CORE_ARRAY_SIZE(arr) (sizeof(arr) / sizeof((arr)[0]))
+
+// -----------------------------------------------------------------------------
+// Bit / flag helpers
+// -----------------------------------------------------------------------------
+
+#define CORE_BIT(n) (1u << (n))
+
+#define CORE_HAS_FLAG(value, flag) (((value) & (flag)) != 0)
+#define CORE_SET_FLAG(value, flag) ((value) |= (flag))
+#define CORE_CLEAR_FLAG(value, flag) ((value) &= ~(flag))
