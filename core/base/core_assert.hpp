@@ -70,9 +70,9 @@ namespace core
 // Assertion enablement
 // -----------------------------------------------------------------------------
 #if CORE_ASSERTIONS_ENABLED
-#define CORE_ASSERT_ENABLED 1
+    #define CORE_ASSERT_ENABLED 1
 #else
-#define CORE_ASSERT_ENABLED 0
+    #define CORE_ASSERT_ENABLED 0
 #endif
 
 // -----------------------------------------------------------------------------
@@ -81,29 +81,29 @@ namespace core
 
 // Runtime assertion (active when CORE_ASSERTIONS_ENABLED).
 #if CORE_ASSERT_ENABLED
-#if defined(ASSERT)
-#error "ASSERT macro is already defined. Rename/undef it before including core_assert.hpp."
-#endif
-#define ASSERT(expr)                                                            \
-    do {                                                                        \
-      if (!(expr))                                                              \
-      {                                                                         \
-        ::core::detail::AssertDispatch(CORE_STRINGIFY(expr), nullptr,           \
-                                      __FILE__, static_cast<int>(__LINE__));    \
-      }                                                                         \
-    } while (0)
-#else
-#if defined(ASSERT)
-#error "ASSERT macro is already defined. Rename/undef it before including core_assert.hpp."
-#endif
-#define ASSERT(expr) do { (void)0; } while (0)
+    #if defined(ASSERT)
+        #error "ASSERT macro is already defined. Rename/undef it before including core_assert.hpp."
+    #endif
+    #define ASSERT(expr)                                                            \
+        do {                                                                        \
+          if (!(expr))                                                              \
+          {                                                                         \
+            ::core::detail::AssertDispatch(CORE_STRINGIFY(expr), nullptr,           \
+                                          __FILE__, static_cast<int>(__LINE__));    \
+          }                                                                         \
+        } while (0)
+    #else
+        #if defined(ASSERT)
+            #error "ASSERT macro is already defined. Rename/undef it before including core_assert.hpp."
+        #endif
+    #define ASSERT(expr) do { (void)0; } while (0)
 #endif
 
 // Runtime assertion with a custom message (active when CORE_ASSERTIONS_ENABLED).
 #if CORE_ASSERT_ENABLED
-#if defined(ASSERT_MSG)
-#error "ASSERT_MSG macro is already defined. Rename/undef it before including core_assert.hpp."
-#endif
+    #if defined(ASSERT_MSG)
+        #error "ASSERT_MSG macro is already defined. Rename/undef it before including core_assert.hpp."
+    #endif
 #define ASSERT_MSG(expr, msg)                                                   \
     do {                                                                        \
       if (!(expr))                                                              \
@@ -113,8 +113,29 @@ namespace core
       }                                                                         \
     } while (0)
 #else
-#if defined(ASSERT_MSG)
-#error "ASSERT_MSG macro is already defined. Rename/undef it before including core_assert.hpp."
+    #if defined(ASSERT_MSG)
+        #error "ASSERT_MSG macro is already defined. Rename/undef it before including core_assert.hpp."
+    #endif
+    #define ASSERT_MSG(expr, msg) do { (void)0; } while (0)
 #endif
-#define ASSERT_MSG(expr, msg) do { (void)0; } while (0)
+
+// Always evaluates expr; asserts only when enabled.
+#if CORE_ASSERT_ENABLED
+    #if defined(VERIFY)
+        #error "VERIFY macro is already defined. Rename/undef it before including core_assert.hpp."
+    #endif
+#define VERIFY(expr)                                                          \
+    do {                                                                        \
+      const auto CORE_CONCAT(_verify_result_, __LINE__) = (expr);               \
+      if (!CORE_CONCAT(_verify_result_, __LINE__))                              \
+      {                                                                         \
+        ::core::detail::AssertDispatch(CORE_STRINGIFY(expr), nullptr,           \
+                                      __FILE__, static_cast<int>(__LINE__));   \
+      }                                                                         \
+    } while (0)
+#else
+    #if defined(VERIFY)
+        #error "VERIFY macro is already defined. Rename/undef it before including core_assert.hpp."
+    #endif
+    #define VERIFY(expr) do { (void)(expr); } while (0)
 #endif
