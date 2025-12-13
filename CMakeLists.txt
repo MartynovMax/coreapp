@@ -75,3 +75,10 @@ add_executable(core_types_tests
 target_link_libraries(core_types_tests PRIVATE coreapp gtest_main)
 add_test(NAME core_types_tests COMMAND core_types_tests)
 
+# core_assert tests
+add_executable(core_assert_tests
+    tests/core_base/test_core_assert.cpp
+)
+target_link_libraries(core_assert_tests PRIVATE coreapp gtest_main)
+add_test(NAME core_assert_tests COMMAND core_assert_tests)
+
