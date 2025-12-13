@@ -1,5 +1,11 @@
 #pragma once
 
+// =============================================================================
+// core_assert.hpp
+// Assertion system for Core.
+// =============================================================================
+
+
 #include "core/base/core_config.hpp"
 #include "core/base/core_fail.hpp"
 #include "core/base/core_macros.hpp"
