@@ -24,6 +24,8 @@ if %errorlevel% neq 0 (
     exit /b %errorlevel%
 )
 
+cmake --open build
+
 echo.
 echo =========================================
 echo   Solution generated successfully!

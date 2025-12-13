@@ -20,11 +20,15 @@
 // Stringification and concatenation
 // -----------------------------------------------------------------------------
 
+// Stringify without macro expansion ("as written").
+#define CORE_STRINGIFY_RAW(x) #x
+
+// Expand x first, then stringify.
 #define CORE_STRINGIFY_IMPL(x) #x
 #define CORE_STRINGIFY(x) CORE_STRINGIFY_IMPL(x)
 
-// Expands x first, then stringifies.
-#define CORE_STRINGIFY_VALUE(x) CORE_STRINGIFY_IMPL(x)
+// Optional alias for readability.
+#define CORE_STRINGIFY_VALUE(x) CORE_STRINGIFY(x)
 
 #define CORE_CONCAT_IMPL(a, b) a##b
 #define CORE_CONCAT(a, b) CORE_CONCAT_IMPL(a, b)
@@ -52,7 +56,7 @@
 
 #define CORE_STATIC_ASSERT(expr, msg) static_assert((expr), msg)
 
-#define CORE_STATIC_ASSERT_SIZE(type, expected) \
+#define CORE_STATIC_ASSERT_SIZE(type, expected)                                \
   static_assert(sizeof(type) == (expected), "Unexpected sizeof(" #type ")")
 
 // -----------------------------------------------------------------------------

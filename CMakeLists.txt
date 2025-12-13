@@ -54,19 +54,24 @@ FetchContent_MakeAvailable(googletest)
 
 enable_testing()
 
+# core_config tests
 add_executable(core_config_tests
     tests/core_base/test_core_config.cpp
 )
-
-# Test target uses the same includes as the core library
 target_link_libraries(core_config_tests PRIVATE coreapp gtest_main)
-
-# Optional: integrate with CTest
 add_test(NAME core_config_tests COMMAND core_config_tests)
+
+# core_macros tests
+add_executable(core_macros_tests
+    tests/core_base/test_core_macros.cpp
+)
+target_link_libraries(core_macros_tests PRIVATE coreapp gtest_main)
+add_test(NAME core_macros_tests COMMAND core_macros_tests)
 
 # core_types tests
 add_executable(core_types_tests
-	tests/core_base/test_core_types.cpp
+    tests/core_base/test_core_types.cpp
 )
 target_link_libraries(core_types_tests PRIVATE coreapp gtest_main)
 add_test(NAME core_types_tests COMMAND core_types_tests)
+
