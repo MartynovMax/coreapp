@@ -48,3 +48,17 @@
 
 #define CORE_STATIC_ASSERT_SIZE(type, expected) \
   static_assert(sizeof(type) == (expected), "Unexpected sizeof(" #type ")")
+
+// -----------------------------------------------------------------------------
+// Optional annotations
+// -----------------------------------------------------------------------------
+
+// Avoid compiler-specific pragmas here.
+#define CORE_TODO(msg) /* TODO: msg */
+
+// Standard C++ attribute when available; otherwise no-op.
+#if defined(__cplusplus) && (__cplusplus >= 201402L)
+#define CORE_DEPRECATED(msg) [[deprecated(msg)]]
+#else
+#define CORE_DEPRECATED(msg)
+#endif
