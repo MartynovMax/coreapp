@@ -98,10 +98,10 @@ namespace core
                                           __FILE__, static_cast<int>(__LINE__));    \
           }                                                                         \
         } while (0)
-    #else
-        #if defined(ASSERT)
-            #error "ASSERT macro is already defined. Rename/undef it before including core_assert.hpp."
-        #endif
+#else
+    #if defined(ASSERT)
+        #error "ASSERT macro is already defined. Rename/undef it before including core_assert.hpp."
+    #endif
     #define ASSERT(expr) do { (void)0; } while (0)
 #endif
 
@@ -156,8 +156,7 @@ namespace core
 #define FATAL(msg)                                                              \
   do {                                                                          \
     ::core::detail::AssertDispatch("FATAL", (msg), __FILE__,                    \
-                                  static_cast<int>(__LINE__));                  \
-    ::core::FailFast();                                                         \
+                                  static_cast<int>(__LINE__));                 \
   } while (0)
 
 #if defined(UNREACHABLE)
@@ -166,8 +165,7 @@ namespace core
 #define UNREACHABLE()                                                           \
   do {                                                                          \
     ::core::detail::AssertDispatch("UNREACHABLE", nullptr, __FILE__,            \
-                                  static_cast<int>(__LINE__));                  \
-    ::core::FailFast();                                                         \
+                                  static_cast<int>(__LINE__));                 \
   } while (0)
 
 #if defined(NOT_IMPLEMENTED)
@@ -176,6 +174,5 @@ namespace core
 #define NOT_IMPLEMENTED()                                                       \
   do {                                                                          \
     ::core::detail::AssertDispatch("NOT_IMPLEMENTED", nullptr, __FILE__,        \
-                                  static_cast<int>(__LINE__));                  \
-    ::core::FailFast();                                                         \
+                                  static_cast<int>(__LINE__));                 \
   } while (0)
