@@ -2,6 +2,7 @@
 
 #include "core/base/core_config.hpp"
 #include "core/base/core_fail.hpp"
+#include "core/base/core_macros.hpp"
 
 namespace core
 {
@@ -64,3 +65,36 @@ namespace core
         core::FailFast();
     }
 } // namespace core
+
+// -----------------------------------------------------------------------------
+// Assertion enablement
+// -----------------------------------------------------------------------------
+#if CORE_ASSERTIONS_ENABLED
+#define CORE_ASSERT_ENABLED 1
+#else
+#define CORE_ASSERT_ENABLED 0
+#endif
+
+// -----------------------------------------------------------------------------
+// Public macros (short names, no CORE_ prefix)
+// -----------------------------------------------------------------------------
+
+// Runtime assertion (active when CORE_ASSERTIONS_ENABLED).
+#if CORE_ASSERT_ENABLED
+#if defined(ASSERT)
+#error "ASSERT macro is already defined. Rename/undef it before including core_assert.hpp."
+#endif
+#define ASSERT(expr)                                                          \
+    do {                                                                        \
+      if (!(expr))                                                              \
+      {                                                                         \
+        ::core::detail::AssertDispatch(CORE_STRINGIFY(expr), nullptr,           \
+                                      __FILE__, static_cast<int>(__LINE__));   \
+      }                                                                         \
+    } while (0)
+#else
+#if defined(ASSERT)
+#error "ASSERT macro is already defined. Rename/undef it before including core_assert.hpp."
+#endif
+#define ASSERT(expr) do { (void)0; } while (0)
+#endif
