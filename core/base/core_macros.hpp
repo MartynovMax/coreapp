@@ -29,3 +29,12 @@
 #define CORE_HAS_FLAG(value, flag) (((value) & (flag)) != 0)
 #define CORE_SET_FLAG(value, flag) ((value) |= (flag))
 #define CORE_CLEAR_FLAG(value, flag) ((value) &= ~(flag))
+
+// -----------------------------------------------------------------------------
+// Static-assert helpers
+// -----------------------------------------------------------------------------
+
+#define CORE_STATIC_ASSERT(expr, msg) static_assert((expr), msg)
+
+#define CORE_STATIC_ASSERT_SIZE(type, expected) \
+  static_assert(sizeof(type) == (expected), "Unexpected sizeof(" #type ")")
