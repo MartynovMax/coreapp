@@ -139,3 +139,37 @@ namespace core
     #endif
     #define VERIFY(expr) do { (void)(expr); } while (0)
 #endif
+
+// -----------------------------------------------------------------------------
+// Optional diagnostic macros (always active, always terminate)
+// -----------------------------------------------------------------------------
+
+#if defined(FATAL)
+    #error "FATAL macro is already defined. Rename/undef it before including core_assert.hpp."
+#endif
+#define FATAL(msg)                                                              \
+  do {                                                                          \
+    ::core::detail::AssertDispatch("FATAL", (msg), __FILE__,                    \
+                                  static_cast<int>(__LINE__));                  \
+    ::core::FailFast();                                                         \
+  } while (0)
+
+#if defined(UNREACHABLE)
+    #error "UNREACHABLE macro is already defined. Rename/undef it before including core_assert.hpp."
+#endif
+#define UNREACHABLE()                                                           \
+  do {                                                                          \
+    ::core::detail::AssertDispatch("UNREACHABLE", nullptr, __FILE__,            \
+                                  static_cast<int>(__LINE__));                  \
+    ::core::FailFast();                                                         \
+  } while (0)
+
+#if defined(NOT_IMPLEMENTED)
+    #error "NOT_IMPLEMENTED macro is already defined. Rename/undef it before including core_assert.hpp."
+#endif
+#define NOT_IMPLEMENTED()                                                       \
+  do {                                                                          \
+    ::core::detail::AssertDispatch("NOT_IMPLEMENTED", nullptr, __FILE__,        \
+                                  static_cast<int>(__LINE__));                  \
+    ::core::FailFast();                                                         \
+  } while (0)
