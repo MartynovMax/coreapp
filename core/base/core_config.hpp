@@ -218,3 +218,17 @@
 #define CORE_NORETURN
 #endif
 #endif
+
+// ----------------------------------------------------------------------------
+// Fallthrough annotation
+// ----------------------------------------------------------------------------
+
+#if defined(__cplusplus)
+#define CORE_FALLTHROUGH [[fallthrough]]
+#else
+#if CORE_COMPILER_CLANG || CORE_COMPILER_GCC
+#define CORE_FALLTHROUGH __attribute__((fallthrough))
+#else
+#define CORE_FALLTHROUGH
+#endif
+#endif
