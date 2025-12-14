@@ -89,12 +89,21 @@ add_executable(core_attributes_tests
 target_link_libraries(core_attributes_tests PRIVATE coreapp gtest_main)
 add_test(NAME core_attributes_tests COMMAND core_attributes_tests)
 
-# core_attributes warnings
-add_executable(core_attributes_warnings_tests
+# core_attributes warnings (build-only, excluded from ALL)
+add_executable(core_attributes_warnings_tests EXCLUDE_FROM_ALL
     tests/core_base/test_core_attributes_warnings.cpp
 )
 target_link_libraries(core_attributes_warnings_tests PRIVATE coreapp gtest_main)
-add_test(NAME core_attributes_warnings_tests COMMAND core_attributes_warnings_tests)
+
+if (MSVC)
+    target_compile_options(core_attributes_warnings_tests PRIVATE /W4)
+else()
+    target_compile_options(core_attributes_warnings_tests PRIVATE
+        -Wall -Wextra -Wpedantic
+        -Wno-error=deprecated-declarations
+        -Wno-error=unused-result
+    )
+endif()
 
 # Enable useful warnings on this target (do NOT make them errors).
 if (MSVC)
