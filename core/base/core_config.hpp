@@ -232,3 +232,23 @@
 #define CORE_FALLTHROUGH
 #endif
 #endif
+
+// ----------------------------------------------------------------------------
+// Deprecation helpers
+// ----------------------------------------------------------------------------
+
+#if defined(__cplusplus)
+#define CORE_DEPRECATED [[deprecated]]
+#define CORE_DEPRECATED_MSG(msg) [[deprecated(msg)]]
+#else
+#if CORE_COMPILER_MSVC
+#define CORE_DEPRECATED __declspec(deprecated)
+#define CORE_DEPRECATED_MSG(msg) __declspec(deprecated(msg))
+#elif CORE_COMPILER_CLANG || CORE_COMPILER_GCC
+#define CORE_DEPRECATED __attribute__((deprecated))
+#define CORE_DEPRECATED_MSG(msg) __attribute__((deprecated(msg)))
+#else
+#define CORE_DEPRECATED
+#define CORE_DEPRECATED_MSG(msg)
+#endif
+#endif
