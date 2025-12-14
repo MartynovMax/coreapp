@@ -185,3 +185,16 @@
 #endif
 
 #define CORE_UNUSED(x) ((void)(x))
+
+// ----------------------------------------------------------------------------
+// Branch prediction helpers
+// ----------------------------------------------------------------------------
+// Usage: if (CORE_LIKELY(x)) { ... }
+//        if (CORE_UNLIKELY(x)) { ... }
+#if CORE_COMPILER_CLANG || CORE_COMPILER_GCC
+#define CORE_LIKELY(expr) __builtin_expect(!!(expr), 1)
+#define CORE_UNLIKELY(expr) __builtin_expect(!!(expr), 0)
+#else
+#define CORE_LIKELY(expr) (expr)
+#define CORE_UNLIKELY(expr) (expr)
+#endif
