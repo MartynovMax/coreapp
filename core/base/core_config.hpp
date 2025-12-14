@@ -259,6 +259,7 @@
 
 #if CORE_COMPILER_MSVC
 #define CORE_ASSUME(expr) __assume(expr)
+
 #elif CORE_COMPILER_CLANG
 #if defined(__has_builtin) && __has_builtin(__builtin_assume)
 #define CORE_ASSUME(expr) __builtin_assume(expr)
@@ -269,16 +270,14 @@
       __builtin_unreachable();                                                 \
   } while (0)
 #endif
+
 #elif CORE_COMPILER_GCC
-#if defined(__GNUC__) && (__GNUC__ >= 13)
-#define CORE_ASSUME(expr) __builtin_assume(expr)
-#else
 #define CORE_ASSUME(expr)                                                      \
   do {                                                                         \
     if (!(expr))                                                               \
       __builtin_unreachable();                                                 \
   } while (0)
-#endif
+
 #else
 #define CORE_ASSUME(expr) ((void)0)
 #endif
