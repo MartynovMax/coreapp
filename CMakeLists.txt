@@ -96,10 +96,11 @@ add_executable(core_attributes_warnings_tests EXCLUDE_FROM_ALL
 target_link_libraries(core_attributes_warnings_tests PRIVATE coreapp gtest_main)
 
 if (MSVC)
-    target_compile_options(core_attributes_warnings_tests PRIVATE /W4)
+    target_compile_options(core_attributes_warnings_tests PRIVATE /W4 /WX-)
 else()
     target_compile_options(core_attributes_warnings_tests PRIVATE
         -Wall -Wextra -Wpedantic
+        -Wno-error
         -Wno-error=deprecated-declarations
         -Wno-error=unused-result
     )
