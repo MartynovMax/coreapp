@@ -78,3 +78,16 @@
 #define CORE_VERSION_STRING_FULL                                               \
   CORE_VERSION_STRING "." CORE_STRINGIFY(CORE_VERSION_BUILD)
 
+// -----------------------------------------------------------------------------
+// General-purpose constants (sizes, offsets, time sentinels)
+// -----------------------------------------------------------------------------
+
+#define CORE_KILOBYTE (static_cast<::core::usize>(1024u))
+#define CORE_MEGABYTE (static_cast<::core::usize>(1024u) * CORE_KILOBYTE)
+#define CORE_GIGABYTE (static_cast<::core::usize>(1024u) * CORE_MEGABYTE)
+
+// Invalid offset sentinel (common for "no offset / not found").
+#define CORE_INVALID_OFFSET (static_cast<::core::offset_t>(-1))
+
+// Optional time-related sentinel (generic enough for Core timing primitives).
+#define CORE_INVALID_TICK (static_cast<::core::tick_t>(-1))
