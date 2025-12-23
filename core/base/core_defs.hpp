@@ -40,3 +40,9 @@
 #define CORE_USIZE_MAX (static_cast<::core::usize>(CORE_U64_MAX))
 #define CORE_ISIZE_MIN (static_cast<::core::isize>(CORE_I64_MIN))
 #define CORE_ISIZE_MAX (static_cast<::core::isize>(CORE_I64_MAX))
+
+// -----------------------------------------------------------------------------
+// Boolean and default flag values (minimal / generic)
+// -----------------------------------------------------------------------------
+
+#define CORE_FLAGS_NONE (0u)
