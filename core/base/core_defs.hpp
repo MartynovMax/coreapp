@@ -1,7 +1,7 @@
 #pragma once
 
-#include "core/base/core_types.hpp"
-#include "core/base/core_macros.hpp"
+#include "core_macros.hpp"
+#include "core_types.hpp"
 
 // -----------------------------------------------------------------------------
 // Identifier defaults
@@ -15,20 +15,21 @@
 #define CORE_INVALID_HANDLE (CORE_INVALID_ID64)
 
 // Invalid index sentinel (signed index convention).
-// If you use unsigned indices in some subsystems, prefer CORE_U32_MAX / CORE_USIZE_MAX.
+// If you use unsigned indices in some subsystems, prefer CORE_U32_MAX /
+// CORE_USIZE_MAX.
 #define CORE_INDEX_NONE (static_cast<::core::isize>(-1))
 
 // -----------------------------------------------------------------------------
 // Numeric limits and sentinel values (expressed via Core types)
 // -----------------------------------------------------------------------------
 
-#define CORE_U8_MAX  (::core::kU8Max)
+#define CORE_U8_MAX (::core::kU8Max)
 #define CORE_U16_MAX (::core::kU16Max)
 #define CORE_U32_MAX (::core::kU32Max)
 #define CORE_U64_MAX (::core::kU64Max)
 
-#define CORE_I8_MIN  (::core::kI8Min)
-#define CORE_I8_MAX  (::core::kI8Max)
+#define CORE_I8_MIN (::core::kI8Min)
+#define CORE_I8_MAX (::core::kI8Max)
 #define CORE_I16_MIN (::core::kI16Min)
 #define CORE_I16_MAX (::core::kI16Max)
 #define CORE_I32_MIN (::core::kI32Min)
@@ -46,3 +47,34 @@
 // -----------------------------------------------------------------------------
 
 #define CORE_FLAGS_NONE (0u)
+
+// -----------------------------------------------------------------------------
+// Version macros (Core version; overridable from build system)
+// -----------------------------------------------------------------------------
+
+#ifndef CORE_VERSION_MAJOR
+#define CORE_VERSION_MAJOR 0
+#endif
+
+#ifndef CORE_VERSION_MINOR
+#define CORE_VERSION_MINOR 1
+#endif
+
+#ifndef CORE_VERSION_PATCH
+#define CORE_VERSION_PATCH 0
+#endif
+
+// Optional build number, suitable for CI injection.
+#ifndef CORE_VERSION_BUILD
+#define CORE_VERSION_BUILD 0
+#endif
+
+// "M.m.p"
+#define CORE_VERSION_STRING                                                    \
+  CORE_STRINGIFY(CORE_VERSION_MAJOR)                                           \
+  "." CORE_STRINGIFY(CORE_VERSION_MINOR) "." CORE_STRINGIFY(CORE_VERSION_PATCH)
+
+// "M.m.p.b" (handy for CI artifacts; do not treat as SemVer by default)
+#define CORE_VERSION_STRING_FULL                                               \
+  CORE_VERSION_STRING "." CORE_STRINGIFY(CORE_VERSION_BUILD)
+
