@@ -89,6 +89,13 @@ add_executable(core_attributes_tests
 target_link_libraries(core_attributes_tests PRIVATE coreapp gtest_main)
 add_test(NAME core_attributes_tests COMMAND core_attributes_tests)
 
+# core_defs tests
+add_executable(core_defs_tests
+    tests/core_base/test_core_defs.cpp
+)
+target_link_libraries(core_defs_tests PRIVATE coreapp gtest_main)
+add_test(NAME core_defs_tests COMMAND core_defs_tests)
+
 # core_attributes warnings (build-only, excluded from ALL)
 add_executable(core_attributes_warnings_tests EXCLUDE_FROM_ALL
     tests/core_base/test_core_attributes_warnings.cpp
