@@ -72,7 +72,7 @@
 #endif
 
 // -----------------------------------------------------------------------------
-// 3) Build identification
+// Build identification
 // -----------------------------------------------------------------------------
 
 #ifndef CORE_BUILD_ID
@@ -88,7 +88,7 @@
 #endif
 
 // -----------------------------------------------------------------------------
-// 4) Timestamp information
+// Timestamp information
 // -----------------------------------------------------------------------------
 
 #ifndef CORE_BUILD_DATE
@@ -101,4 +101,24 @@
 
 #ifndef CORE_BUILD_DATETIME
 #define CORE_BUILD_DATETIME CORE_BUILD_DATE " " CORE_BUILD_TIME
+#endif
+
+// -----------------------------------------------------------------------------
+// Build info helpers
+// -----------------------------------------------------------------------------
+
+#if CORE_BUILD_DEBUG
+#define CORE_BUILD_CONFIG_NAME "Debug"
+#elif CORE_BUILD_RELEASE
+#define CORE_BUILD_CONFIG_NAME "Release"
+#elif CORE_BUILD_DEVELOPMENT
+#define CORE_BUILD_CONFIG_NAME "Development"
+#elif CORE_BUILD_SHIPPING
+#define CORE_BUILD_CONFIG_NAME "Shipping"
+#else
+#define CORE_BUILD_CONFIG_NAME "Unknown"
+#endif
+
+#ifndef CORE_BUILD_FULL_NAME
+#define CORE_BUILD_FULL_NAME CORE_BUILD_CONFIG_NAME " (" CORE_BUILD_ID ")"
 #endif
