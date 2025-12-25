@@ -86,3 +86,19 @@
 #ifndef CORE_BUILD_COMMIT
 #define CORE_BUILD_COMMIT "unknown"
 #endif
+
+// -----------------------------------------------------------------------------
+// 4) Timestamp information
+// -----------------------------------------------------------------------------
+
+#ifndef CORE_BUILD_DATE
+#define CORE_BUILD_DATE __DATE__
+#endif
+
+#ifndef CORE_BUILD_TIME
+#define CORE_BUILD_TIME __TIME__
+#endif
+
+#ifndef CORE_BUILD_DATETIME
+#define CORE_BUILD_DATETIME CORE_BUILD_DATE " " CORE_BUILD_TIME
+#endif
