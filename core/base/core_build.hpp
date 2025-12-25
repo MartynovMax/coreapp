@@ -1,5 +1,21 @@
 #pragma once
 
+// =============================================================================
+// core_build.hpp
+// Compile-time build metadata and build-configuration helpers for Core.
+//
+// This header centralizes build-related information used across logging,
+// diagnostics, crash reporting, and version banners.
+//
+// Sections:
+//   1) Build type detection
+//   2) Build feature flags
+//   3) Build identification (ID/branch/commit)
+//   4) Timestamp information
+//   5) Build info helpers
+// =============================================================================
+
+
 #include "core_config.hpp"
 #include "core_macros.hpp"
 
