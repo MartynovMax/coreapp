@@ -11,6 +11,8 @@
 // - Utility macros
 // ============================================================================
 
+#include "core_platform.hpp"
+
 // ----------------------------------------------------------------------------
 // C++ standard check (C++20 required)
 // ----------------------------------------------------------------------------
@@ -23,119 +25,6 @@
 #if __cplusplus < 202002L
 #error "CoreApp requires at least C++20 (-std=c++20)."
 #endif
-#endif
-
-// ----------------------------------------------------------------------------
-// Compiler detection
-// ----------------------------------------------------------------------------
-
-#define CORE_COMPILER_MSVC 0
-#define CORE_COMPILER_CLANG 0
-#define CORE_COMPILER_GCC 0
-
-#if defined(_MSC_VER)
-#undef CORE_COMPILER_MSVC
-#define CORE_COMPILER_MSVC 1
-#elif defined(__clang__)
-#undef CORE_COMPILER_CLANG
-#define CORE_COMPILER_CLANG 1
-#elif defined(__GNUC__)
-#undef CORE_COMPILER_GCC
-#define CORE_COMPILER_GCC 1
-#else
-#error                                                                         \
-    "Unsupported compiler: CoreApp currently supports MSVC, Clang and GCC only."
-#endif
-
-// ----------------------------------------------------------------------------
-// Platform detection
-// ----------------------------------------------------------------------------
-
-#define CORE_PLATFORM_WINDOWS 0
-#define CORE_PLATFORM_LINUX 0
-#define CORE_PLATFORM_MACOS 0
-#define CORE_PLATFORM_UNKNOWN 0
-
-#if defined(_WIN32) || defined(_WIN64)
-#undef CORE_PLATFORM_WINDOWS
-#define CORE_PLATFORM_WINDOWS 1
-#elif defined(__APPLE__) && defined(__MACH__)
-#undef CORE_PLATFORM_MACOS
-#define CORE_PLATFORM_MACOS 1
-#elif defined(__linux__)
-#undef CORE_PLATFORM_LINUX
-#define CORE_PLATFORM_LINUX 1
-#else
-#undef CORE_PLATFORM_UNKNOWN
-#define CORE_PLATFORM_UNKNOWN 1
-#endif
-
-// ----------------------------------------------------------------------------
-// CPU architecture
-// ----------------------------------------------------------------------------
-
-#define CORE_CPU_X86 0
-#define CORE_CPU_X64 0
-#define CORE_CPU_ARM 0
-#define CORE_CPU_ARM64 0
-
-// x86 32-bit
-#if defined(_M_IX86) || defined(__i386__)
-#undef CORE_CPU_X86
-#define CORE_CPU_X86 1
-
-// x86 64-bit
-#elif defined(_M_X64) || defined(__x86_64__)
-#undef CORE_CPU_X64
-#define CORE_CPU_X64 1
-
-// ARM 32-bit
-#elif defined(_M_ARM) || defined(__arm__)
-#undef CORE_CPU_ARM
-#define CORE_CPU_ARM 1
-
-// ARM 64-bit
-#elif defined(_M_ARM64) || defined(__aarch64__)
-#undef CORE_CPU_ARM64
-#define CORE_CPU_ARM64 1
-
-#else
-#error "Unsupported CPU architecture."
-#endif
-
-// ----------------------------------------------------------------------------
-// Endianness detection
-// ----------------------------------------------------------------------------
-
-#define CORE_LITTLE_ENDIAN 0
-#define CORE_BIG_ENDIAN 0
-
-// 1) Known compiler/platform macros
-#if defined(__BYTE_ORDER__) && defined(__ORDER_LITTLE_ENDIAN__) &&             \
-    defined(__ORDER_BIG_ENDIAN__)
-
-#if __BYTE_ORDER__ == __ORDER_LITTLE_ENDIAN__
-#undef CORE_LITTLE_ENDIAN
-#define CORE_LITTLE_ENDIAN 1
-#elif __BYTE_ORDER__ == __ORDER_BIG_ENDIAN__
-#undef CORE_BIG_ENDIAN
-#define CORE_BIG_ENDIAN 1
-#else
-#error "Unknown byte order."
-#endif
-
-// 2) Windows: all supported targets are little-endian
-#elif CORE_PLATFORM_WINDOWS
-#undef CORE_LITTLE_ENDIAN
-#define CORE_LITTLE_ENDIAN 1
-
-// 3) Fallback: assume little-endian for x86/x64
-#elif CORE_CPU_X86 || CORE_CPU_X64
-#undef CORE_LITTLE_ENDIAN
-#define CORE_LITTLE_ENDIAN 1
-
-#else
-#error "Cannot determine endianness for this platform."
 #endif
 
 // ----------------------------------------------------------------------------
