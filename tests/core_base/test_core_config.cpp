@@ -47,12 +47,12 @@ static_assert(CORE_LITTLE_ENDIAN,
               "x86/x64 must be little-endian in Core config.");
 #endif
 
-#if defined(_MSC_VER)
-static_assert(CORE_COMPILER_MSVC,
-              "MSVC compiler must define CORE_COMPILER_MSVC.");
-#elif defined(__clang__)
+#if defined(__clang__)
 static_assert(CORE_COMPILER_CLANG,
               "Clang compiler must define CORE_COMPILER_CLANG.");
+#elif defined(_MSC_VER)
+static_assert(CORE_COMPILER_MSVC,
+              "MSVC compiler must define CORE_COMPILER_MSVC.");
 #elif defined(__GNUC__)
 static_assert(CORE_COMPILER_GCC, "GCC compiler must define CORE_COMPILER_GCC.");
 #endif
