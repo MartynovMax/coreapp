@@ -70,3 +70,19 @@
 #undef CORE_BUILD_WITH_OPTIMIZATIONS
 #define CORE_BUILD_WITH_OPTIMIZATIONS 1
 #endif
+
+// -----------------------------------------------------------------------------
+// 3) Build identification
+// -----------------------------------------------------------------------------
+
+#ifndef CORE_BUILD_ID
+#define CORE_BUILD_ID "local"
+#endif
+
+#ifndef CORE_BUILD_BRANCH
+#define CORE_BUILD_BRANCH "unknown"
+#endif
+
+#ifndef CORE_BUILD_COMMIT
+#define CORE_BUILD_COMMIT "unknown"
+#endif
