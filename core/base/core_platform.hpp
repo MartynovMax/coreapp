@@ -78,3 +78,40 @@
 // Optional grouping helper for current targets.
 #define CORE_PLATFORM_DESKTOP \
   (CORE_PLATFORM_WINDOWS || CORE_PLATFORM_LINUX || CORE_PLATFORM_MACOS)
+
+// -----------------------------------------------------------------------------
+// CPU architecture detection
+// -----------------------------------------------------------------------------
+
+#define CORE_CPU_X86 0
+#define CORE_CPU_X64 0
+#define CORE_CPU_ARM 0
+#define CORE_CPU_ARM64 0
+
+// x86 32-bit
+#if defined(_M_IX86) || defined(__i386__)
+#undef CORE_CPU_X86
+#define CORE_CPU_X86 1
+
+// x86 64-bit
+#elif defined(_M_X64) || defined(__x86_64__) || defined(__amd64__)
+#undef CORE_CPU_X64
+#define CORE_CPU_X64 1
+
+// ARM 32-bit
+#elif defined(_M_ARM) || defined(__arm__) || defined(__thumb__)
+#undef CORE_CPU_ARM
+#define CORE_CPU_ARM 1
+
+// ARM 64-bit
+#elif defined(_M_ARM64) || defined(__aarch64__)
+#undef CORE_CPU_ARM64
+#define CORE_CPU_ARM64 1
+
+#else
+#error "Unsupported CPU architecture: Core supports x86/x64/ARM/ARM64."
+#endif
+
+#if (CORE_CPU_X86 + CORE_CPU_X64 + CORE_CPU_ARM + CORE_CPU_ARM64) != 1
+#error "CPU detection error: expected exactly one CORE_CPU_* == 1."
+#endif
