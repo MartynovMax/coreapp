@@ -1,5 +1,19 @@
 #pragma once
 
+// =============================================================================
+// core_platform.hpp
+// Core platform/compiler/architecture detection layer.
+//
+// This header provides a unified, compile-time description of the build
+// environment for the Core module. It performs *fact-only* detection of:
+//
+//   - target platform (OS),
+//   - compiler and compiler version,
+//   - CPU architecture and pointer size,
+//   - endianness.
+//
+// =============================================================================
+
 // -----------------------------------------------------------------------------
 // Compiler detection
 // -----------------------------------------------------------------------------
