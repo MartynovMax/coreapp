@@ -182,3 +182,39 @@
 #if (CORE_LITTLE_ENDIAN + CORE_BIG_ENDIAN) != 1
 #error "Endianness detection error: expected exactly one CORE_LITTLE_ENDIAN/CORE_BIG_ENDIAN == 1."
 #endif
+
+// -----------------------------------------------------------------------------
+// Helper string literals (compile-time constants)
+// -----------------------------------------------------------------------------
+
+#if CORE_PLATFORM_WINDOWS
+#define CORE_PLATFORM_NAME "Windows"
+#elif CORE_PLATFORM_LINUX
+#define CORE_PLATFORM_NAME "Linux"
+#elif CORE_PLATFORM_MACOS
+#define CORE_PLATFORM_NAME "macOS"
+#else
+#define CORE_PLATFORM_NAME "Unknown"
+#endif
+
+#if CORE_COMPILER_MSVC
+#define CORE_COMPILER_NAME "MSVC"
+#elif CORE_COMPILER_GCC
+#define CORE_COMPILER_NAME "GCC"
+#elif CORE_COMPILER_CLANG
+#define CORE_COMPILER_NAME "Clang"
+#else
+#define CORE_COMPILER_NAME "Unknown"
+#endif
+
+#if CORE_CPU_X86
+#define CORE_CPU_NAME "x86"
+#elif CORE_CPU_X64
+#define CORE_CPU_NAME "x64"
+#elif CORE_CPU_ARM
+#define CORE_CPU_NAME "ARM"
+#elif CORE_CPU_ARM64
+#define CORE_CPU_NAME "ARM64"
+#else
+#define CORE_CPU_NAME "Unknown"
+#endif
