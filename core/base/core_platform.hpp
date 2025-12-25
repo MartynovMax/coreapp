@@ -134,3 +134,51 @@
 #if (CORE_32BIT + CORE_64BIT) != 1
 #error "Pointer-size detection error: expected exactly one CORE_32BIT/CORE_64BIT == 1."
 #endif
+
+// -----------------------------------------------------------------------------
+// Endianness detection
+// -----------------------------------------------------------------------------
+
+#define CORE_LITTLE_ENDIAN 0
+#define CORE_BIG_ENDIAN 0
+
+// 1) Standard GCC/Clang byte-order macros.
+#if defined(__BYTE_ORDER__) && defined(__ORDER_LITTLE_ENDIAN__) && \
+    defined(__ORDER_BIG_ENDIAN__)
+
+#if (__BYTE_ORDER__ == __ORDER_LITTLE_ENDIAN__)
+#undef CORE_LITTLE_ENDIAN
+#define CORE_LITTLE_ENDIAN 1
+#elif (__BYTE_ORDER__ == __ORDER_BIG_ENDIAN__)
+#undef CORE_BIG_ENDIAN
+#define CORE_BIG_ENDIAN 1
+#else
+#error "Unknown byte order (__BYTE_ORDER__)."
+#endif
+
+// 2) Explicit ARM endianness macros (rare, but handle if provided).
+#elif defined(__ARMEB__) || defined(__AARCH64EB__)
+#undef CORE_BIG_ENDIAN
+#define CORE_BIG_ENDIAN 1
+
+#elif defined(__ARMEL__) || defined(__AARCH64EL__)
+#undef CORE_LITTLE_ENDIAN
+#define CORE_LITTLE_ENDIAN 1
+
+// 3) Windows: all supported targets are little-endian.
+#elif CORE_PLATFORM_WINDOWS
+#undef CORE_LITTLE_ENDIAN
+#define CORE_LITTLE_ENDIAN 1
+
+// 4) Conservative fallback: assume little-endian for x86/x64.
+#elif CORE_CPU_X86 || CORE_CPU_X64
+#undef CORE_LITTLE_ENDIAN
+#define CORE_LITTLE_ENDIAN 1
+
+#else
+#error "Cannot determine endianness for this platform/architecture."
+#endif
+
+#if (CORE_LITTLE_ENDIAN + CORE_BIG_ENDIAN) != 1
+#error "Endianness detection error: expected exactly one CORE_LITTLE_ENDIAN/CORE_BIG_ENDIAN == 1."
+#endif
