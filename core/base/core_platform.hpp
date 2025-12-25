@@ -115,3 +115,22 @@
 #if (CORE_CPU_X86 + CORE_CPU_X64 + CORE_CPU_ARM + CORE_CPU_ARM64) != 1
 #error "CPU detection error: expected exactly one CORE_CPU_* == 1."
 #endif
+
+// -----------------------------------------------------------------------------
+// Pointer size helpers
+// -----------------------------------------------------------------------------
+
+#define CORE_32BIT 0
+#define CORE_64BIT 0
+
+#if CORE_CPU_X64 || CORE_CPU_ARM64
+#undef CORE_64BIT
+#define CORE_64BIT 1
+#elif CORE_CPU_X86 || CORE_CPU_ARM
+#undef CORE_32BIT
+#define CORE_32BIT 1
+#endif
+
+#if (CORE_32BIT + CORE_64BIT) != 1
+#error "Pointer-size detection error: expected exactly one CORE_32BIT/CORE_64BIT == 1."
+#endif
