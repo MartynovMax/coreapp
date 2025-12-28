@@ -1,5 +1,18 @@
 #pragma once
 
+// =============================================================================
+// core_preprocessor.hpp
+// Advanced preprocessor utilities for feature detection and conditional compilation.
+//
+// Focus:
+//   - C++ standard version helpers
+//   - attribute/feature detection wrappers (__has_cpp_attribute, etc.)
+//   - header availability checks (__has_include)
+//   - general CORE_HAS_* capability macros (exceptions, RTTI, thread_local, ...)
+//   - builtin detection wrapper (__has_builtin)
+// =============================================================================
+
+
 #include "core/base/core_platform.hpp"
 
 // -----------------------------------------------------------------------------
