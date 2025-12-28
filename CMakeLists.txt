@@ -110,6 +110,12 @@ add_executable(core_build_tests
 target_link_libraries(core_build_tests PRIVATE coreapp gtest_main)
 add_test(NAME core_build_tests COMMAND core_build_tests)
 
+# core_preprocessor tests
+add_executable(core_preprocessor_tests
+    tests/core_base/test_core_preprocessor.cpp
+)
+target_link_libraries(core_preprocessor_tests PRIVATE coreapp gtest_main)
+add_test(NAME core_preprocessor_tests COMMAND core_preprocessor_tests)
 
 # core_attributes warnings (build-only, excluded from ALL)
 add_executable(core_attributes_warnings_tests EXCLUDE_FROM_ALL

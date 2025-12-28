@@ -45,19 +45,35 @@
 #endif
 
 #if !defined(CORE_HAS_NODISCARD)
-#define CORE_HAS_NODISCARD ((CORE_HAS_CPP_ATTRIBUTE(nodiscard) != 0) || CORE_CPP17_OR_GREATER)
+#if CORE_CPP17_OR_GREATER || (CORE_HAS_CPP_ATTRIBUTE(nodiscard) != 0)
+#define CORE_HAS_NODISCARD 1
+#else
+#define CORE_HAS_NODISCARD 0
+#endif
 #endif
 
 #if !defined(CORE_HAS_NORETURN)
-#define CORE_HAS_NORETURN ((CORE_HAS_CPP_ATTRIBUTE(noreturn) != 0) || CORE_CPP11_OR_GREATER)
+#if CORE_CPP11_OR_GREATER || (CORE_HAS_CPP_ATTRIBUTE(noreturn) != 0)
+#define CORE_HAS_NORETURN 1
+#else
+#define CORE_HAS_NORETURN 0
+#endif
 #endif
 
 #if !defined(CORE_HAS_FALLTHROUGH)
-#define CORE_HAS_FALLTHROUGH ((CORE_HAS_CPP_ATTRIBUTE(fallthrough) != 0) || CORE_CPP17_OR_GREATER)
+#if CORE_CPP17_OR_GREATER || (CORE_HAS_CPP_ATTRIBUTE(fallthrough) != 0)
+#define CORE_HAS_FALLTHROUGH 1
+#else
+#define CORE_HAS_FALLTHROUGH 0
+#endif
 #endif
 
 #if !defined(CORE_HAS_DEPRECATED)
-#define CORE_HAS_DEPRECATED ((CORE_HAS_CPP_ATTRIBUTE(deprecated) != 0) || CORE_CPP14_OR_GREATER)
+#if CORE_CPP14_OR_GREATER || (CORE_HAS_CPP_ATTRIBUTE(deprecated) != 0)
+#define CORE_HAS_DEPRECATED 1
+#else
+#define CORE_HAS_DEPRECATED 0
+#endif
 #endif
 
 // -----------------------------------------------------------------------------
