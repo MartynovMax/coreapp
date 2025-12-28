@@ -62,3 +62,37 @@
 #if !defined(CORE_HAS_STD_HEADER)
 #define CORE_HAS_STD_HEADER(header) CORE_HAS_INCLUDE(header)
 #endif
+
+// -----------------------------------------------------------------------------
+// General feature flags
+// -----------------------------------------------------------------------------
+
+// Exceptions
+#if !defined(CORE_HAS_EXCEPTIONS)
+#if defined(__cpp_exceptions) || defined(__EXCEPTIONS) || defined(_CPPUNWIND)
+#define CORE_HAS_EXCEPTIONS 1
+#else
+#define CORE_HAS_EXCEPTIONS 0
+#endif
+#endif
+
+// RTTI
+#if !defined(CORE_HAS_RTTI)
+#if defined(__cpp_rtti) || defined(__GXX_RTTI) || defined(_CPPRTTI)
+#define CORE_HAS_RTTI 1
+#else
+#define CORE_HAS_RTTI 0
+#endif
+#endif
+
+// thread_local storage
+#if !defined(CORE_HAS_THREAD_LOCAL)
+#if defined(__cpp_thread_local)
+#define CORE_HAS_THREAD_LOCAL 1
+#elif CORE_CPP11_OR_GREATER
+// Conservative assumption: on modern MSVC/GCC/Clang in C++11+ mode, thread_local exists.
+#define CORE_HAS_THREAD_LOCAL 1
+#else
+#define CORE_HAS_THREAD_LOCAL 0
+#endif
+#endif
