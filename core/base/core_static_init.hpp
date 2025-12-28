@@ -23,3 +23,15 @@
 #undef CORE_ALLOW_STATIC_INIT
 #define CORE_ALLOW_STATIC_INIT 0
 #endif
+
+// =============================================================================
+// Annotations for static usage
+// =============================================================================
+
+#ifndef CORE_STATIC_ALLOWED
+#define CORE_STATIC_ALLOWED
+#endif
+
+#ifndef CORE_STATIC_INTERNAL
+#define CORE_STATIC_INTERNAL
+#endif
