@@ -247,3 +247,75 @@
 #define CORE_HAS_OS_TIMERS 0
 #endif
 #endif
+
+// =============================================================================
+// Sanity: keep everything strictly 0/1.
+// =============================================================================
+
+#if (CORE_HAS_EXCEPTIONS != 0) && (CORE_HAS_EXCEPTIONS != 1)
+#error "CORE_HAS_EXCEPTIONS must be defined as 0 or 1."
+#endif
+#if (CORE_HAS_RTTI != 0) && (CORE_HAS_RTTI != 1)
+#error "CORE_HAS_RTTI must be defined as 0 or 1."
+#endif
+#if (CORE_HAS_THREAD_LOCAL != 0) && (CORE_HAS_THREAD_LOCAL != 1)
+#error "CORE_HAS_THREAD_LOCAL must be defined as 0 or 1."
+#endif
+#if (CORE_HAS_THREADS != 0) && (CORE_HAS_THREADS != 1)
+#error "CORE_HAS_THREADS must be defined as 0 or 1."
+#endif
+#if (CORE_HAS_ATOMICS != 0) && (CORE_HAS_ATOMICS != 1)
+#error "CORE_HAS_ATOMICS must be defined as 0 or 1."
+#endif
+#if (CORE_HAS_SIMD != 0) && (CORE_HAS_SIMD != 1)
+#error "CORE_HAS_SIMD must be defined as 0 or 1."
+#endif
+
+#if (CORE_HAS_CONSTEXPR_20 != 0) && (CORE_HAS_CONSTEXPR_20 != 1)
+#error "CORE_HAS_CONSTEXPR_20 must be defined as 0 or 1."
+#endif
+#if (CORE_HAS_INLINE_VARIABLES != 0) && (CORE_HAS_INLINE_VARIABLES != 1)
+#error "CORE_HAS_INLINE_VARIABLES must be defined as 0 or 1."
+#endif
+
+#if (CORE_HAS_64BIT_ATOMICS != 0) && (CORE_HAS_64BIT_ATOMICS != 1)
+#error "CORE_HAS_64BIT_ATOMICS must be defined as 0 or 1."
+#endif
+#if (CORE_HAS_MEMORY_MODEL != 0) && (CORE_HAS_MEMORY_MODEL != 1)
+#error "CORE_HAS_MEMORY_MODEL must be defined as 0 or 1."
+#endif
+#if (CORE_HAS_THREAD_FENCE != 0) && (CORE_HAS_THREAD_FENCE != 1)
+#error "CORE_HAS_THREAD_FENCE must be defined as 0 or 1."
+#endif
+
+#if (CORE_HAS_SSE2 != 0) && (CORE_HAS_SSE2 != 1)
+#error "CORE_HAS_SSE2 must be defined as 0 or 1."
+#endif
+#if (CORE_HAS_SSE4_1 != 0) && (CORE_HAS_SSE4_1 != 1)
+#error "CORE_HAS_SSE4_1 must be defined as 0 or 1."
+#endif
+#if (CORE_HAS_AVX2 != 0) && (CORE_HAS_AVX2 != 1)
+#error "CORE_HAS_AVX2 must be defined as 0 or 1."
+#endif
+#if (CORE_HAS_NEON != 0) && (CORE_HAS_NEON != 1)
+#error "CORE_HAS_NEON must be defined as 0 or 1."
+#endif
+
+#if (CORE_HAS_ALIGNED_NEW != 0) && (CORE_HAS_ALIGNED_NEW != 1)
+#error "CORE_HAS_ALIGNED_NEW must be defined as 0 or 1."
+#endif
+#if (CORE_HAS_MAX_ALIGN_T_COMPAT != 0) && (CORE_HAS_MAX_ALIGN_T_COMPAT != 1)
+#error "CORE_HAS_MAX_ALIGN_T_COMPAT must be defined as 0 or 1."
+#endif
+
+#if (CORE_HAS_OS_FILESYSTEM != 0) && (CORE_HAS_OS_FILESYSTEM != 1)
+#error "CORE_HAS_OS_FILESYSTEM must be defined as 0 or 1."
+#endif
+#if (CORE_HAS_OS_TIMERS != 0) && (CORE_HAS_OS_TIMERS != 1)
+#error "CORE_HAS_OS_TIMERS must be defined as 0 or 1."
+#endif
+
+// x64 builds are expected to have SSE2 available.
+#if CORE_CPU_X64 && !CORE_HAS_SSE2
+#error "x64 requires SSE2 (CORE_HAS_SSE2 must be 1)."
+#endif
