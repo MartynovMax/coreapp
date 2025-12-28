@@ -183,6 +183,7 @@ add_executable(core_attributes_warnings_tests EXCLUDE_FROM_ALL
 )
 target_link_libraries(core_attributes_warnings_tests PRIVATE coreapp gtest_main)
 
+# Enable useful warnings on this target (do NOT make them errors).
 if (MSVC)
     target_compile_options(core_attributes_warnings_tests PRIVATE /W4 /WX-)
 else()
@@ -193,12 +194,3 @@ else()
         -Wno-error=unused-result
     )
 endif()
-
-# Enable useful warnings on this target (do NOT make them errors).
-if (MSVC)
-    target_compile_options(core_attributes_warnings_tests PRIVATE /W4)
-else()
-    target_compile_options(core_attributes_warnings_tests PRIVATE -Wall -Wextra -Wpedantic)
-endif()
-
-

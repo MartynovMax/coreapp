@@ -72,18 +72,13 @@
 #endif
 #endif
 
-#if !defined(CORE_NO_INLINE_DEBUG)
-#if defined(CORE_DEBUG)
-#if CORE_DEBUG
-#define CORE_NO_INLINE_DEBUG CORE_NO_INLINE
-#else
-#define CORE_NO_INLINE_DEBUG
-#endif
-#else
+// CORE_NO_INLINE_DEBUG: prevents inlining in debug builds for easier debugging.
+// Uses _DEBUG/NDEBUG directly since CORE_DEBUG may not be defined yet
+// (this header is included from core_config.hpp before CORE_DEBUG is defined).
+#ifndef CORE_NO_INLINE_DEBUG
 #if defined(_DEBUG) || !defined(NDEBUG)
 #define CORE_NO_INLINE_DEBUG CORE_NO_INLINE
 #else
 #define CORE_NO_INLINE_DEBUG
-#endif
 #endif
 #endif

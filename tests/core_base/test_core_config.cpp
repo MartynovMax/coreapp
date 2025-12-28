@@ -1,3 +1,5 @@
+#include <gtest/gtest.h>
+
 #include "core/base/core_config.hpp"
 
 // -----------------------------------------------------------------------------
@@ -67,7 +69,8 @@ static_assert(
     "Debug-like build (NDEBUG not defined) must set CORE_DEBUG to 1.");
 #endif
 
-int main() {
-  // No runtime tests for now, everything is compile-time.
-  return 0;
+TEST(CoreConfig, CompileTimeChecks) {
+    // All validation is done via static_assert above.
+    // This test exists to integrate with GoogleTest framework.
+    SUCCEED();
 }

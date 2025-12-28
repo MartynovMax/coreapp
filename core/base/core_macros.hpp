@@ -13,9 +13,6 @@
 // Forces one more expansion step.
 #define CORE_EXPAND(x) x
 
-// Avoid unused variable warnings.
-#define CORE_UNUSED_VAR(x) (void)(x)
-
 // -----------------------------------------------------------------------------
 // Stringification and concatenation
 // -----------------------------------------------------------------------------

@@ -8,6 +8,7 @@
 // only when Core public API/behavior changes.
 // =============================================================================
 
+#include "core_macros.hpp"
 
 // -----------------------------------------------------------------------------
 // Version components
@@ -50,11 +51,9 @@
 // -----------------------------------------------------------------------------
 // String representation.
 // -----------------------------------------------------------------------------
-#define CORE_VERSION_STRINGIFY_IMPL(x) #x
-#define CORE_VERSION_STRINGIFY(x) CORE_VERSION_STRINGIFY_IMPL(x)
 
 // Base version string: "MAJOR.MINOR.PATCH"
 #define CORE_VERSION_STRING \
-    CORE_VERSION_STRINGIFY(CORE_VERSION_MAJOR) "." \
-    CORE_VERSION_STRINGIFY(CORE_VERSION_MINOR) "." \
-    CORE_VERSION_STRINGIFY(CORE_VERSION_PATCH)
+    CORE_STRINGIFY(CORE_VERSION_MAJOR) "." \
+    CORE_STRINGIFY(CORE_VERSION_MINOR) "." \
+    CORE_STRINGIFY(CORE_VERSION_PATCH)

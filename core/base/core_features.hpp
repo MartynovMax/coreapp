@@ -34,34 +34,8 @@
 // Language / runtime features
 // =============================================================================
 
-#ifndef CORE_HAS_EXCEPTIONS
-#if defined(__cpp_exceptions) || defined(__EXCEPTIONS) || defined(_CPPUNWIND)
-#define CORE_HAS_EXCEPTIONS 1
-#else
-#define CORE_HAS_EXCEPTIONS 0
-#endif
-#endif
-
-// RTTI (may be disabled via compiler flags).
-#ifndef CORE_HAS_RTTI
-#if defined(__cpp_rtti) || defined(__GXX_RTTI) || defined(_CPPRTTI)
-#define CORE_HAS_RTTI 1
-#else
-#define CORE_HAS_RTTI 0
-#endif
-#endif
-
-// thread_local storage.
-#ifndef CORE_HAS_THREAD_LOCAL
-#if defined(__cpp_thread_local)
-#define CORE_HAS_THREAD_LOCAL 1
-#elif CORE_CPP11_OR_GREATER
-// Conservative assumption for mainstream desktop toolchains in C++11+ mode.
-#define CORE_HAS_THREAD_LOCAL 1
-#else
-#define CORE_HAS_THREAD_LOCAL 0
-#endif
-#endif
+// NOTE: CORE_HAS_EXCEPTIONS, CORE_HAS_RTTI, CORE_HAS_THREAD_LOCAL are defined
+// in core_preprocessor.hpp (included above).
 
 // C++20 constexpr capabilities.
 // (Project requires C++20, but we still keep explicit feature detection.)

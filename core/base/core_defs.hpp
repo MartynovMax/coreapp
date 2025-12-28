@@ -6,6 +6,7 @@
 
 #include "core_macros.hpp"
 #include "core_types.hpp"
+#include "core_version.hpp"
 
 // -----------------------------------------------------------------------------
 // Identifier defaults
@@ -55,30 +56,13 @@
 #define CORE_FLAGS_NONE (0u)
 
 // -----------------------------------------------------------------------------
-// Version macros (Core version; overridable from build system)
+// Version macros (extended, build-specific)
 // -----------------------------------------------------------------------------
-
-#ifndef CORE_VERSION_MAJOR
-#define CORE_VERSION_MAJOR 0
-#endif
-
-#ifndef CORE_VERSION_MINOR
-#define CORE_VERSION_MINOR 1
-#endif
-
-#ifndef CORE_VERSION_PATCH
-#define CORE_VERSION_PATCH 0
-#endif
 
 // Optional build number, suitable for CI injection.
 #ifndef CORE_VERSION_BUILD
 #define CORE_VERSION_BUILD 0
 #endif
-
-// "M.m.p"
-#define CORE_VERSION_STRING                                                    \
-  CORE_STRINGIFY(CORE_VERSION_MAJOR)                                           \
-  "." CORE_STRINGIFY(CORE_VERSION_MINOR) "." CORE_STRINGIFY(CORE_VERSION_PATCH)
 
 // "M.m.p.b" (handy for CI artifacts; do not treat as SemVer by default)
 #define CORE_VERSION_STRING_FULL                                               \
