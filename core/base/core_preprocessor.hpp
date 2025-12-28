@@ -46,3 +46,19 @@
 #if !defined(CORE_HAS_DEPRECATED)
 #define CORE_HAS_DEPRECATED ((CORE_HAS_CPP_ATTRIBUTE(deprecated) != 0) || CORE_CPP14_OR_GREATER)
 #endif
+
+// -----------------------------------------------------------------------------
+// Header availability
+// -----------------------------------------------------------------------------
+
+#if !defined(CORE_HAS_INCLUDE)
+#if defined(__has_include)
+#define CORE_HAS_INCLUDE(path) __has_include(path)
+#else
+#define CORE_HAS_INCLUDE(path) 0
+#endif
+#endif
+
+#if !defined(CORE_HAS_STD_HEADER)
+#define CORE_HAS_STD_HEADER(header) CORE_HAS_INCLUDE(header)
+#endif
