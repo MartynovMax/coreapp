@@ -37,3 +37,15 @@
 
 #define CORE_VERSION_AT_LEAST(major, minor, patch) \
     (CORE_VERSION_NUMBER >= CORE_VERSION_MAKE((major), (minor), (patch)))
+
+// -----------------------------------------------------------------------------
+// String representation.
+// -----------------------------------------------------------------------------
+#define CORE_VERSION_STRINGIFY_IMPL(x) #x
+#define CORE_VERSION_STRINGIFY(x) CORE_VERSION_STRINGIFY_IMPL(x)
+
+// Base version string: "MAJOR.MINOR.PATCH"
+#define CORE_VERSION_STRING \
+    CORE_VERSION_STRINGIFY(CORE_VERSION_MAJOR) "." \
+    CORE_VERSION_STRINGIFY(CORE_VERSION_MINOR) "." \
+    CORE_VERSION_STRINGIFY(CORE_VERSION_PATCH)
