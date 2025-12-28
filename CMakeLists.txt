@@ -169,6 +169,13 @@ add_executable(core_static_init_tests
 target_link_libraries(core_static_init_tests PRIVATE coreapp gtest_main)
 add_test(NAME core_static_init_tests COMMAND core_static_init_tests)
 
+# core_version tests
+add_executable(core_version_tests
+    tests/core_base/test_core_version.cpp
+)
+target_link_libraries(core_version_tests PRIVATE coreapp gtest_main)
+add_test(NAME core_version_tests COMMAND core_version_tests)
+
 
 # core_attributes warnings (build-only, excluded from ALL)
 add_executable(core_attributes_warnings_tests EXCLUDE_FROM_ALL
