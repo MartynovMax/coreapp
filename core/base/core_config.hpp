@@ -3,28 +3,22 @@
 // ============================================================================
 // core_config.hpp
 // Unified compile-time configuration for Core module.
-// - Compiler detection
-// - Platform detection
-// - CPU architecture
-// - Endianness
-// - Global config flags
-// - Utility macros
+//
+// This header is a *policy/config* layer:
+//   - build-mode flags (CORE_DEBUG, CORE_ASSERTIONS_ENABLED, ...)
+//   - portable low-level annotations used across Core
+//
 // ============================================================================
 
 #include "core_platform.hpp"
+#include "core_preprocessor.hpp"
 
 // ----------------------------------------------------------------------------
 // C++ standard check (C++20 required)
 // ----------------------------------------------------------------------------
 
-#if defined(_MSVC_LANG) && !defined(__clang__)
-#if _MSVC_LANG < 202002L
-#error "CoreApp requires at least C++20 (/std:c++20)."
-#endif
-#else
-#if __cplusplus < 202002L
-#error "CoreApp requires at least C++20 (-std=c++20)."
-#endif
+#if !CORE_CPP20_OR_GREATER
+#error "CoreApp requires at least C++20 (/std:c++20 or -std=c++20)."
 #endif
 
 // ----------------------------------------------------------------------------
@@ -80,7 +74,8 @@
 // Branch prediction helpers
 // ----------------------------------------------------------------------------
 
-#if CORE_COMPILER_CLANG || CORE_COMPILER_GCC
+#if (CORE_COMPILER_CLANG || CORE_COMPILER_GCC) &&                              \
+    CORE_HAS_BUILTIN(__builtin_expect)
 #define CORE_LIKELY(expr) __builtin_expect(!!(expr), 1)
 #define CORE_UNLIKELY(expr) __builtin_expect(!!(expr), 0)
 #else
@@ -92,52 +87,62 @@
 // Function / result attributes
 // ----------------------------------------------------------------------------
 
-#if defined(__cplusplus)
+// NODISCARD
+#if CORE_HAS_NODISCARD
 #define CORE_NODISCARD [[nodiscard]]
-#define CORE_NORETURN [[noreturn]]
-#else
-#if CORE_COMPILER_MSVC
-#define CORE_NODISCARD
-#define CORE_NORETURN __declspec(noreturn)
-#elif CORE_COMPILER_CLANG || CORE_COMPILER_GCC
+#elif (CORE_COMPILER_CLANG || CORE_COMPILER_GCC)
 #define CORE_NODISCARD __attribute__((warn_unused_result))
+#else
+#define CORE_NODISCARD
+#endif
+
+// NORETURN
+#if CORE_HAS_NORETURN
+#define CORE_NORETURN [[noreturn]]
+#elif CORE_COMPILER_MSVC
+#define CORE_NORETURN __declspec(noreturn)
+#elif (CORE_COMPILER_CLANG || CORE_COMPILER_GCC)
 #define CORE_NORETURN __attribute__((noreturn))
 #else
-#define CORE_NODISCARD
 #define CORE_NORETURN
-#endif
 #endif
 
 // ----------------------------------------------------------------------------
 // Fallthrough annotation
 // ----------------------------------------------------------------------------
 
-#if defined(__cplusplus)
+#if CORE_HAS_FALLTHROUGH
 #define CORE_FALLTHROUGH [[fallthrough]]
-#else
-#if CORE_COMPILER_CLANG || CORE_COMPILER_GCC
+#elif (CORE_COMPILER_CLANG || CORE_COMPILER_GCC)
 #define CORE_FALLTHROUGH __attribute__((fallthrough))
 #else
 #define CORE_FALLTHROUGH
-#endif
 #endif
 
 // ----------------------------------------------------------------------------
 // Deprecation helpers
 // ----------------------------------------------------------------------------
 
-#if defined(__cplusplus)
+#if CORE_HAS_DEPRECATED
 #define CORE_DEPRECATED [[deprecated]]
-#define CORE_DEPRECATED_MSG(msg) [[deprecated(msg)]]
 #else
 #if CORE_COMPILER_MSVC
 #define CORE_DEPRECATED __declspec(deprecated)
-#define CORE_DEPRECATED_MSG(msg) __declspec(deprecated(msg))
-#elif CORE_COMPILER_CLANG || CORE_COMPILER_GCC
+#elif (CORE_COMPILER_CLANG || CORE_COMPILER_GCC)
 #define CORE_DEPRECATED __attribute__((deprecated))
-#define CORE_DEPRECATED_MSG(msg) __attribute__((deprecated(msg)))
 #else
 #define CORE_DEPRECATED
+#endif
+#endif
+
+#if (CORE_HAS_CPP_ATTRIBUTE(deprecated) != 0) && CORE_CPP14_OR_GREATER
+#define CORE_DEPRECATED_MSG(msg) [[deprecated(msg)]]
+#else
+#if CORE_COMPILER_MSVC
+#define CORE_DEPRECATED_MSG(msg) __declspec(deprecated(msg))
+#elif (CORE_COMPILER_CLANG || CORE_COMPILER_GCC)
+#define CORE_DEPRECATED_MSG(msg) __attribute__((deprecated(msg)))
+#else
 #define CORE_DEPRECATED_MSG(msg)
 #endif
 #endif
@@ -150,7 +155,7 @@
 #define CORE_ASSUME(expr) __assume(expr)
 
 #elif CORE_COMPILER_CLANG
-#if defined(__has_builtin) && __has_builtin(__builtin_assume)
+#if CORE_HAS_BUILTIN(__builtin_assume)
 #define CORE_ASSUME(expr) __builtin_assume(expr)
 #else
 #define CORE_ASSUME(expr)                                                      \
