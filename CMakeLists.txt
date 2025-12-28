@@ -162,6 +162,13 @@ add_custom_target(core_api_consumer_compile ALL
     DEPENDS core_api_tests_shared_consumer
 )
 
+# core_static_init tests
+add_executable(core_static_init_tests
+    tests/core_base/test_core_static_init.cpp
+)
+target_link_libraries(core_static_init_tests PRIVATE coreapp gtest_main)
+add_test(NAME core_static_init_tests COMMAND core_static_init_tests)
+
 
 # core_attributes warnings (build-only, excluded from ALL)
 add_executable(core_attributes_warnings_tests EXCLUDE_FROM_ALL
