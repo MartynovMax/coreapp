@@ -59,3 +59,19 @@
 #define CORE_FLATTEN
 #endif
 #endif
+
+#if !defined(CORE_NO_INLINE_DEBUG)
+#if defined(CORE_DEBUG)
+#if CORE_DEBUG
+#define CORE_NO_INLINE_DEBUG CORE_NO_INLINE
+#else
+#define CORE_NO_INLINE_DEBUG
+#endif
+#else
+#if defined(_DEBUG) || !defined(NDEBUG)
+#define CORE_NO_INLINE_DEBUG CORE_NO_INLINE
+#else
+#define CORE_NO_INLINE_DEBUG
+#endif
+#endif
+#endif
