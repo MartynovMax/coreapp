@@ -1,5 +1,17 @@
 #pragma once
 
+// =============================================================================
+// core_inline.hpp
+// Cross-compiler inlining control macros for Core.
+//
+// This header centralizes compiler-specific syntax for forcing or preventing
+// inlining, so performance-sensitive code can remain portable and readable.
+//
+// These macros are *hints*. Inlining decisions are ultimately up to the
+// compiler and can be affected by optimization level, LTO, debug info, etc.
+// =============================================================================
+
+
 #include "core_platform.hpp"
 
 // -----------------------------------------------------------------------------
