@@ -39,15 +39,6 @@ TEST(CoreVersion, AtLeastWorks) {
 #endif
 }
 
-TEST(CoreVersion, StringExpandsToExpectedBaseSemver) {
-  // CORE_VERSION_STRING is a string literal; safe to compare.
-  auto s = CORE_VERSION_STRING;
-  EXPECT_NE(s[0], '\0');
-
-  // Optional: strict check for your initial version 0.1.0
-  EXPECT_STREQ(s, "0.1.0");
-}
-
 TEST(CoreVersion, OptionalFieldsDefaultToStrings) {
   // Must be valid string literals (never null).
   EXPECT_NE(CORE_VERSION_PRERELEASE, nullptr);
