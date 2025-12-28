@@ -207,3 +207,27 @@
 #define CORE_HAS_MAX_ALIGN_T_COMPAT 0
 #endif
 #endif
+
+// =============================================================================
+// OS-level capabilities
+// =============================================================================
+
+#ifndef CORE_HAS_OS_FILESYSTEM
+#if (CORE_STDC_HOSTED == 0)
+#define CORE_HAS_OS_FILESYSTEM 0
+#elif CORE_PLATFORM_DESKTOP
+#define CORE_HAS_OS_FILESYSTEM 1
+#else
+#define CORE_HAS_OS_FILESYSTEM 0
+#endif
+#endif
+
+#ifndef CORE_HAS_OS_TIMERS
+#if (CORE_STDC_HOSTED == 0)
+#define CORE_HAS_OS_TIMERS 0
+#elif CORE_PLATFORM_DESKTOP
+#define CORE_HAS_OS_TIMERS 1
+#else
+#define CORE_HAS_OS_TIMERS 0
+#endif
+#endif
