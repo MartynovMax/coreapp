@@ -183,3 +183,27 @@
 #define CORE_HAS_SIMD 0
 #endif
 #endif
+
+// =============================================================================
+// Alignment / allocation capabilities
+// =============================================================================
+
+#ifndef CORE_HAS_ALIGNED_NEW
+#if defined(__cpp_aligned_new)
+#if (__cpp_aligned_new >= 201606L)
+#define CORE_HAS_ALIGNED_NEW 1
+#else
+#define CORE_HAS_ALIGNED_NEW 0
+#endif
+#else
+#define CORE_HAS_ALIGNED_NEW 0
+#endif
+#endif
+
+#ifndef CORE_HAS_MAX_ALIGN_T_COMPAT
+#if defined(__STDCPP_DEFAULT_NEW_ALIGNMENT__)
+#define CORE_HAS_MAX_ALIGN_T_COMPAT 1
+#else
+#define CORE_HAS_MAX_ALIGN_T_COMPAT 0
+#endif
+#endif
