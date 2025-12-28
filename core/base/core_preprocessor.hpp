@@ -96,3 +96,15 @@
 #define CORE_HAS_THREAD_LOCAL 0
 #endif
 #endif
+
+// -----------------------------------------------------------------------------
+// Builtin detection
+// -----------------------------------------------------------------------------
+
+#if !defined(CORE_HAS_BUILTIN)
+#if defined(__has_builtin)
+#define CORE_HAS_BUILTIN(x) __has_builtin(x)
+#else
+#define CORE_HAS_BUILTIN(x) 0
+#endif
+#endif
