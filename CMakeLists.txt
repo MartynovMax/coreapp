@@ -124,6 +124,13 @@ add_executable(core_features_tests
 target_link_libraries(core_features_tests PRIVATE coreapp gtest_main)
 add_test(NAME core_features_tests COMMAND core_features_tests)
 
+# core_inline tests
+add_executable(core_inline_tests
+    tests/core_base/test_core_inline.cpp
+)
+target_link_libraries(core_inline_tests PRIVATE coreapp gtest_main)
+add_test(NAME core_inline_tests COMMAND core_inline_tests)
+
 
 # core_attributes warnings (build-only, excluded from ALL)
 add_executable(core_attributes_warnings_tests EXCLUDE_FROM_ALL
