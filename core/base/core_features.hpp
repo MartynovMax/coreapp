@@ -1,5 +1,21 @@
 #pragma once
 
+// =============================================================================
+// core_features.hpp
+// Compile-time feature flags for the Core module.
+//
+// This header defines a consistent set of capability macros describing what
+// the current build environment can rely on.
+//
+// Conventions:
+//   - Feature macros are defined as integer 0/1.
+//   - Macros may be overridden by the build system *before* including this
+//     header.
+//   - When reliable detection is not possible, defaults are conservative.
+//   - This header is STL-free and depends only on Core base detection headers.
+// =============================================================================
+
+
 #include "core/base/core_platform.hpp"
 #include "core/base/core_preprocessor.hpp"
 
