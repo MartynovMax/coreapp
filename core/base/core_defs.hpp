@@ -42,9 +42,11 @@
 #define CORE_I64_MAX (::core::kI64Max)
 
 // Convenience aliases frequently needed in containers / allocators.
-#define CORE_USIZE_MAX (static_cast<::core::usize>(CORE_U64_MAX))
-#define CORE_ISIZE_MIN (static_cast<::core::isize>(CORE_I64_MIN))
-#define CORE_ISIZE_MAX (static_cast<::core::isize>(CORE_I64_MAX))
+// Build these from usize to avoid 32-bit truncation warnings.
+#define CORE_USIZE_MAX                                                         \
+  (static_cast<::core::usize>(~static_cast<::core::usize>(0)))
+#define CORE_ISIZE_MAX (static_cast<::core::isize>(CORE_USIZE_MAX >> 1))
+#define CORE_ISIZE_MIN (static_cast<::core::isize>(-CORE_ISIZE_MAX - 1))
 
 // -----------------------------------------------------------------------------
 // Boolean and default flag values (minimal / generic)
