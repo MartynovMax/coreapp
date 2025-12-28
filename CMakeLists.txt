@@ -131,6 +131,37 @@ add_executable(core_inline_tests
 target_link_libraries(core_inline_tests PRIVATE coreapp gtest_main)
 add_test(NAME core_inline_tests COMMAND core_inline_tests)
 
+# core_api tests (compile-only variants via compile definitions)
+add_executable(core_api_tests_static
+    tests/core_base/test_core_api.cpp
+)
+target_link_libraries(core_api_tests_static PRIVATE coreapp gtest_main)
+target_compile_definitions(core_api_tests_static PRIVATE CORE_BUILD_STATIC=1)
+add_test(NAME core_api_tests_static COMMAND core_api_tests_static)
+
+add_executable(core_api_tests_shared_producer
+    tests/core_base/test_core_api.cpp
+)
+target_link_libraries(core_api_tests_shared_producer PRIVATE coreapp gtest_main)
+target_compile_definitions(core_api_tests_shared_producer PRIVATE
+    CORE_BUILD_SHARED=1
+    CORE_BUILD_CORE_LIBRARY=1
+)
+add_test(NAME core_api_tests_shared_producer COMMAND core_api_tests_shared_producer)
+
+add_library(core_api_tests_shared_consumer OBJECT
+    tests/core_base/test_core_api_consumer.cpp
+)
+target_link_libraries(core_api_tests_shared_consumer PRIVATE coreapp)
+target_compile_definitions(core_api_tests_shared_consumer PRIVATE
+    CORE_BUILD_SHARED=1
+)
+
+# Make sure consumer compile-only target is built in "Build All"/CI builds.
+add_custom_target(core_api_consumer_compile ALL
+    DEPENDS core_api_tests_shared_consumer
+)
+
 
 # core_attributes warnings (build-only, excluded from ALL)
 add_executable(core_attributes_warnings_tests EXCLUDE_FROM_ALL
