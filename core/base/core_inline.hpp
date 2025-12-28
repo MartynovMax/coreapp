@@ -41,3 +41,21 @@
 #define CORE_NO_INLINE
 #endif
 #endif
+
+// -----------------------------------------------------------------------------
+// Inlining hints
+// -----------------------------------------------------------------------------
+
+#if !defined(CORE_FLATTEN)
+#if CORE_COMPILER_GCC
+#define CORE_FLATTEN __attribute__((flatten))
+#elif CORE_COMPILER_CLANG
+#if CORE_HAS_ATTRIBUTE(flatten)
+#define CORE_FLATTEN __attribute__((flatten))
+#else
+#define CORE_FLATTEN
+#endif
+#else
+#define CORE_FLATTEN
+#endif
+#endif
