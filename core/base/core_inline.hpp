@@ -1,3 +1,29 @@
 #pragma once
 
 #include "core/base/core_platform.hpp"
+
+// -----------------------------------------------------------------------------
+// Internal helpers
+// -----------------------------------------------------------------------------
+
+#if !defined(CORE_HAS_ATTRIBUTE)
+#if defined(__has_attribute)
+#define CORE_HAS_ATTRIBUTE(x) __has_attribute(x)
+#else
+#define CORE_HAS_ATTRIBUTE(x) 0
+#endif
+#endif
+
+// -----------------------------------------------------------------------------
+// Force inline
+// -----------------------------------------------------------------------------
+
+#if !defined(CORE_FORCE_INLINE)
+#if CORE_COMPILER_MSVC
+#define CORE_FORCE_INLINE __forceinline
+#elif CORE_COMPILER_CLANG || CORE_COMPILER_GCC
+#define CORE_FORCE_INLINE inline __attribute__((always_inline))
+#else
+#define CORE_FORCE_INLINE inline
+#endif
+#endif
