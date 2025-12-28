@@ -10,6 +10,7 @@
 //
 // ============================================================================
 
+#include "core_inline.hpp"
 #include "core_platform.hpp"
 #include "core_preprocessor.hpp"
 
@@ -47,25 +48,11 @@
 // ----------------------------------------------------------------------------
 
 #if CORE_COMPILER_MSVC
-
-#define CORE_FORCE_INLINE __forceinline
-#define CORE_NO_INLINE __declspec(noinline)
-
 #define CORE_ALIGN(N) __declspec(align(N))
-
 #elif CORE_COMPILER_GCC || CORE_COMPILER_CLANG
-
-#define CORE_FORCE_INLINE inline __attribute__((always_inline))
-#define CORE_NO_INLINE __attribute__((noinline))
-
 #define CORE_ALIGN(N) __attribute__((aligned(N)))
-
 #else
-
-#define CORE_FORCE_INLINE inline
-#define CORE_NO_INLINE
 #define CORE_ALIGN(N) alignas(N)
-
 #endif
 
 #define CORE_UNUSED(x) ((void)(x))

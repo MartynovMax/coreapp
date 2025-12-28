@@ -15,9 +15,8 @@
 //   - This header is STL-free and depends only on Core base detection headers.
 // =============================================================================
 
-
-#include "core/base/core_platform.hpp"
-#include "core/base/core_preprocessor.hpp"
+#include "core_platform.hpp"
+#include "core_preprocessor.hpp"
 
 // -----------------------------------------------------------------------------
 // Helper: hosted vs freestanding
@@ -142,7 +141,8 @@
 #endif
 #endif
 
-// Thread fences are part of the C++11 memory model; tie to atomics + memory model.
+// Thread fences are part of the C++11 memory model; tie to atomics + memory
+// model.
 #ifndef CORE_HAS_THREAD_FENCE
 #if CORE_HAS_MEMORY_MODEL && CORE_HAS_ATOMICS
 #define CORE_HAS_THREAD_FENCE 1

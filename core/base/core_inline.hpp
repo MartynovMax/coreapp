@@ -1,6 +1,6 @@
 #pragma once
 
-#include "core/base/core_platform.hpp"
+#include "core_platform.hpp"
 
 // -----------------------------------------------------------------------------
 // Internal helpers
