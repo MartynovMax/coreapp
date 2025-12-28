@@ -1,7 +1,22 @@
 #pragma once
 
-#include "core/base/core_config.hpp"
-#include "core/base/core_features.hpp"
+// =============================================================================
+// core_static_init.hpp
+// Static initialization utilities and policies for Core.
+//
+// Goals
+//   - Avoid unsafe global/static constructors.
+//   - Control initialization order by preferring lazy initialization.
+//   - Keep static usage explicit, documented, and easy to audit.
+//
+// Patterns encouraged by this header
+//   - Prefer function-local statics accessed through a function.
+//   - When a translation-unit static is needed, mark it explicitly.
+// =============================================================================
+
+
+#include "core_config.hpp"
+#include "core_features.hpp"
 
 // =============================================================================
 // Policy flags
