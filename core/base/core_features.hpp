@@ -134,3 +134,52 @@
 #define CORE_HAS_THREAD_FENCE 0
 #endif
 #endif
+
+// =============================================================================
+// SIMD / CPU features (compile-time only)
+// =============================================================================
+
+#ifndef CORE_HAS_SSE2
+#if (CORE_CPU_X64)
+// x64 ABI mandates SSE2.
+#define CORE_HAS_SSE2 1
+#elif defined(__SSE2__)
+#define CORE_HAS_SSE2 1
+#elif CORE_COMPILER_MSVC && defined(_M_IX86_FP) && (_M_IX86_FP >= 2)
+#define CORE_HAS_SSE2 1
+#else
+#define CORE_HAS_SSE2 0
+#endif
+#endif
+
+#ifndef CORE_HAS_SSE4_1
+#if defined(__SSE4_1__)
+#define CORE_HAS_SSE4_1 1
+#else
+#define CORE_HAS_SSE4_1 0
+#endif
+#endif
+
+#ifndef CORE_HAS_AVX2
+#if defined(__AVX2__)
+#define CORE_HAS_AVX2 1
+#else
+#define CORE_HAS_AVX2 0
+#endif
+#endif
+
+#ifndef CORE_HAS_NEON
+#if defined(__ARM_NEON) || defined(__ARM_NEON__)
+#define CORE_HAS_NEON 1
+#else
+#define CORE_HAS_NEON 0
+#endif
+#endif
+
+#ifndef CORE_HAS_SIMD
+#if (CORE_HAS_SSE2 || CORE_HAS_SSE4_1 || CORE_HAS_AVX2 || CORE_HAS_NEON)
+#define CORE_HAS_SIMD 1
+#else
+#define CORE_HAS_SIMD 0
+#endif
+#endif
