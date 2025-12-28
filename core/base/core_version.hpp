@@ -1,5 +1,14 @@
 #pragma once
 
+// =============================================================================
+// core_version.hpp
+// Core library semantic version.
+//
+// This header defines a stable library version (semantic-style) that changes
+// only when Core public API/behavior changes.
+// =============================================================================
+
+
 // -----------------------------------------------------------------------------
 // Version components
 // -----------------------------------------------------------------------------
