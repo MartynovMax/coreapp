@@ -37,6 +37,14 @@
 #endif
 
 // =============================================================================
+// Feature: thread-safe function-local statics
+// =============================================================================
+
+#ifndef CORE_HAS_THREADSAFE_LOCAL_STATICS
+#define CORE_HAS_THREADSAFE_LOCAL_STATICS (CORE_CPP11_OR_GREATER && CORE_HAS_THREADS)
+#endif
+
+// =============================================================================
 // Lazy initialization helpers
 // =============================================================================
 
@@ -50,3 +58,25 @@
   static_assert(CORE_HAS_THREADSAFE_LOCAL_STATICS,                              \
                 "CORE_LAZY_STATIC_THREADSAFE requires thread-safe local statics"); \
   CORE_LAZY_STATIC(Type, Name)
+
+// =============================================================================
+// Global/static helper (enforcement point)
+// =============================================================================
+
+namespace core {
+    namespace detail {
+        template <typename T>
+        struct StaticInitFalse {
+            static constexpr bool kValue = false;
+        };
+    } // namespace detail
+} // namespace core
+
+#if CORE_FORBID_GLOBAL_STATICS
+#define CORE_GLOBAL_STATIC(Type, name)                                         \
+  static_assert(::core::detail::StaticInitFalse<int>::kValue,                   \
+                "Global/namespace-scope statics are forbidden in this build. "  \
+                "Use CORE_LAZY_STATIC or remove static state.")
+#else
+#define CORE_GLOBAL_STATIC(Type, name) CORE_STATIC_ALLOWED static Type name
+#endif
