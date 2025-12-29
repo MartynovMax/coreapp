@@ -15,7 +15,8 @@
 // <intrin.h>), which are not part of the C runtime.
 // =============================================================================
 
-#include "core_config.hpp"
+#include "core_platform.hpp"
+#include "core_inline.hpp"
 
 #if CORE_COMPILER_MSVC
 // Provides __debugbreak / __fastfail intrinsics.

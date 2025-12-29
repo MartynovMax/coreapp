@@ -64,13 +64,13 @@
 // =============================================================================
 
 #define CORE_LAZY_STATIC(Type, Name)                                           \
-  static Type& Name() {                                                        \
+  inline Type& Name() {                                                        \
     CORE_STATIC_INTERNAL static Type instance;                                 \
     return instance;                                                           \
   }
 
 #define CORE_LAZY_STATIC_THREADSAFE(Type, Name)                                \
-  static Type& Name() {                                                        \
+  inline Type& Name() {                                                        \
     static_assert(CORE_HAS_THREADSAFE_LOCAL_STATICS,                           \
         "CORE_LAZY_STATIC_THREADSAFE requires thread-safe local statics");     \
     CORE_STATIC_INTERNAL static Type instance;                                 \

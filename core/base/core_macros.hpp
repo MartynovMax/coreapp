@@ -24,9 +24,6 @@
 #define CORE_STRINGIFY_IMPL(x) #x
 #define CORE_STRINGIFY(x) CORE_STRINGIFY_IMPL(x)
 
-// Optional alias for readability.
-#define CORE_STRINGIFY_VALUE(x) CORE_STRINGIFY(x)
-
 #define CORE_CONCAT_IMPL(a, b) a##b
 #define CORE_CONCAT(a, b) CORE_CONCAT_IMPL(a, b)
 
@@ -41,7 +38,12 @@
 // Bit / flag helpers
 // -----------------------------------------------------------------------------
 
-#define CORE_BIT(n) (1u << (n))
+// 64-bit safe by default (supports n >= 32)
+#define CORE_BIT(n) (1ull << (n))
+
+// Explicit width variants for cases where specific width is needed
+#define CORE_BIT32(n) (1u << (n))
+#define CORE_BIT64(n) (1ull << (n))
 
 #define CORE_HAS_FLAG(value, flag) (((value) & (flag)) != 0)
 #define CORE_SET_FLAG(value, flag) ((value) |= (flag))

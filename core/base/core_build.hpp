@@ -71,20 +71,29 @@
 #define CORE_BUILD_WITH_OPTIMIZATIONS (CORE_BUILD_DEBUG ? 0 : 1)
 #endif
 
-// Normalize to 0/1.
+// Normalize to strict 0/1.
 #if CORE_BUILD_WITH_ASSERTS
 #undef CORE_BUILD_WITH_ASSERTS
 #define CORE_BUILD_WITH_ASSERTS 1
+#else
+#undef CORE_BUILD_WITH_ASSERTS
+#define CORE_BUILD_WITH_ASSERTS 0
 #endif
 
 #if CORE_BUILD_WITH_LOGS
 #undef CORE_BUILD_WITH_LOGS
 #define CORE_BUILD_WITH_LOGS 1
+#else
+#undef CORE_BUILD_WITH_LOGS
+#define CORE_BUILD_WITH_LOGS 0
 #endif
 
 #if CORE_BUILD_WITH_OPTIMIZATIONS
 #undef CORE_BUILD_WITH_OPTIMIZATIONS
 #define CORE_BUILD_WITH_OPTIMIZATIONS 1
+#else
+#undef CORE_BUILD_WITH_OPTIMIZATIONS
+#define CORE_BUILD_WITH_OPTIMIZATIONS 0
 #endif
 
 // -----------------------------------------------------------------------------
