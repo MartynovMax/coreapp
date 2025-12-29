@@ -3,7 +3,7 @@
 // =============================================================================
 // core_macros.hpp
 // Standalone preprocessor + utility macros.
-// IMPORTANT: No platform/compiler detection here (lives in core_config.hpp).
+// IMPORTANT: No platform/compiler detection here (lives in core_platform.hpp).
 // =============================================================================
 
 // -----------------------------------------------------------------------------
