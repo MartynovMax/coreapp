@@ -16,8 +16,9 @@
 // extremely lightweight and broadly includable.
 // =============================================================================
 
-#include "core/base/core_config.hpp"
-#include "core/base/core_assert.hpp"
+#include "../base/core_config.hpp"
+#include "../base/core_assert.hpp"
+#include "../base/core_types.hpp"
 
 namespace core {
 
@@ -44,6 +45,14 @@ namespace core {
 #ifndef CORE_MEM_ASSERT
 #define CORE_MEM_ASSERT(expr) ASSERT(expr)
 #endif
+
+// ----------------------------------------------------------------------------
+// Memory types
+// ----------------------------------------------------------------------------
+
+using memory_size = usize;
+using memory_alignment = u32;
+using memory_tag = u32;
 
 } // namespace core
 
