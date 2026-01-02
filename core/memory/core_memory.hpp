@@ -187,5 +187,22 @@ CORE_FORCE_INLINE constexpr const void* AlignPtrUp(const void* p, memory_alignme
     return reinterpret_cast<const void*>(av);
 }
 
+// ----------------------------------------------------------------------------
+// Memory hook declarations
+// ----------------------------------------------------------------------------
+
+using AllocationHookFn = void (*)(const AllocationRequest& req,
+                                   const AllocationInfo& info,
+                                   void* user) noexcept;
+
+using DeallocationHookFn = void (*)(const AllocationInfo& info,
+                                     void* user) noexcept;
+
+bool RegisterAllocationHook(AllocationHookFn hook, void* user) noexcept;
+bool UnregisterAllocationHook(AllocationHookFn hook, void* user) noexcept;
+
+bool RegisterDeallocationHook(DeallocationHookFn hook, void* user) noexcept;
+bool UnregisterDeallocationHook(DeallocationHookFn hook, void* user) noexcept;
+
 } // namespace core
 
