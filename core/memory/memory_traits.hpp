@@ -155,5 +155,32 @@ struct max_align_for {
 template <class T>
 inline constexpr usize max_align_for_v = max_align_for<T>::value;
 
+// ----------------------------------------------------------------------------
+// Size utilities
+// ----------------------------------------------------------------------------
+
+CORE_FORCE_INLINE constexpr usize UsizeMax() noexcept {
+    return static_cast<usize>(~static_cast<usize>(0));
+}
+
+CORE_FORCE_INLINE constexpr usize SafeMulSize(usize a, usize b) noexcept {
+#if CORE_MEMORY_DEBUG
+    if (a != 0 && b != 0) {
+        CORE_MEM_ASSERT(b <= (UsizeMax() / a) && "Size multiplication overflow");
+    }
+#endif
+    return a * b;
+}
+
+template <class T>
+CORE_FORCE_INLINE constexpr usize BytesFor(usize count) noexcept {
+    return SafeMulSize(static_cast<usize>(sizeof(T)), count);
+}
+
+template <class T>
+CORE_FORCE_INLINE constexpr usize StorageSizeFor(usize count) noexcept {
+    return static_cast<usize>(sizeof(T)) * count;
+}
+
 } // namespace core
 
