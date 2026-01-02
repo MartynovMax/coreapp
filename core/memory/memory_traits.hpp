@@ -182,5 +182,25 @@ CORE_FORCE_INLINE constexpr usize StorageSizeFor(usize count) noexcept {
     return static_cast<usize>(sizeof(T)) * count;
 }
 
+// ----------------------------------------------------------------------------
+// Integration helpers for Core config
+// ----------------------------------------------------------------------------
+
+CORE_FORCE_INLINE constexpr usize DefaultAlignment() noexcept {
+#ifdef CORE_DEFAULT_ALIGNMENT
+    return static_cast<usize>(CORE_DEFAULT_ALIGNMENT);
+#else
+    return static_cast<usize>(alignof(f64));
+#endif
+}
+
+CORE_FORCE_INLINE constexpr usize CacheLineSize() noexcept {
+#ifdef CORE_CACHE_LINE_SIZE
+    return static_cast<usize>(CORE_CACHE_LINE_SIZE);
+#else
+    return static_cast<usize>(64);
+#endif
+}
+
 } // namespace core
 
