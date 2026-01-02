@@ -95,6 +95,84 @@ public:
 };
 
 // ----------------------------------------------------------------------------
+// Typed allocation helpers
+// ----------------------------------------------------------------------------
+
+template <typename T>
+CORE_FORCE_INLINE T* AllocateObject(
+    IAllocator& allocator,
+    memory_tag tag = 0,
+    AllocationFlags flags = AllocationFlags::None) noexcept
+{
+    AllocationRequest req;
+    req.size = static_cast<memory_size>(sizeof(T));
+    req.alignment = static_cast<memory_alignment>(alignof(T));
+    req.tag = tag;
+    req.flags = flags;
+    
+    void* ptr = allocator.Allocate(req);
+    return static_cast<T*>(ptr);
+}
+
+template <typename T>
+CORE_FORCE_INLINE void DeallocateObject(
+    IAllocator& allocator,
+    T* ptr,
+    memory_tag tag = 0) noexcept
+{
+    if (ptr == nullptr) {
+        return;
+    }
+    
+    AllocationInfo info;
+    info.ptr = ptr;
+    info.size = static_cast<memory_size>(sizeof(T));
+    info.alignment = static_cast<memory_alignment>(alignof(T));
+    info.tag = tag;
+    
+    allocator.Deallocate(info);
+}
+
+template <typename T>
+CORE_FORCE_INLINE T* AllocateArray(
+    IAllocator& allocator,
+    memory_size count,
+    memory_tag tag = 0,
+    AllocationFlags flags = AllocationFlags::None) noexcept
+{
+    const memory_size total = BytesFor<T>(count);
+    
+    AllocationRequest req;
+    req.size = total;
+    req.alignment = static_cast<memory_alignment>(alignof(T));
+    req.tag = tag;
+    req.flags = flags;
+    
+    void* ptr = allocator.Allocate(req);
+    return static_cast<T*>(ptr);
+}
+
+template <typename T>
+CORE_FORCE_INLINE void DeallocateArray(
+    IAllocator& allocator,
+    T* ptr,
+    memory_size count,
+    memory_tag tag = 0) noexcept
+{
+    if (ptr == nullptr) {
+        return;
+    }
+    
+    AllocationInfo info;
+    info.ptr = ptr;
+    info.size = BytesFor<T>(count);
+    info.alignment = static_cast<memory_alignment>(alignof(T));
+    info.tag = tag;
+    
+    allocator.Deallocate(info);
+}
+
+// ----------------------------------------------------------------------------
 // Memory hook declarations
 // ----------------------------------------------------------------------------
 
