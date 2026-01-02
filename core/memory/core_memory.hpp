@@ -118,5 +118,74 @@ public:
     }
 };
 
+// ----------------------------------------------------------------------------
+// Alignment utilities
+// ----------------------------------------------------------------------------
+
+CORE_FORCE_INLINE constexpr bool IsPowerOfTwo(memory_alignment a) noexcept {
+    return a != 0u && ((a & (a - 1u)) == 0u);
+}
+
+CORE_FORCE_INLINE constexpr memory_size AlignUp(memory_size value, memory_alignment alignment) noexcept {
+#if CORE_MEMORY_DEBUG
+    CORE_MEM_ASSERT(IsPowerOfTwo(alignment));
+#endif
+    const memory_size mask = static_cast<memory_size>(alignment - 1u);
+    return (value + mask) & ~mask;
+}
+
+CORE_FORCE_INLINE constexpr memory_size AlignDown(memory_size value, memory_alignment alignment) noexcept {
+#if CORE_MEMORY_DEBUG
+    CORE_MEM_ASSERT(IsPowerOfTwo(alignment));
+#endif
+    const memory_size mask = static_cast<memory_size>(alignment - 1u);
+    return value & ~mask;
+}
+
+CORE_FORCE_INLINE constexpr bool IsAlignedValue(memory_size value, memory_alignment alignment) noexcept {
+#if CORE_MEMORY_DEBUG
+    CORE_MEM_ASSERT(IsPowerOfTwo(alignment));
+#endif
+    const memory_size mask = static_cast<memory_size>(alignment - 1u);
+    return (value & mask) == 0;
+}
+
+CORE_FORCE_INLINE constexpr memory_size PaddingFor(memory_size value, memory_alignment alignment) noexcept {
+    const memory_size aligned = AlignUp(value, alignment);
+    return aligned - value;
+}
+
+CORE_FORCE_INLINE constexpr usize PtrToUsize(const void* p) noexcept {
+    return reinterpret_cast<usize>(p);
+}
+
+CORE_FORCE_INLINE constexpr bool IsAlignedPtr(const void* p, memory_alignment alignment) noexcept {
+    return IsAlignedValue(PtrToUsize(p), alignment);
+}
+
+CORE_FORCE_INLINE constexpr void* AddBytes(void* p, memory_size byte_offset) noexcept {
+    return reinterpret_cast<void*>(PtrToUsize(p) + byte_offset);
+}
+
+CORE_FORCE_INLINE constexpr const void* AddBytes(const void* p, memory_size byte_offset) noexcept {
+    return reinterpret_cast<const void*>(PtrToUsize(p) + byte_offset);
+}
+
+CORE_FORCE_INLINE constexpr memory_size PtrDiffBytes(const void* a, const void* b) noexcept {
+    return static_cast<memory_size>(PtrToUsize(a) - PtrToUsize(b));
+}
+
+CORE_FORCE_INLINE constexpr void* AlignPtrUp(void* p, memory_alignment alignment) noexcept {
+    const usize v = PtrToUsize(p);
+    const usize av = AlignUp(v, alignment);
+    return reinterpret_cast<void*>(av);
+}
+
+CORE_FORCE_INLINE constexpr const void* AlignPtrUp(const void* p, memory_alignment alignment) noexcept {
+    const usize v = PtrToUsize(p);
+    const usize av = AlignUp(v, alignment);
+    return reinterpret_cast<const void*>(av);
+}
+
 } // namespace core
 
