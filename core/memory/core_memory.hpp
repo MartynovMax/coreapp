@@ -9,17 +9,18 @@
 //   - Fundamental memory types (size, alignment, tag)
 //   - Allocation request/info structures
 //   - Base allocator interface
-//   - Basic alignment utilities
 //   - Memory hook declarations
 //
-// This header serves as the root of the memory subsystem API and must remain
-// extremely lightweight and broadly includable.
+// Low-level "memory math" (alignment / pointer arithmetic / size helpers / traits)
+// is provided by memory_traits.hpp.
 // =============================================================================
 
 #include "../base/core_config.hpp"
 #include "../base/core_assert.hpp"
 #include "../base/core_types.hpp"
 #include "../base/core_inline.hpp"
+
+#include "memory_traits.hpp"
 
 namespace core {
 
@@ -117,75 +118,6 @@ public:
         return false;
     }
 };
-
-// ----------------------------------------------------------------------------
-// Alignment utilities
-// ----------------------------------------------------------------------------
-
-CORE_FORCE_INLINE constexpr bool IsPowerOfTwo(memory_alignment a) noexcept {
-    return a != 0u && ((a & (a - 1u)) == 0u);
-}
-
-CORE_FORCE_INLINE constexpr memory_size AlignUp(memory_size value, memory_alignment alignment) noexcept {
-#if CORE_MEMORY_DEBUG
-    CORE_MEM_ASSERT(IsPowerOfTwo(alignment));
-#endif
-    const memory_size mask = static_cast<memory_size>(alignment - 1u);
-    return (value + mask) & ~mask;
-}
-
-CORE_FORCE_INLINE constexpr memory_size AlignDown(memory_size value, memory_alignment alignment) noexcept {
-#if CORE_MEMORY_DEBUG
-    CORE_MEM_ASSERT(IsPowerOfTwo(alignment));
-#endif
-    const memory_size mask = static_cast<memory_size>(alignment - 1u);
-    return value & ~mask;
-}
-
-CORE_FORCE_INLINE constexpr bool IsAlignedValue(memory_size value, memory_alignment alignment) noexcept {
-#if CORE_MEMORY_DEBUG
-    CORE_MEM_ASSERT(IsPowerOfTwo(alignment));
-#endif
-    const memory_size mask = static_cast<memory_size>(alignment - 1u);
-    return (value & mask) == 0;
-}
-
-CORE_FORCE_INLINE constexpr memory_size PaddingFor(memory_size value, memory_alignment alignment) noexcept {
-    const memory_size aligned = AlignUp(value, alignment);
-    return aligned - value;
-}
-
-CORE_FORCE_INLINE usize PtrToUsize(const void* p) noexcept {
-    return reinterpret_cast<usize>(p);
-}
-
-CORE_FORCE_INLINE bool IsAlignedPtr(const void* p, memory_alignment alignment) noexcept {
-    return IsAlignedValue(PtrToUsize(p), alignment);
-}
-
-CORE_FORCE_INLINE void* AddBytes(void* p, memory_size byte_offset) noexcept {
-    return reinterpret_cast<void*>(PtrToUsize(p) + byte_offset);
-}
-
-CORE_FORCE_INLINE const void* AddBytes(const void* p, memory_size byte_offset) noexcept {
-    return reinterpret_cast<const void*>(PtrToUsize(p) + byte_offset);
-}
-
-CORE_FORCE_INLINE memory_size PtrDiffBytes(const void* a, const void* b) noexcept {
-    return static_cast<memory_size>(PtrToUsize(a) - PtrToUsize(b));
-}
-
-CORE_FORCE_INLINE void* AlignPtrUp(void* p, memory_alignment alignment) noexcept {
-    const usize v = PtrToUsize(p);
-    const usize av = AlignUp(v, alignment);
-    return reinterpret_cast<void*>(av);
-}
-
-CORE_FORCE_INLINE const void* AlignPtrUp(const void* p, memory_alignment alignment) noexcept {
-    const usize v = PtrToUsize(p);
-    const usize av = AlignUp(v, alignment);
-    return reinterpret_cast<const void*>(av);
-}
 
 // ----------------------------------------------------------------------------
 // Memory hook declarations
