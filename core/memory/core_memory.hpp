@@ -101,5 +101,22 @@ struct AllocatorStats {
     memory_size free_count_total = 0;
 };
 
+// ----------------------------------------------------------------------------
+// Base allocator interface
+// ----------------------------------------------------------------------------
+
+class IAllocator {
+public:
+    virtual ~IAllocator() = default;
+
+    virtual void* Allocate(const AllocationRequest& request) noexcept = 0;
+    virtual void Deallocate(const AllocationInfo& info) noexcept = 0;
+
+    virtual bool TryGetStats(AllocatorStats& out_stats) const noexcept {
+        CORE_UNUSED(out_stats);
+        return false;
+    }
+};
+
 } // namespace core
 
