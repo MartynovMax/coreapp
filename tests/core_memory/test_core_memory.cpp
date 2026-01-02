@@ -1,4 +1,4 @@
-#include "core/memory/core_memory.hpp"
+#include "core/memory/core_allocator.hpp"
 #include <gtest/gtest.h>
 
 namespace {
