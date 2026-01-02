@@ -72,6 +72,14 @@ struct AllocatorStats {
 // ----------------------------------------------------------------------------
 // Base allocator interface
 // ----------------------------------------------------------------------------
+//
+// Contract:
+//   - Allocate() must return memory aligned to request.alignment (or default)
+//   - Allocate() returns nullptr on failure (unless NoFail flag is set)
+//   - Deallocate() must accept nullptr (no-op)
+//   - Deallocate() info must match original Allocate() request
+//   - tag is optional metadata for tracking/debugging (0 is valid)
+//   - Thread-safety is allocator-specific (document in derived classes)
 
 class IAllocator {
 public:
