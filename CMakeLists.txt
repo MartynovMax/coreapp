@@ -176,6 +176,13 @@ add_executable(core_version_tests
 target_link_libraries(core_version_tests PRIVATE coreapp gtest_main)
 add_test(NAME core_version_tests COMMAND core_version_tests)
 
+# core_memory tests
+add_executable(core_memory_tests
+    tests/core_memory/test_core_memory.cpp
+)
+target_link_libraries(core_memory_tests PRIVATE coreapp gtest_main)
+add_test(NAME core_memory_tests COMMAND core_memory_tests)
+
 
 # core_attributes warnings (build-only, excluded from ALL)
 add_executable(core_attributes_warnings_tests EXCLUDE_FROM_ALL
