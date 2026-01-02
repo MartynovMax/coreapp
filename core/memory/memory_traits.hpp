@@ -104,5 +104,56 @@ CORE_FORCE_INLINE usize PtrDiffBytes(const void* a, const void* b) noexcept {
     return static_cast<usize>(reinterpret_cast<usize>(a) - reinterpret_cast<usize>(b));
 }
 
+// ----------------------------------------------------------------------------
+// Type-based memory traits
+// ----------------------------------------------------------------------------
+
+namespace detail {
+
+#if CORE_COMPILER_MSVC || CORE_COMPILER_CLANG || CORE_COMPILER_GCC
+    #define CORE_DETAIL_HAS_INTRINSIC_TRAITS 1
+#else
+    #define CORE_DETAIL_HAS_INTRINSIC_TRAITS 0
+#endif
+
+template <class T>
+struct IsTriviallyCopyableImpl {
+#if CORE_DETAIL_HAS_INTRINSIC_TRAITS
+    static constexpr bool value = __is_trivially_copyable(T);
+#else
+    static constexpr bool value = false;
+#endif
+};
+
+} // namespace detail
+
+template <class T>
+struct is_trivially_copyable {
+    static constexpr bool value = detail::IsTriviallyCopyableImpl<T>::value;
+};
+template <class T>
+inline constexpr bool is_trivially_copyable_v = is_trivially_copyable<T>::value;
+
+template <class T>
+struct is_trivially_relocatable {
+    static constexpr bool value = is_trivially_copyable_v<T>;
+};
+template <class T>
+inline constexpr bool is_trivially_relocatable_v = is_trivially_relocatable<T>::value;
+
+template <class T>
+struct is_bitwise_serializable {
+    static constexpr bool value = is_trivially_copyable_v<T>;
+};
+template <class T>
+inline constexpr bool is_bitwise_serializable_v = is_bitwise_serializable<T>::value;
+
+template <class T>
+struct max_align_for {
+    static constexpr usize value = static_cast<usize>(alignof(T));
+};
+template <class T>
+inline constexpr usize max_align_for_v = max_align_for<T>::value;
+
 } // namespace core
 
