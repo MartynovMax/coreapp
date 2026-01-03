@@ -173,6 +173,17 @@ CORE_FORCE_INLINE void DeallocateArray(
 }
 
 // ----------------------------------------------------------------------------
+// Default allocator accessors
+// ----------------------------------------------------------------------------
+
+IAllocator& DefaultAllocator() noexcept;
+IAllocator& SystemAllocator() noexcept;
+
+#if CORE_MEMORY_DEBUG
+IAllocator& DebugAllocator() noexcept;
+#endif
+
+// ----------------------------------------------------------------------------
 // Memory hook declarations
 // ----------------------------------------------------------------------------
 
