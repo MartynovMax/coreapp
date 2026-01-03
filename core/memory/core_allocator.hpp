@@ -200,5 +200,71 @@ bool UnregisterAllocationHook(AllocationHookFn hook, void* user) noexcept;
 bool RegisterDeallocationHook(DeallocationHookFn hook, void* user) noexcept;
 bool UnregisterDeallocationHook(DeallocationHookFn hook, void* user) noexcept;
 
+// ----------------------------------------------------------------------------
+// Allocator adapters
+// ----------------------------------------------------------------------------
+
+class AllocatorRef {
+public:
+    CORE_FORCE_INLINE AllocatorRef() noexcept = default;
+    CORE_FORCE_INLINE explicit AllocatorRef(IAllocator& a) noexcept : ptr_(&a) {}
+    CORE_FORCE_INLINE explicit AllocatorRef(IAllocator* a) noexcept : ptr_(a) {}
+
+    CORE_FORCE_INLINE IAllocator* Ptr() const noexcept { return ptr_; }
+    CORE_FORCE_INLINE explicit operator bool() const noexcept { return ptr_ != nullptr; }
+
+    CORE_FORCE_INLINE IAllocator& Get() const noexcept {
+#if CORE_MEMORY_DEBUG
+        CORE_MEM_ASSERT(ptr_ != nullptr);
+#endif
+        return *ptr_;
+    }
+
+    CORE_FORCE_INLINE IAllocator* operator->() const noexcept { return ptr_; }
+
+private:
+    IAllocator* ptr_ = nullptr;
+};
+
+template <typename T>
+class TypedAllocator {
+public:
+    using value_type = T;
+
+    CORE_FORCE_INLINE TypedAllocator() noexcept = default;
+    CORE_FORCE_INLINE explicit TypedAllocator(IAllocator& a) noexcept : allocator_(&a) {}
+    CORE_FORCE_INLINE explicit TypedAllocator(AllocatorRef a) noexcept : allocator_(a.Ptr()) {}
+
+    CORE_FORCE_INLINE IAllocator* Resource() const noexcept { return allocator_; }
+
+    CORE_FORCE_INLINE T* Allocate(
+        memory_size count = 1,
+        memory_tag tag = 0,
+        AllocationFlags flags = AllocationFlags::None) noexcept
+    {
+#if CORE_MEMORY_DEBUG
+        CORE_MEM_ASSERT(allocator_ != nullptr);
+#endif
+        return AllocateArray<T>(*allocator_, count, tag, flags);
+    }
+
+    CORE_FORCE_INLINE void Deallocate(
+        T* ptr,
+        memory_size count = 1,
+        memory_tag tag = 0) noexcept
+    {
+        if (allocator_ == nullptr) {
+#if CORE_MEMORY_DEBUG
+            CORE_MEM_ASSERT(ptr == nullptr);
+#endif
+            return;
+        }
+        DeallocateArray<T>(*allocator_, ptr, count, tag);
+    }
+
+private:
+    IAllocator* allocator_ = nullptr;
+};
+
 } // namespace core
 
