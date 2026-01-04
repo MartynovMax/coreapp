@@ -82,26 +82,26 @@ CORE_FORCE_INLINE const T* AlignPtrUp(const T* p, usize alignment) noexcept {
 
 template <class T>
 CORE_FORCE_INLINE T* AddBytes(T* p, usize byte_offset) noexcept {
-    return reinterpret_cast<T*>(reinterpret_cast<usize>(p) + byte_offset);
+    return reinterpret_cast<T*>(reinterpret_cast<char*>(p) + byte_offset);
 }
 
 template <class T>
 CORE_FORCE_INLINE const T* AddBytes(const T* p, usize byte_offset) noexcept {
-    return reinterpret_cast<const T*>(reinterpret_cast<usize>(p) + byte_offset);
+    return reinterpret_cast<const T*>(reinterpret_cast<const char*>(p) + byte_offset);
 }
 
 template <class T>
 CORE_FORCE_INLINE T* SubBytes(T* p, usize byte_offset) noexcept {
-    return reinterpret_cast<T*>(reinterpret_cast<usize>(p) - byte_offset);
+    return reinterpret_cast<T*>(reinterpret_cast<char*>(p) - byte_offset);
 }
 
 template <class T>
 CORE_FORCE_INLINE const T* SubBytes(const T* p, usize byte_offset) noexcept {
-    return reinterpret_cast<const T*>(reinterpret_cast<usize>(p) - byte_offset);
+    return reinterpret_cast<const T*>(reinterpret_cast<const char*>(p) - byte_offset);
 }
 
 CORE_FORCE_INLINE usize PtrDiffBytes(const void* a, const void* b) noexcept {
-    return static_cast<usize>(reinterpret_cast<usize>(a) - reinterpret_cast<usize>(b));
+    return static_cast<usize>(reinterpret_cast<const char*>(a) - reinterpret_cast<const char*>(b));
 }
 
 // ----------------------------------------------------------------------------
@@ -172,11 +172,16 @@ CORE_FORCE_INLINE constexpr usize UsizeMax() noexcept {
 }
 
 CORE_FORCE_INLINE constexpr usize SafeMulSize(usize a, usize b) noexcept {
-#if CORE_MEMORY_DEBUG
-    if (a != 0 && b != 0) {
-        CORE_MEM_ASSERT(b <= (UsizeMax() / a) && "Size multiplication overflow");
+    if (a == 0 || b == 0) {
+        return 0;
     }
+    const usize max_val = UsizeMax();
+    if (b > (max_val / a)) {
+#if CORE_MEMORY_DEBUG
+        CORE_MEM_ASSERT(false && "Size multiplication overflow");
 #endif
+        return max_val;
+    }
     return a * b;
 }
 
@@ -208,6 +213,14 @@ CORE_FORCE_INLINE constexpr usize CacheLineSize() noexcept {
 #else
     return static_cast<usize>(64);
 #endif
+}
+
+CORE_FORCE_INLINE constexpr usize CacheAlignUp(usize value) noexcept {
+    return AlignUp(value, CacheLineSize());
+}
+
+CORE_FORCE_INLINE constexpr usize CacheAlignDown(usize value) noexcept {
+    return AlignDown(value, CacheLineSize());
 }
 
 // ----------------------------------------------------------------------------

@@ -7,16 +7,12 @@
 // Provides:
 //   - IAllocator interface
 //   - AllocationRequest / AllocationInfo structures
+//   - Raw byte helpers: AllocateBytes, DeallocateBytes
 //   - Typed helpers: AllocateObject, AllocateArray, DeallocateObject, DeallocateArray
 //   - Allocator adapters: AllocatorRef, TypedAllocator<T>
 //   - Default allocator accessors: DefaultAllocator(), SystemAllocator()
-//   - Allocation hooks for instrumentation
+//   - Allocation hook system (multiple listeners, zero overhead when unused)
 // =============================================================================
-
-#include "../base/core_config.hpp"
-#include "../base/core_assert.hpp"
-#include "../base/core_types.hpp"
-#include "../base/core_inline.hpp"
 
 #include "core_memory.hpp"
 #include "memory_traits.hpp"
@@ -70,6 +66,45 @@ struct AllocatorStats {
 };
 
 // ----------------------------------------------------------------------------
+// Internal helpers
+// ----------------------------------------------------------------------------
+
+namespace detail {
+
+// Normalize alignment: 0 -> CORE_DEFAULT_ALIGNMENT
+CORE_FORCE_INLINE constexpr memory_alignment NormalizeAlignment(memory_alignment a) noexcept {
+    return (a == 0) ? CORE_DEFAULT_ALIGNMENT : a;
+}
+
+// Check if alignment is valid (non-zero power of two)
+CORE_FORCE_INLINE constexpr bool IsValidAlignment(memory_alignment a) noexcept {
+    return (a != 0) && IsPowerOfTwo(a);
+}
+
+// Detect multiplication overflow
+CORE_FORCE_INLINE constexpr bool MulOverflow(memory_size a, memory_size b, memory_size& out) noexcept {
+#if defined(__has_builtin)
+#  if __has_builtin(__builtin_mul_overflow)
+    return __builtin_mul_overflow(a, b, &out);
+#  endif
+#endif
+    // Fallback implementation
+    if (a == 0 || b == 0) {
+        out = 0;
+        return false;
+    }
+    const memory_size maxv = static_cast<memory_size>(~static_cast<memory_size>(0));
+    if (a > (maxv / b)) {
+        out = 0;
+        return true;
+    }
+    out = a * b;
+    return false;
+}
+
+} // namespace detail
+
+// ----------------------------------------------------------------------------
 // Base allocator interface
 // ----------------------------------------------------------------------------
 //
@@ -77,8 +112,8 @@ struct AllocatorStats {
 //   - Allocate() must return memory aligned to request.alignment (or default)
 //   - Allocate() returns nullptr on failure (unless NoFail flag is set)
 //   - Deallocate() must accept nullptr (no-op)
-//   - Deallocate() info must match original Allocate() request
-//   - tag is optional metadata for tracking/debugging (0 is valid)
+//   - Deallocate() info fields (size/alignment/tag) are hints to the allocator;
+//     specific allocators may require exact match with Allocate() - see their docs
 //   - Thread-safety is allocator-specific (document in derived classes)
 
 class IAllocator {
@@ -88,11 +123,125 @@ public:
     virtual void* Allocate(const AllocationRequest& request) noexcept = 0;
     virtual void Deallocate(const AllocationInfo& info) noexcept = 0;
 
+    virtual bool Owns(const void* ptr) const noexcept {
+        CORE_UNUSED(ptr);
+        return false;
+    }
+
     virtual bool TryGetStats(AllocatorStats& out_stats) const noexcept {
         CORE_UNUSED(out_stats);
         return false;
     }
 };
+
+// ----------------------------------------------------------------------------
+// Memory hook system
+// ----------------------------------------------------------------------------
+
+// Hook events
+enum class AllocationEvent : u8 {
+    AllocateBegin,    // Before allocator.Allocate()
+    AllocateEnd,      // After allocator.Allocate()
+    DeallocateBegin,  // Before allocator.Deallocate()
+    DeallocateEnd,    // After allocator.Deallocate()
+};
+
+// Hook callback signature
+// Pointer validity depends on event:
+//   AllocateBegin:   allocator, request valid; info is nullptr
+//   AllocateEnd:     allocator, request, info all valid
+//   DeallocateBegin: allocator, info valid; request is nullptr
+//   DeallocateEnd:   allocator, info valid; request is nullptr
+using AllocationHookFn = void (*)(AllocationEvent event,
+                                   const IAllocator* allocator,
+                                   const AllocationRequest* request,
+                                   const AllocationInfo* info,
+                                   void* user) noexcept;
+
+// Hook registration (supports multiple listeners)
+// Returns true if successfully registered, false if already registered or no space
+bool AddAllocationHook(AllocationHookFn fn, void* user = nullptr) noexcept;
+bool RemoveAllocationHook(AllocationHookFn fn) noexcept;
+
+// Query hooks
+bool HasAllocationHooks() noexcept;
+void ClearAllocationHooks() noexcept;
+
+// Inline helper to notify all hooks (zero overhead when no hooks)
+CORE_FORCE_INLINE void NotifyAllocationHook(
+    AllocationEvent event,
+    const IAllocator* allocator,
+    const AllocationRequest* request,
+    const AllocationInfo* info) noexcept
+{
+    // Fast path: no hooks registered (common case)
+    if (HasAllocationHooks()) {
+        // TODO(epic #88): Hook integration
+    }
+}
+
+// ----------------------------------------------------------------------------
+// Raw byte allocation helpers
+// ----------------------------------------------------------------------------
+
+CORE_FORCE_INLINE void* AllocateBytes(
+    IAllocator& allocator,
+    memory_size size,
+    memory_alignment alignment = CORE_DEFAULT_ALIGNMENT,
+    memory_tag tag = 0,
+    AllocationFlags flags = AllocationFlags::None) noexcept
+{
+    AllocationRequest req;
+    req.size = size;
+    req.alignment = detail::NormalizeAlignment(alignment);
+    req.tag = tag;
+    req.flags = flags;
+
+#if CORE_MEMORY_DEBUG
+    CORE_MEM_ASSERT(detail::IsValidAlignment(req.alignment));
+#endif
+
+    // TODO(epic #88): Hook integration
+    // NotifyAllocationHook(AllocationEvent::AllocateBegin, &allocator, &req, nullptr);
+    void* ptr = allocator.Allocate(req);
+    
+    // TODO(epic #88): Hook integration
+    // AllocationInfo info;
+    // info.ptr = ptr;
+    // info.size = req.size;
+    // info.alignment = req.alignment;
+    // info.tag = req.tag;
+    // NotifyAllocationHook(AllocationEvent::AllocateEnd, &allocator, &req, &info);
+    
+    return ptr;
+}
+
+CORE_FORCE_INLINE void DeallocateBytes(
+    IAllocator& allocator,
+    void* ptr,
+    memory_size size = 0,
+    memory_alignment alignment = CORE_DEFAULT_ALIGNMENT,
+    memory_tag tag = 0) noexcept
+{
+    if (ptr == nullptr) {
+        return;
+    }
+
+    AllocationInfo info;
+    info.ptr = ptr;
+    info.size = size;
+    info.alignment = detail::NormalizeAlignment(alignment);
+    info.tag = tag;
+
+#if CORE_MEMORY_DEBUG
+    CORE_MEM_ASSERT(detail::IsValidAlignment(info.alignment));
+#endif
+
+    // TODO(epic #88): Hook integration
+    // NotifyAllocationHook(AllocationEvent::DeallocateBegin, &allocator, nullptr, &info);
+    allocator.Deallocate(info);
+    // NotifyAllocationHook(AllocationEvent::DeallocateEnd, &allocator, nullptr, &info);
+}
 
 // ----------------------------------------------------------------------------
 // Typed allocation helpers
@@ -104,13 +253,13 @@ CORE_FORCE_INLINE T* AllocateObject(
     memory_tag tag = 0,
     AllocationFlags flags = AllocationFlags::None) noexcept
 {
-    AllocationRequest req;
-    req.size = static_cast<memory_size>(sizeof(T));
-    req.alignment = static_cast<memory_alignment>(alignof(T));
-    req.tag = tag;
-    req.flags = flags;
-    
-    void* ptr = allocator.Allocate(req);
+    void* ptr = AllocateBytes(
+        allocator,
+        static_cast<memory_size>(sizeof(T)),
+        static_cast<memory_alignment>(alignof(T)),
+        tag,
+        flags
+    );
     return static_cast<T*>(ptr);
 }
 
@@ -120,17 +269,13 @@ CORE_FORCE_INLINE void DeallocateObject(
     T* ptr,
     memory_tag tag = 0) noexcept
 {
-    if (ptr == nullptr) {
-        return;
-    }
-    
-    AllocationInfo info;
-    info.ptr = ptr;
-    info.size = static_cast<memory_size>(sizeof(T));
-    info.alignment = static_cast<memory_alignment>(alignof(T));
-    info.tag = tag;
-    
-    allocator.Deallocate(info);
+    DeallocateBytes(
+        allocator,
+        ptr,
+        static_cast<memory_size>(sizeof(T)),
+        static_cast<memory_alignment>(alignof(T)),
+        tag
+    );
 }
 
 template <typename T>
@@ -140,15 +285,18 @@ CORE_FORCE_INLINE T* AllocateArray(
     memory_tag tag = 0,
     AllocationFlags flags = AllocationFlags::None) noexcept
 {
-    const memory_size total = BytesFor<T>(count);
+    memory_size total = 0;
+    if (detail::MulOverflow(static_cast<memory_size>(sizeof(T)), count, total)) {
+        return nullptr;
+    }
     
-    AllocationRequest req;
-    req.size = total;
-    req.alignment = static_cast<memory_alignment>(alignof(T));
-    req.tag = tag;
-    req.flags = flags;
-    
-    void* ptr = allocator.Allocate(req);
+    void* ptr = AllocateBytes(
+        allocator,
+        total,
+        static_cast<memory_alignment>(alignof(T)),
+        tag,
+        flags
+    );
     return static_cast<T*>(ptr);
 }
 
@@ -163,13 +311,21 @@ CORE_FORCE_INLINE void DeallocateArray(
         return;
     }
     
-    AllocationInfo info;
-    info.ptr = ptr;
-    info.size = BytesFor<T>(count);
-    info.alignment = static_cast<memory_alignment>(alignof(T));
-    info.tag = tag;
+    memory_size total = 0;
+    if (detail::MulOverflow(static_cast<memory_size>(sizeof(T)), count, total)) {
+#if CORE_MEMORY_DEBUG
+        CORE_MEM_ASSERT(false && "DeallocateArray: invalid count causes overflow");
+#endif
+        return; 
+    }
     
-    allocator.Deallocate(info);
+    DeallocateBytes(
+        allocator,
+        ptr,
+        total,
+        static_cast<memory_alignment>(alignof(T)),
+        tag
+    );
 }
 
 // ----------------------------------------------------------------------------
@@ -182,23 +338,6 @@ IAllocator& SystemAllocator() noexcept;
 #if CORE_MEMORY_DEBUG
 IAllocator& DebugAllocator() noexcept;
 #endif
-
-// ----------------------------------------------------------------------------
-// Memory hook declarations
-// ----------------------------------------------------------------------------
-
-using AllocationHookFn = void (*)(const AllocationRequest& req,
-                                   const AllocationInfo& info,
-                                   void* user) noexcept;
-
-using DeallocationHookFn = void (*)(const AllocationInfo& info,
-                                     void* user) noexcept;
-
-bool RegisterAllocationHook(AllocationHookFn hook, void* user) noexcept;
-bool UnregisterAllocationHook(AllocationHookFn hook, void* user) noexcept;
-
-bool RegisterDeallocationHook(DeallocationHookFn hook, void* user) noexcept;
-bool UnregisterDeallocationHook(DeallocationHookFn hook, void* user) noexcept;
 
 // ----------------------------------------------------------------------------
 // Allocator adapters

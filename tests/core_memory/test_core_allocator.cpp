@@ -1,5 +1,6 @@
 #include "core/memory/core_allocator.hpp"
 #include <gtest/gtest.h>
+#include <type_traits>
 
 namespace {
 
@@ -301,5 +302,172 @@ TEST(CoreAllocator, TypedAllocatorValueType) {
     // Check that value_type is correctly defined
     static_assert(std::is_same<IntAllocator::value_type, int>::value, "value_type should be int");
     static_assert(std::is_same<DoubleAllocator::value_type, double>::value, "value_type should be double");
+}
+
+TEST(CoreAllocator, OwnsMethodDefaultReturnsFalse) {
+    TestAllocator a;
+    
+    // Default implementation should return false
+    void* some_ptr = reinterpret_cast<void*>(0x1000);
+    EXPECT_FALSE(a.Owns(some_ptr));
+    EXPECT_FALSE(a.Owns(nullptr));
+}
+
+TEST(CoreAllocator, AllocateBytesBasic) {
+    TestAllocator a;
+    
+    void* p = core::AllocateBytes(a, 128, 16);
+    ASSERT_NE(p, nullptr);
+    EXPECT_TRUE(core::IsAlignedPtr(p, 16u));
+    
+    // Use the memory
+    char* cp = static_cast<char*>(p);
+    for (int i = 0; i < 128; ++i) {
+        cp[i] = static_cast<char>(i);
+    }
+    EXPECT_EQ(cp[0], 0);
+    EXPECT_EQ(cp[127], 127);
+    
+    core::DeallocateBytes(a, p, 128, 16);
+    EXPECT_EQ(a.alloc_count(), 1u);
+    EXPECT_EQ(a.free_count(), 1u);
+}
+
+TEST(CoreAllocator, AllocateBytesWithTag) {
+    TestAllocator a;
+    
+    constexpr core::memory_tag test_tag = 999;
+    void* p = core::AllocateBytes(a, 64, 8, test_tag);
+    ASSERT_NE(p, nullptr);
+    
+    EXPECT_EQ(a.last_tag(), test_tag);
+    
+    core::DeallocateBytes(a, p, 64, 8, test_tag);
+}
+
+TEST(CoreAllocator, AllocateBytesWithFlags) {
+    TestAllocator a;
+    
+    auto flags = core::AllocationFlags::Persistent | core::AllocationFlags::ZeroInitialize;
+    void* p = core::AllocateBytes(a, 32, 4, 0, flags);
+    ASSERT_NE(p, nullptr);
+    
+    core::DeallocateBytes(a, p, 32, 4);
+}
+
+TEST(CoreAllocator, DeallocateBytesNullptrIsNoOp) {
+    TestAllocator a;
+    
+    // Should not crash
+    core::DeallocateBytes(a, nullptr, 100, 8);
+    
+    EXPECT_EQ(a.alloc_count(), 0u);
+    EXPECT_EQ(a.free_count(), 0u);
+}
+
+TEST(CoreAllocator, AllocateArrayOverflowDetection) {
+    TestAllocator a;
+    
+    // Try to allocate array that would overflow
+    const core::memory_size huge_count = static_cast<core::memory_size>(~0ull) / sizeof(int);
+    int* p = core::AllocateArray<int>(a, huge_count + 1);
+    
+    // Should return nullptr due to overflow detection
+    EXPECT_EQ(p, nullptr);
+    EXPECT_EQ(a.alloc_count(), 0u);
+}
+
+TEST(CoreAllocator, AllocateArrayLargeButValid) {
+    TestAllocator a;
+    
+    // Allocate something large but valid (will fail due to allocator capacity, not overflow)
+    const core::memory_size large_count = 500; // 500 * sizeof(int) = 2000 bytes
+    int* p = core::AllocateArray<int>(a, large_count);
+    
+    // This should succeed (allocator has 4096 bytes)
+    ASSERT_NE(p, nullptr);
+    
+    core::DeallocateArray<int>(a, p, large_count);
+}
+
+TEST(CoreAllocator, InternalMulOverflowHelper) {
+    using core::detail::MulOverflow;
+    
+    core::memory_size result = 0;
+    
+    // Valid multiplication
+    EXPECT_FALSE(MulOverflow(10u, 20u, result));
+    EXPECT_EQ(result, 200u);
+    
+    // Zero cases
+    EXPECT_FALSE(MulOverflow(0u, 100u, result));
+    EXPECT_EQ(result, 0u);
+    
+    EXPECT_FALSE(MulOverflow(100u, 0u, result));
+    EXPECT_EQ(result, 0u);
+    
+    // Overflow case
+    const core::memory_size max_val = static_cast<core::memory_size>(~0ull);
+    EXPECT_TRUE(MulOverflow(max_val, 2u, result));
+    EXPECT_EQ(result, 0u); // Result should be 0 on overflow
+}
+
+TEST(CoreAllocator, InternalNormalizeAlignmentHelper) {
+    using core::detail::NormalizeAlignment;
+    
+    // 0 should be normalized to default
+    EXPECT_EQ(NormalizeAlignment(0), CORE_DEFAULT_ALIGNMENT);
+    
+    // Non-zero values should be preserved
+    EXPECT_EQ(NormalizeAlignment(8), 8u);
+    EXPECT_EQ(NormalizeAlignment(16), 16u);
+    EXPECT_EQ(NormalizeAlignment(64), 64u);
+}
+
+TEST(CoreAllocator, InternalIsValidAlignmentHelper) {
+    using core::detail::IsValidAlignment;
+    
+    // Valid alignments (powers of two)
+    EXPECT_TRUE(IsValidAlignment(1));
+    EXPECT_TRUE(IsValidAlignment(2));
+    EXPECT_TRUE(IsValidAlignment(4));
+    EXPECT_TRUE(IsValidAlignment(8));
+    EXPECT_TRUE(IsValidAlignment(16));
+    EXPECT_TRUE(IsValidAlignment(64));
+    
+    // Invalid alignments
+    EXPECT_FALSE(IsValidAlignment(0));  // Zero
+    EXPECT_FALSE(IsValidAlignment(3));  // Not power of two
+    EXPECT_FALSE(IsValidAlignment(5));  // Not power of two
+    EXPECT_FALSE(IsValidAlignment(12)); // Not power of two
+}
+
+TEST(CoreAllocator, ZeroSizeWithInvalidAlignmentAsserts) {
+    TestAllocator a;
+    
+#if CORE_MEMORY_DEBUG && GTEST_HAS_DEATH_TEST
+    EXPECT_DEATH({
+        core::AllocateBytes(a, 0, 3);
+    }, ".*");
+#endif
+}
+
+TEST(CoreAllocator, DeallocateArrayWithOverflowCount) {
+    TestAllocator a;
+    
+    int* arr = core::AllocateArray<int>(a, 10);
+    ASSERT_NE(arr, nullptr);
+    
+    size_t initial_free_count = a.free_count();
+    
+    const core::memory_size huge = core::UsizeMax() / sizeof(int);
+#if CORE_MEMORY_DEBUG && GTEST_HAS_DEATH_TEST
+    EXPECT_DEATH({
+        core::DeallocateArray<int>(a, arr, huge + 1);
+    }, ".*");
+#else
+    core::DeallocateArray<int>(a, arr, huge + 1);
+    EXPECT_EQ(a.free_count(), initial_free_count + 1);
+#endif
 }
 

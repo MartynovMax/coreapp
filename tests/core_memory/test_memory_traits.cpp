@@ -138,5 +138,39 @@ TEST(MemoryTraits_Alignment, AlignPtrUp) {
     EXPECT_LT(core::PtrDiffBytes(aligned, p7), 16u);
 }
 
+TEST(MemoryTraits_Size, SafeMulSizeOverflowSaturates) {
+    const core::usize maxv = core::UsizeMax();
+    
+    EXPECT_EQ(core::SafeMulSize(maxv, 2u), maxv);
+    EXPECT_EQ(core::SafeMulSize(maxv / 2u + 1u, 2u), maxv);
+}
+
+TEST(MemoryTraits_Alignment, CacheLineHelpers) {
+    const core::usize cache_size = core::CacheLineSize();
+    
+    EXPECT_EQ(core::CacheAlignUp(0u), 0u);
+    EXPECT_EQ(core::CacheAlignUp(1u), cache_size);
+    EXPECT_EQ(core::CacheAlignUp(cache_size), cache_size);
+    EXPECT_EQ(core::CacheAlignUp(cache_size + 1u), cache_size * 2u);
+    
+    EXPECT_EQ(core::CacheAlignDown(0u), 0u);
+    EXPECT_EQ(core::CacheAlignDown(cache_size - 1u), 0u);
+    EXPECT_EQ(core::CacheAlignDown(cache_size), cache_size);
+}
+
+TEST(MemoryTraits_PointerMath, LargeOffsets) {
+    alignas(16) unsigned char buf[1024]{};
+    
+    unsigned char* base = &buf[0];
+    
+    unsigned char* p512 = core::AddBytes(base, 512u);
+    EXPECT_EQ(p512, base + 512);
+    
+    unsigned char* back = core::SubBytes(p512, 512u);
+    EXPECT_EQ(back, base);
+    
+    EXPECT_EQ(core::PtrDiffBytes(p512, base), 512u);
+}
+
 } // namespace
 
