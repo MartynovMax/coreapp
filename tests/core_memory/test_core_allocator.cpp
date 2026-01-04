@@ -467,6 +467,9 @@ TEST(CoreAllocator, DeallocateArrayWithOverflowCount) {
     }, ".*");
 #else
     core::DeallocateArray<int>(a, arr, huge + 1);
+    EXPECT_EQ(a.free_count(), initial_free_count);
+    
+    core::DeallocateArray<int>(a, arr, 10);
     EXPECT_EQ(a.free_count(), initial_free_count + 1);
 #endif
 }
