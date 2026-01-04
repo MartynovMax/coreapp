@@ -83,11 +83,13 @@ CORE_FORCE_INLINE constexpr bool IsValidAlignment(memory_alignment a) noexcept {
 
 // Detect multiplication overflow
 CORE_FORCE_INLINE constexpr bool MulOverflow(memory_size a, memory_size b, memory_size& out) noexcept {
-#if defined(__has_builtin)
-#  if __has_builtin(__builtin_mul_overflow)
-    return __builtin_mul_overflow(a, b, &out);
-#  endif
-#endif
+#if (CORE_COMPILER_CLANG || CORE_COMPILER_GCC) && CORE_HAS_BUILTIN(__builtin_mul_overflow)
+    bool overflow = __builtin_mul_overflow(a, b, &out);
+    if (overflow) {
+        out = 0; // Match fallback behavior
+    }
+    return overflow;
+#else
     // Fallback implementation
     if (a == 0 || b == 0) {
         out = 0;
@@ -100,6 +102,7 @@ CORE_FORCE_INLINE constexpr bool MulOverflow(memory_size a, memory_size b, memor
     }
     out = a * b;
     return false;
+#endif
 }
 
 } // namespace detail
