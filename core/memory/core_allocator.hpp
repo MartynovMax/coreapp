@@ -10,7 +10,7 @@
 //   - Raw byte helpers: AllocateBytes, DeallocateBytes
 //   - Typed helpers: AllocateObject, AllocateArray, DeallocateObject, DeallocateArray
 //   - Allocator adapters: AllocatorRef, TypedAllocator<T>
-//   - Default allocator accessors: DefaultAllocator(), SystemAllocator()
+//   - Default allocator accessors: GetDefaultAllocator(), GetSystemAllocator()
 //   - Allocation hook system (multiple listeners, zero overhead when unused)
 // =============================================================================
 
@@ -335,11 +335,11 @@ CORE_FORCE_INLINE void DeallocateArray(
 // Default allocator accessors
 // ----------------------------------------------------------------------------
 
-IAllocator& DefaultAllocator() noexcept;
-IAllocator& SystemAllocator() noexcept;
+IAllocator& GetSystemAllocator() noexcept;
+IAllocator& GetDefaultAllocator() noexcept;
 
 #if CORE_MEMORY_DEBUG
-IAllocator& DebugAllocator() noexcept;
+IAllocator& GetDebugAllocator() noexcept;
 #endif
 
 // ----------------------------------------------------------------------------

@@ -5,30 +5,39 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 
 # ---------------------------------------------------------------------------
-# Core interface library
+# Core library
 # ---------------------------------------------------------------------------
 
-# Header-only core library for now
-add_library(coreapp INTERFACE)
+# Automatically collect all .cpp files from core/ directory
+file(GLOB_RECURSE COREAPP_SOURCES
+    CONFIGURE_DEPENDS
+    core/**/*.cpp
+)
+
+# Collect all headers for IDE display
+file(GLOB_RECURSE COREAPP_HEADERS
+    CONFIGURE_DEPENDS
+    core/**/*.hpp
+)
+
+# Core library with both headers and implementation files
+add_library(coreapp STATIC
+    ${COREAPP_SOURCES}
+)
 
 # Expose project root as include directory so that
 #   #include "core/base/core_config.hpp"
 # works from any target that links to coreapp.
-target_include_directories(coreapp INTERFACE
+target_include_directories(coreapp PUBLIC
     $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}>
     $<INSTALL_INTERFACE:include>
 )
 
-file(GLOB_RECURSE COREAPP_HEADERS
-    CONFIGURE_DEPENDS
-    core/*.hpp
-)
-
-# IDE-friendly header-only target (does not affect build)
+# IDE-friendly header target
 add_custom_target(coreapp_headers SOURCES ${COREAPP_HEADERS})
 
 source_group(TREE ${CMAKE_CURRENT_SOURCE_DIR}/core
-             FILES ${COREAPP_HEADERS})
+             FILES ${COREAPP_HEADERS} ${COREAPP_SOURCES})
 		
 # ---------------------------------------------------------------------------
 # GoogleTest
