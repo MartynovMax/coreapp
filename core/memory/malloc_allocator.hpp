@@ -10,5 +10,17 @@
 
 namespace core {
 
+class MallocAllocator : public IAllocator {
+public:
+    MallocAllocator() noexcept = default;
+    ~MallocAllocator() noexcept override = default;
+
+    MallocAllocator(const MallocAllocator&) = delete;
+    MallocAllocator& operator=(const MallocAllocator&) = delete;
+
+    void* Allocate(const AllocationRequest& request) noexcept override;
+    void Deallocate(const AllocationInfo& info) noexcept override;
+};
+
 } // namespace core
 
