@@ -13,8 +13,35 @@
 
 namespace core {
 
+namespace {
+
+memory_size GetPageSize() noexcept {
+    static memory_size page_size = 0;
+    if (page_size == 0) {
+#if CORE_PLATFORM_WINDOWS
+        SYSTEM_INFO si;
+        GetSystemInfo(&si);
+        page_size = static_cast<memory_size>(si.dwPageSize);
+#elif CORE_PLATFORM_LINUX || CORE_PLATFORM_MACOS
+        page_size = static_cast<memory_size>(sysconf(_SC_PAGESIZE));
+#endif
+    }
+    return page_size;
+}
+
+} // anonymous namespace
+
 void* SystemAllocator::Allocate(const AllocationRequest& request) noexcept {
     if (request.size == 0) {
+        return nullptr;
+    }
+
+    const memory_size page_size = GetPageSize();
+    
+    if (request.alignment > page_size) {
+#if CORE_MEMORY_DEBUG
+        CORE_MEM_ASSERT(false && "SystemAllocator: requested alignment exceeds page size");
+#endif
         return nullptr;
     }
 

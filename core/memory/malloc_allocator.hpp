@@ -6,6 +6,20 @@
 //
 // This is a thin wrapper around SystemAllocator that can be extended with
 // additional features like bookkeeping, statistics, or custom behavior.
+//
+// Alignment guarantees:
+//   - Inherits alignment guarantees from backing allocator
+//   - Default backing: SystemAllocator (page-aligned, typically 4KB)
+//   - Custom backing: depends on provided allocator
+//
+// Thread-safety:
+//   - Thread-safe if backing allocator is thread-safe
+//   - Default backing (SystemAllocator) is thread-safe
+//   - Stateless wrapper, safe to use from multiple threads
+//
+// Default instance:
+//   - GetDefaultAllocator() returns a global MallocAllocator instance
+//   - Uses SystemAllocator::Instance() as backing
 // =============================================================================
 
 #include "core_memory.hpp"
