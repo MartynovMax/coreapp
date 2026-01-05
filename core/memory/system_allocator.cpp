@@ -36,9 +36,15 @@ void* SystemAllocator::Allocate(const AllocationRequest& request) noexcept {
         return nullptr;
     }
 
+    const memory_alignment normalized_alignment = detail::NormalizeAlignment(request.alignment);
+    
+#if CORE_MEMORY_DEBUG
+    CORE_MEM_ASSERT(detail::IsValidAlignment(normalized_alignment));
+#endif
+
     const memory_size page_size = GetPageSize();
     
-    if (request.alignment > page_size) {
+    if (normalized_alignment > page_size) {
 #if CORE_MEMORY_DEBUG
         CORE_MEM_ASSERT(false && "SystemAllocator: requested alignment exceeds page size");
 #endif
@@ -68,6 +74,12 @@ void* SystemAllocator::Allocate(const AllocationRequest& request) noexcept {
     }
 #endif
 
+    if (ptr == nullptr && Any(request.flags & AllocationFlags::NoFail)) {
+#if CORE_MEMORY_DEBUG
+        CORE_MEM_ASSERT(false && "SystemAllocator: allocation failed with NoFail flag");
+#endif
+    }
+
     // TODO(epic #88): Build AllocationInfo and call NotifyAllocationHook(AllocateEnd)
     
     return ptr;
@@ -83,7 +95,10 @@ void SystemAllocator::Deallocate(const AllocationInfo& info) noexcept {
 #if CORE_PLATFORM_WINDOWS
     VirtualFree(info.ptr, 0, MEM_RELEASE);
 #elif CORE_PLATFORM_LINUX || CORE_PLATFORM_MACOS
-    munmap(info.ptr, info.size);
+    CORE_MEM_ASSERT(info.size != 0 && "SystemAllocator: size is required for munmap on POSIX");
+    if (info.size != 0) {
+        munmap(info.ptr, info.size);
+    }
 #endif
 
     // TODO(epic #88): NotifyAllocationHook(AllocationEvent::DeallocateEnd, this, nullptr, &info);

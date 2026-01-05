@@ -206,6 +206,20 @@ add_executable(core_allocator_tests
 target_link_libraries(core_allocator_tests PRIVATE coreapp gtest_main)
 add_test(NAME core_allocator_tests COMMAND core_allocator_tests)
 
+# system_allocator tests
+add_executable(system_allocator_tests
+    tests/core_memory/test_system_allocator.cpp
+)
+target_link_libraries(system_allocator_tests PRIVATE coreapp gtest_main)
+add_test(NAME system_allocator_tests COMMAND system_allocator_tests)
+
+# malloc_allocator tests
+add_executable(malloc_allocator_tests
+    tests/core_memory/test_malloc_allocator.cpp
+)
+target_link_libraries(malloc_allocator_tests PRIVATE coreapp gtest_main)
+add_test(NAME malloc_allocator_tests COMMAND malloc_allocator_tests)
+
 # core_attributes warnings (build-only, excluded from ALL)
 add_executable(core_attributes_warnings_tests EXCLUDE_FROM_ALL
     tests/core_base/test_core_attributes_warnings.cpp
