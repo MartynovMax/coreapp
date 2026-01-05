@@ -45,6 +45,8 @@ void* SystemAllocator::Allocate(const AllocationRequest& request) noexcept {
         return nullptr;
     }
 
+    // TODO(epic #88): NotifyAllocationHook(AllocationEvent::AllocateBegin, this, &request, nullptr);
+
 #if CORE_PLATFORM_WINDOWS
     void* ptr = VirtualAlloc(
         nullptr,
@@ -65,6 +67,8 @@ void* SystemAllocator::Allocate(const AllocationRequest& request) noexcept {
         ptr = nullptr;
     }
 #endif
+
+    // TODO(epic #88): Build AllocationInfo and call NotifyAllocationHook(AllocateEnd)
     
     return ptr;
 }
@@ -74,11 +78,15 @@ void SystemAllocator::Deallocate(const AllocationInfo& info) noexcept {
         return;
     }
 
+    // TODO(epic #88): NotifyAllocationHook(AllocationEvent::DeallocateBegin, this, nullptr, &info);
+
 #if CORE_PLATFORM_WINDOWS
     VirtualFree(info.ptr, 0, MEM_RELEASE);
 #elif CORE_PLATFORM_LINUX || CORE_PLATFORM_MACOS
     munmap(info.ptr, info.size);
 #endif
+
+    // TODO(epic #88): NotifyAllocationHook(AllocationEvent::DeallocateEnd, this, nullptr, &info);
 }
 
 SystemAllocator& SystemAllocator::Instance() noexcept {
