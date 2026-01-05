@@ -17,6 +17,10 @@
 //   - Requesting alignment > page size returns nullptr (asserts in debug)
 //   - Page size is obtained once and cached (GetSystemInfo / sysconf)
 //
+// AllocationFlags:
+//   - ZeroInitialize: Always satisfied (OS guarantees zero-initialized pages)
+//   - Other flags: Currently ignored
+//
 // Thread-safety:
 //   - Thread-safe (OS calls are thread-safe)
 //   - Stateless, safe to use from multiple threads concurrently

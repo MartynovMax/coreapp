@@ -12,6 +12,11 @@
 //   - Default backing: SystemAllocator (page-aligned, typically 4KB)
 //   - Custom backing: depends on provided allocator
 //
+// AllocationFlags:
+//   - Delegates flag handling to backing allocator
+//   - Default backing (SystemAllocator): ZeroInitialize always satisfied
+//   - Other flags depend on backing allocator implementation
+//
 // Thread-safety:
 //   - Thread-safe if backing allocator is thread-safe
 //   - Default backing (SystemAllocator) is thread-safe
