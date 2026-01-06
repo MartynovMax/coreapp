@@ -3,6 +3,22 @@
 // =============================================================================
 // allocation_tracker.hpp
 // Global allocation tracking API for observing memory allocations.
+//
+// Thread-safety:
+//   This implementation is NOT fully thread-safe. It is intended for
+//   single-threaded use or environments where allocations are externally
+//   synchronized. Full thread-safe implementation will be added in epic #95
+//   (Concurrency-aware Allocators).
+//
+//   Current limitations:
+//   - Statistics updates may race under concurrent allocations
+//   - Listener registration/unregistration should not occur during allocations
+//
+// Usage:
+//   1. Call InitializeAllocationTracker() at startup
+//   2. Register listeners via RegisterAllocationListener()
+//   3. Query statistics via GetAllocationTrackerStats()
+//   4. Call ShutdownAllocationTracker() at shutdown
 // =============================================================================
 
 #include "core_memory.hpp"
@@ -30,6 +46,7 @@ using AllocationListenerHandle = u32;
 constexpr AllocationListenerHandle kInvalidListenerHandle = 0;
 
 // Listener callback signature
+// WARNING: Listeners MUST NOT perform allocations to avoid recursion
 using AllocationListenerFn = void (*)(
     AllocationEvent event,
     const IAllocator* allocator,

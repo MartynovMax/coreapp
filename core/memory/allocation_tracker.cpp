@@ -71,6 +71,8 @@ TagStatsEntry* FindOrCreateTagEntry(memory_tag tag) noexcept {
 
 void UpdateStatsOnAllocation(memory_size size, memory_tag tag) noexcept {
     // Update global stats
+    // NOTE: Not thread-safe - may race under concurrent allocations
+    // Full thread-safety will be added in epic #95
     _globalStats.currentAllocated += size;
     _globalStats.totalAllocations++;
     
@@ -94,6 +96,7 @@ void UpdateStatsOnAllocation(memory_size size, memory_tag tag) noexcept {
 
 void UpdateStatsOnDeallocation(memory_size size, memory_tag tag) noexcept {
     // Update global stats
+    // NOTE: Not thread-safe - may race under concurrent deallocations
     _globalStats.currentAllocated -= size;
     _globalStats.totalDeallocations++;
     
