@@ -31,6 +31,9 @@ u32 _nextHandle = 1;
 GlobalStats _globalStats;
 TagStatsEntry _tagStats[CORE_ALLOCATION_TRACKER_MAX_TAGS];
 
+bool _trackingEnabled = false;
+bool _insideTracker = false;  // Re-entrancy guard
+
 TagStatsEntry* FindTagEntry(memory_tag tag) noexcept {
     if (tag == 0) {
         return nullptr;
@@ -116,6 +119,22 @@ void ClearAllocationListeners() noexcept {
         entry.userData = nullptr;
         entry.handle = 0;
     }
+}
+
+// ----------------------------------------------------------------------------
+// Tracking control
+// ----------------------------------------------------------------------------
+
+void EnableAllocationTracking() noexcept {
+    detail::_trackingEnabled = true;
+}
+
+void DisableAllocationTracking() noexcept {
+    detail::_trackingEnabled = false;
+}
+
+bool IsAllocationTrackingEnabled() noexcept {
+    return detail::_trackingEnabled;
 }
 
 // ----------------------------------------------------------------------------

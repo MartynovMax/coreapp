@@ -51,6 +51,14 @@ bool UnregisterAllocationListener(AllocationListenerHandle handle) noexcept;
 void ClearAllocationListeners() noexcept;
 
 // ----------------------------------------------------------------------------
+// Tracking control
+// ----------------------------------------------------------------------------
+
+void EnableAllocationTracking() noexcept;
+void DisableAllocationTracking() noexcept;
+bool IsAllocationTrackingEnabled() noexcept;
+
+// ----------------------------------------------------------------------------
 // Global statistics
 // ----------------------------------------------------------------------------
 
