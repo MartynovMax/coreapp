@@ -69,6 +69,101 @@ TagStatsEntry* FindOrCreateTagEntry(memory_tag tag) noexcept {
     return nullptr;  // Table full
 }
 
+void UpdateStatsOnAllocation(memory_size size, memory_tag tag) noexcept {
+    // Update global stats
+    _globalStats.currentAllocated += size;
+    _globalStats.totalAllocations++;
+    
+    if (_globalStats.currentAllocated > _globalStats.peakAllocated) {
+        _globalStats.peakAllocated = _globalStats.currentAllocated;
+    }
+    
+    // Update per-tag stats
+    if (tag != 0) {
+        TagStatsEntry* entry = FindOrCreateTagEntry(tag);
+        if (entry) {
+            entry->currentAllocated += size;
+            entry->allocCount++;
+            
+            if (entry->currentAllocated > entry->peakAllocated) {
+                entry->peakAllocated = entry->currentAllocated;
+            }
+        }
+    }
+}
+
+void UpdateStatsOnDeallocation(memory_size size, memory_tag tag) noexcept {
+    // Update global stats
+    _globalStats.currentAllocated -= size;
+    _globalStats.totalDeallocations++;
+    
+    // Update per-tag stats
+    if (tag != 0) {
+        TagStatsEntry* entry = FindTagEntry(tag);
+        if (entry) {
+            entry->currentAllocated -= size;
+            entry->deallocCount++;
+        }
+    }
+}
+
+void NotifyListeners(
+    AllocationEvent event,
+    const IAllocator* allocator,
+    const AllocationRequest* request,
+    const AllocationInfo* info) noexcept
+{
+    for (const auto& entry : _listeners) {
+        if (entry.callback != nullptr) {
+            entry.callback(event, allocator, request, info, entry.userData);
+        }
+    }
+}
+
+void TrackerHookCallback(
+    AllocationEvent event,
+    const IAllocator* allocator,
+    const AllocationRequest* request,
+    const AllocationInfo* info,
+    void* user) noexcept
+{
+    CORE_UNUSED(user);
+    
+    // Check if tracking is enabled
+    if (!_trackingEnabled) {
+        return;
+    }
+    
+    // Re-entrancy guard
+    if (_insideTracker) {
+        return;
+    }
+    _insideTracker = true;
+    
+    // Update statistics
+    switch (event) {
+        case AllocationEvent::AllocateEnd:
+            if (info && info->ptr && request) {
+                UpdateStatsOnAllocation(info->size, request->tag);
+            }
+            break;
+            
+        case AllocationEvent::DeallocateBegin:
+            if (info && info->ptr) {
+                UpdateStatsOnDeallocation(info->size, info->tag);
+            }
+            break;
+            
+        default:
+            break;
+    }
+    
+    // Notify listeners
+    NotifyListeners(event, allocator, request, info);
+    
+    _insideTracker = false;
+}
+
 } // namespace detail
 
 // ----------------------------------------------------------------------------
@@ -205,6 +300,27 @@ void ResetTagStats() noexcept {
         entry.allocCount = 0;
         entry.deallocCount = 0;
     }
+}
+
+// ----------------------------------------------------------------------------
+// Initialization
+// ----------------------------------------------------------------------------
+
+void InitializeAllocationTracker() noexcept {
+    // Register tracker as a hook
+    bool registered = AddAllocationHook(detail::TrackerHookCallback, nullptr);
+    CORE_MEM_ASSERT(registered && "Failed to register allocation tracker hook");
+    
+    // Enable tracking by default
+    detail::_trackingEnabled = true;
+}
+
+void ShutdownAllocationTracker() noexcept {
+    // Disable tracking
+    detail::_trackingEnabled = false;
+    
+    // Unregister hook
+    RemoveAllocationHook(detail::TrackerHookCallback);
 }
 
 } // namespace core

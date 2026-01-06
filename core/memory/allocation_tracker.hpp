@@ -93,5 +93,12 @@ void EnumerateTagStats(
 
 void ResetTagStats() noexcept;
 
+// ----------------------------------------------------------------------------
+// Initialization
+// ----------------------------------------------------------------------------
+
+void InitializeAllocationTracker() noexcept;
+void ShutdownAllocationTracker() noexcept;
+
 } // namespace core
 
