@@ -170,6 +170,13 @@ bool RemoveAllocationHook(AllocationHookFn fn) noexcept;
 bool HasAllocationHooks() noexcept;
 void ClearAllocationHooks() noexcept;
 
+// Internal dispatch function (implemented in .cpp)
+void DispatchAllocationHook(
+    AllocationEvent event,
+    const IAllocator* allocator,
+    const AllocationRequest* request,
+    const AllocationInfo* info) noexcept;
+
 // Inline helper to notify all hooks (zero overhead when no hooks)
 CORE_FORCE_INLINE void NotifyAllocationHook(
     AllocationEvent event,
@@ -179,7 +186,7 @@ CORE_FORCE_INLINE void NotifyAllocationHook(
 {
     // Fast path: no hooks registered (common case)
     if (HasAllocationHooks()) {
-        // TODO(epic #88): Hook integration
+        DispatchAllocationHook(event, allocator, request, info);
     }
 }
 
@@ -204,17 +211,18 @@ CORE_FORCE_INLINE void* AllocateBytes(
     CORE_MEM_ASSERT(detail::IsValidAlignment(req.alignment));
 #endif
 
-    // TODO(epic #88): Hook integration
-    // NotifyAllocationHook(AllocationEvent::AllocateBegin, &allocator, &req, nullptr);
+    NotifyAllocationHook(AllocationEvent::AllocateBegin, &allocator, &req, nullptr);
+    
     void* ptr = allocator.Allocate(req);
     
-    // TODO(epic #88): Hook integration
-    // AllocationInfo info;
-    // info.ptr = ptr;
-    // info.size = req.size;
-    // info.alignment = req.alignment;
-    // info.tag = req.tag;
-    // NotifyAllocationHook(AllocationEvent::AllocateEnd, &allocator, &req, &info);
+    if (ptr != nullptr) {
+        AllocationInfo info;
+        info.ptr = ptr;
+        info.size = req.size;
+        info.alignment = req.alignment;
+        info.tag = req.tag;
+        NotifyAllocationHook(AllocationEvent::AllocateEnd, &allocator, &req, &info);
+    }
     
     return ptr;
 }
@@ -240,10 +248,9 @@ CORE_FORCE_INLINE void DeallocateBytes(
     CORE_MEM_ASSERT(detail::IsValidAlignment(info.alignment));
 #endif
 
-    // TODO(epic #88): Hook integration
-    // NotifyAllocationHook(AllocationEvent::DeallocateBegin, &allocator, nullptr, &info);
+    NotifyAllocationHook(AllocationEvent::DeallocateBegin, &allocator, nullptr, &info);
     allocator.Deallocate(info);
-    // NotifyAllocationHook(AllocationEvent::DeallocateEnd, &allocator, nullptr, &info);
+    NotifyAllocationHook(AllocationEvent::DeallocateEnd, &allocator, nullptr, &info);
 }
 
 // ----------------------------------------------------------------------------

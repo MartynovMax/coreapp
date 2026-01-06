@@ -220,6 +220,13 @@ add_executable(malloc_allocator_tests
 target_link_libraries(malloc_allocator_tests PRIVATE coreapp gtest_main)
 add_test(NAME malloc_allocator_tests COMMAND malloc_allocator_tests)
 
+# allocation_hooks tests
+add_executable(allocation_hooks_tests
+    tests/core_memory/test_allocation_hooks.cpp
+)
+target_link_libraries(allocation_hooks_tests PRIVATE coreapp gtest_main)
+add_test(NAME allocation_hooks_tests COMMAND allocation_hooks_tests)
+
 # core_attributes warnings (build-only, excluded from ALL)
 add_executable(core_attributes_warnings_tests EXCLUDE_FROM_ALL
     tests/core_base/test_core_attributes_warnings.cpp

@@ -72,5 +72,16 @@ void ClearAllocationHooks() noexcept {
     detail::_hookCount = 0;
 }
 
+void DispatchAllocationHook(
+    AllocationEvent event,
+    const IAllocator* allocator,
+    const AllocationRequest* request,
+    const AllocationInfo* info) noexcept
+{
+    for (u32 i = 0; i < detail::_hookCount; ++i) {
+        detail::_hooks[i].fn(event, allocator, request, info, detail::_hooks[i].user);
+    }
+}
+
 } // namespace core
 
