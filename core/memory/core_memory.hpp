@@ -20,7 +20,7 @@ namespace core {
 #endif
 
 #ifndef CORE_MEMORY_TRACKING
-#define CORE_MEMORY_TRACKING 0
+#define CORE_MEMORY_TRACKING CORE_DEBUG
 #endif
 
 #ifndef CORE_DEFAULT_ALIGNMENT

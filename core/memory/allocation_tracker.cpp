@@ -3,6 +3,8 @@
 
 namespace core {
 
+#if CORE_MEMORY_TRACKING
+
 namespace detail {
 
 struct ListenerEntry {
@@ -167,13 +169,7 @@ void TrackerHookCallback(
     _insideTracker = false;
 }
 
-} // namespace detail
-
-// ----------------------------------------------------------------------------
-// Listener API
-// ----------------------------------------------------------------------------
-
-AllocationListenerHandle RegisterAllocationListener(
+AllocationListenerHandle RegisterAllocationListenerImpl(
     AllocationListenerFn callback,
     void* userData) noexcept
 {
@@ -182,11 +178,11 @@ AllocationListenerHandle RegisterAllocationListener(
     }
     
     // Find free slot
-    for (auto& entry : detail::_listeners) {
+    for (auto& entry : _listeners) {
         if (entry.callback == nullptr) {
             entry.callback = callback;
             entry.userData = userData;
-            entry.handle = detail::_nextHandle++;
+            entry.handle = _nextHandle++;
             return entry.handle;
         }
     }
@@ -194,12 +190,12 @@ AllocationListenerHandle RegisterAllocationListener(
     return kInvalidListenerHandle;
 }
 
-bool UnregisterAllocationListener(AllocationListenerHandle handle) noexcept {
+bool UnregisterAllocationListenerImpl(AllocationListenerHandle handle) noexcept {
     if (handle == kInvalidListenerHandle) {
         return false;
     }
     
-    for (auto& entry : detail::_listeners) {
+    for (auto& entry : _listeners) {
         if (entry.handle == handle) {
             entry.callback = nullptr;
             entry.userData = nullptr;
@@ -211,56 +207,44 @@ bool UnregisterAllocationListener(AllocationListenerHandle handle) noexcept {
     return false;
 }
 
-void ClearAllocationListeners() noexcept {
-    for (auto& entry : detail::_listeners) {
+void ClearAllocationListenersImpl() noexcept {
+    for (auto& entry : _listeners) {
         entry.callback = nullptr;
         entry.userData = nullptr;
         entry.handle = 0;
     }
 }
 
-// ----------------------------------------------------------------------------
-// Tracking control
-// ----------------------------------------------------------------------------
-
-void EnableAllocationTracking() noexcept {
-    detail::_trackingEnabled = true;
+void EnableAllocationTrackingImpl() noexcept {
+    _trackingEnabled = true;
 }
 
-void DisableAllocationTracking() noexcept {
-    detail::_trackingEnabled = false;
+void DisableAllocationTrackingImpl() noexcept {
+    _trackingEnabled = false;
 }
 
-bool IsAllocationTrackingEnabled() noexcept {
-    return detail::_trackingEnabled;
+bool IsAllocationTrackingEnabledImpl() noexcept {
+    return _trackingEnabled;
 }
 
-// ----------------------------------------------------------------------------
-// Global statistics
-// ----------------------------------------------------------------------------
-
-AllocationTrackerStats GetAllocationTrackerStats() noexcept {
+AllocationTrackerStats GetAllocationTrackerStatsImpl() noexcept {
     AllocationTrackerStats stats;
-    stats.current_allocated = detail::_globalStats.currentAllocated;
-    stats.peak_allocated = detail::_globalStats.peakAllocated;
-    stats.total_allocations = detail::_globalStats.totalAllocations;
-    stats.total_deallocations = detail::_globalStats.totalDeallocations;
+    stats.current_allocated = _globalStats.currentAllocated;
+    stats.peak_allocated = _globalStats.peakAllocated;
+    stats.total_allocations = _globalStats.totalAllocations;
+    stats.total_deallocations = _globalStats.totalDeallocations;
     return stats;
 }
 
-void ResetAllocationTrackerStats() noexcept {
-    detail::_globalStats.currentAllocated = 0;
-    detail::_globalStats.peakAllocated = 0;
-    detail::_globalStats.totalAllocations = 0;
-    detail::_globalStats.totalDeallocations = 0;
+void ResetAllocationTrackerStatsImpl() noexcept {
+    _globalStats.currentAllocated = 0;
+    _globalStats.peakAllocated = 0;
+    _globalStats.totalAllocations = 0;
+    _globalStats.totalDeallocations = 0;
 }
 
-// ----------------------------------------------------------------------------
-// Per-tag statistics
-// ----------------------------------------------------------------------------
-
-bool GetTagStats(memory_tag tag, TagStats& outStats) noexcept {
-    detail::TagStatsEntry* entry = detail::FindTagEntry(tag);
+bool GetTagStatsImpl(memory_tag tag, TagStats& outStats) noexcept {
+    TagStatsEntry* entry = FindTagEntry(tag);
     if (!entry) {
         return false;
     }
@@ -273,7 +257,7 @@ bool GetTagStats(memory_tag tag, TagStats& outStats) noexcept {
     return true;
 }
 
-void EnumerateTagStats(
+void EnumerateTagStatsImpl(
     void (*callback)(const TagStats& stats, void* user),
     void* userData) noexcept
 {
@@ -281,7 +265,7 @@ void EnumerateTagStats(
         return;
     }
     
-    for (const auto& entry : detail::_tagStats) {
+    for (const auto& entry : _tagStats) {
         if (entry.tag != 0) {
             TagStats stats;
             stats.tag = entry.tag;
@@ -295,8 +279,8 @@ void EnumerateTagStats(
     }
 }
 
-void ResetTagStats() noexcept {
-    for (auto& entry : detail::_tagStats) {
+void ResetTagStatsImpl() noexcept {
+    for (auto& entry : _tagStats) {
         entry.tag = 0;
         entry.currentAllocated = 0;
         entry.peakAllocated = 0;
@@ -305,25 +289,139 @@ void ResetTagStats() noexcept {
     }
 }
 
+} // namespace detail
+
+#endif // CORE_MEMORY_TRACKING
+
+// ----------------------------------------------------------------------------
+// Listener API
+// ----------------------------------------------------------------------------
+
+AllocationListenerHandle RegisterAllocationListener(
+    AllocationListenerFn callback,
+    void* userData) noexcept
+{
+#if CORE_MEMORY_TRACKING
+    return detail::RegisterAllocationListenerImpl(callback, userData);
+#else
+    CORE_UNUSED(callback);
+    CORE_UNUSED(userData);
+    return kInvalidListenerHandle;
+#endif
+}
+
+bool UnregisterAllocationListener(AllocationListenerHandle handle) noexcept {
+#if CORE_MEMORY_TRACKING
+    return detail::UnregisterAllocationListenerImpl(handle);
+#else
+    CORE_UNUSED(handle);
+    return false;
+#endif
+}
+
+void ClearAllocationListeners() noexcept {
+#if CORE_MEMORY_TRACKING
+    detail::ClearAllocationListenersImpl();
+#endif
+}
+
+// ----------------------------------------------------------------------------
+// Tracking control
+// ----------------------------------------------------------------------------
+
+void EnableAllocationTracking() noexcept {
+#if CORE_MEMORY_TRACKING
+    detail::EnableAllocationTrackingImpl();
+#endif
+}
+
+void DisableAllocationTracking() noexcept {
+#if CORE_MEMORY_TRACKING
+    detail::DisableAllocationTrackingImpl();
+#endif
+}
+
+bool IsAllocationTrackingEnabled() noexcept {
+#if CORE_MEMORY_TRACKING
+    return detail::IsAllocationTrackingEnabledImpl();
+#else
+    return false;
+#endif
+}
+
+// ----------------------------------------------------------------------------
+// Global statistics
+// ----------------------------------------------------------------------------
+
+AllocationTrackerStats GetAllocationTrackerStats() noexcept {
+#if CORE_MEMORY_TRACKING
+    return detail::GetAllocationTrackerStatsImpl();
+#else
+    return {};
+#endif
+}
+
+void ResetAllocationTrackerStats() noexcept {
+#if CORE_MEMORY_TRACKING
+    detail::ResetAllocationTrackerStatsImpl();
+#endif
+}
+
+// ----------------------------------------------------------------------------
+// Per-tag statistics
+// ----------------------------------------------------------------------------
+
+bool GetTagStats(memory_tag tag, TagStats& outStats) noexcept {
+#if CORE_MEMORY_TRACKING
+    return detail::GetTagStatsImpl(tag, outStats);
+#else
+    CORE_UNUSED(tag);
+    CORE_UNUSED(outStats);
+    return false;
+#endif
+}
+
+void EnumerateTagStats(
+    void (*callback)(const TagStats& stats, void* user),
+    void* userData) noexcept
+{
+#if CORE_MEMORY_TRACKING
+    detail::EnumerateTagStatsImpl(callback, userData);
+#else
+    CORE_UNUSED(callback);
+    CORE_UNUSED(userData);
+#endif
+}
+
+void ResetTagStats() noexcept {
+#if CORE_MEMORY_TRACKING
+    detail::ResetTagStatsImpl();
+#endif
+}
+
 // ----------------------------------------------------------------------------
 // Initialization
 // ----------------------------------------------------------------------------
 
 void InitializeAllocationTracker() noexcept {
+#if CORE_MEMORY_TRACKING
     // Register tracker as a hook
     bool registered = AddAllocationHook(detail::TrackerHookCallback, nullptr);
     CORE_MEM_ASSERT(registered && "Failed to register allocation tracker hook");
     
     // Enable tracking by default
     detail::_trackingEnabled = true;
+#endif
 }
 
 void ShutdownAllocationTracker() noexcept {
+#if CORE_MEMORY_TRACKING
     // Disable tracking
     detail::_trackingEnabled = false;
     
     // Unregister hook
     RemoveAllocationHook(detail::TrackerHookCallback);
+#endif
 }
 
 } // namespace core
