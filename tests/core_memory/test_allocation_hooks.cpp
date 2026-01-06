@@ -52,6 +52,18 @@ void TestHookCallback(
     }
 }
 
+// Second hook callback for testing multiple hooks
+void SecondHookCallback(
+    core::AllocationEvent event,
+    const core::IAllocator* allocator,
+    const core::AllocationRequest* request,
+    const core::AllocationInfo* info,
+    void* user) noexcept
+{
+    // Just forward to the same implementation
+    TestHookCallback(event, allocator, request, info, user);
+}
+
 TEST(AllocationHooks, RegisterAndUnregister) {
     EXPECT_FALSE(core::HasAllocationHooks());
     
@@ -139,18 +151,12 @@ TEST(AllocationHooks, MultipleHooks) {
     HookTestData data1;
     HookTestData data2;
     
-    core::AddAllocationHook(TestHookCallback, &data1);
+    // Register two different callbacks with different user data
+    bool registered1 = core::AddAllocationHook(TestHookCallback, &data1);
+    ASSERT_TRUE(registered1);
     
-    // Create a lambda wrapper for second hook
-    auto secondHook = [](core::AllocationEvent event,
-                        const core::IAllocator* allocator,
-                        const core::AllocationRequest* request,
-                        const core::AllocationInfo* info,
-                        void* user) noexcept {
-        TestHookCallback(event, allocator, request, info, user);
-    };
-    
-    core::AddAllocationHook(secondHook, &data2);
+    bool registered2 = core::AddAllocationHook(SecondHookCallback, &data2);
+    ASSERT_TRUE(registered2);
     
     core::MallocAllocator allocator;
     void* ptr = core::AllocateBytes(allocator, 64);
@@ -159,10 +165,19 @@ TEST(AllocationHooks, MultipleHooks) {
     // Both hooks should have been called
     EXPECT_EQ(data1.allocateBeginCount, 1);
     EXPECT_EQ(data1.allocateEndCount, 1);
+    EXPECT_EQ(data1.lastPtr, ptr);
+    
     EXPECT_EQ(data2.allocateBeginCount, 1);
     EXPECT_EQ(data2.allocateEndCount, 1);
+    EXPECT_EQ(data2.lastPtr, ptr);
     
     core::DeallocateBytes(allocator, ptr, 64);
+    
+    EXPECT_EQ(data1.deallocateBeginCount, 1);
+    EXPECT_EQ(data1.deallocateEndCount, 1);
+    
+    EXPECT_EQ(data2.deallocateBeginCount, 1);
+    EXPECT_EQ(data2.deallocateEndCount, 1);
     
     core::ClearAllocationHooks();
 }
