@@ -53,6 +53,7 @@ void TestHookCallback(
 }
 
 // Second hook callback for testing multiple hooks
+// Note: Must be different implementation to prevent compiler from aliasing
 void SecondHookCallback(
     core::AllocationEvent event,
     const core::IAllocator* allocator,
@@ -60,8 +61,38 @@ void SecondHookCallback(
     const core::AllocationInfo* info,
     void* user) noexcept
 {
-    // Just forward to the same implementation
-    TestHookCallback(event, allocator, request, info, user);
+    CORE_UNUSED(allocator);
+    
+    auto* data = static_cast<HookTestData*>(user);
+    
+    // Same logic as TestHookCallback but with unique implementation
+    // to ensure different function pointer address
+    switch (event) {
+        case core::AllocationEvent::AllocateBegin:
+            data->allocateBeginCount++;
+            data->lastSize = request ? request->size : 0;
+            break;
+            
+        case core::AllocationEvent::AllocateEnd:
+            data->allocateEndCount++;
+            if (info) {
+                data->lastPtr = info->ptr;
+                data->lastSize = info->size;
+            }
+            break;
+            
+        case core::AllocationEvent::DeallocateBegin:
+            data->deallocateBeginCount++;
+            if (info) {
+                data->lastPtr = info->ptr;
+                data->lastSize = info->size;
+            }
+            break;
+            
+        case core::AllocationEvent::DeallocateEnd:
+            data->deallocateEndCount++;
+            break;
+    }
 }
 
 TEST(AllocationHooks, RegisterAndUnregister) {
