@@ -18,6 +18,10 @@ namespace core {
 #define CORE_ALLOCATION_TRACKER_MAX_LISTENERS 8
 #endif
 
+#ifndef CORE_ALLOCATION_TRACKER_MAX_TAGS
+#define CORE_ALLOCATION_TRACKER_MAX_TAGS 64
+#endif
+
 // ----------------------------------------------------------------------------
 // Listener API
 // ----------------------------------------------------------------------------
@@ -45,6 +49,41 @@ bool UnregisterAllocationListener(AllocationListenerHandle handle) noexcept;
 
 // Clear all listeners
 void ClearAllocationListeners() noexcept;
+
+// ----------------------------------------------------------------------------
+// Global statistics
+// ----------------------------------------------------------------------------
+
+struct AllocationTrackerStats {
+    memory_size current_allocated;
+    memory_size peak_allocated;
+    memory_size total_allocations;
+    memory_size total_deallocations;
+};
+
+AllocationTrackerStats GetAllocationTrackerStats() noexcept;
+void ResetAllocationTrackerStats() noexcept;
+
+// ----------------------------------------------------------------------------
+// Per-tag statistics
+// ----------------------------------------------------------------------------
+
+struct TagStats {
+    memory_tag tag;
+    memory_size current_allocated;
+    memory_size peak_allocated;
+    memory_size alloc_count;
+    memory_size dealloc_count;
+};
+
+bool GetTagStats(memory_tag tag, TagStats& outStats) noexcept;
+
+void EnumerateTagStats(
+    void (*callback)(const TagStats& stats, void* user),
+    void* userData = nullptr
+) noexcept;
+
+void ResetTagStats() noexcept;
 
 } // namespace core
 
