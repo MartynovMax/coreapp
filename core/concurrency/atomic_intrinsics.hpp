@@ -9,9 +9,9 @@
 //   - GCC/Clang: __atomic_* builtins
 // =============================================================================
 
-#include "core/base/core_platform.hpp"
-#include "core/base/core_features.hpp"
-#include "core/base/core_types.hpp"
+#include "../base/core_platform.hpp"
+#include "../base/core_features.hpp"
+#include "../base/core_types.hpp"
 #include "memory_order.hpp"
 
 #if !CORE_HAS_ATOMICS
@@ -70,6 +70,50 @@ constexpr int to_gcc_memory_order(memory_order order) noexcept {
 }
 
 #endif  // GCC/Clang
+
+// -----------------------------------------------------------------------------
+// 32-bit atomic operations
+// -----------------------------------------------------------------------------
+
+/// Atomically load a 32-bit unsigned value.
+inline u32 atomic_load_u32(const volatile u32* ptr, memory_order order) noexcept {
+#if CORE_COMPILER_MSVC
+    u32 value = *ptr;
+    switch (order) {
+    case memory_order::relaxed:
+        return value;
+    case memory_order::acquire:
+    case memory_order::seq_cst:
+        _ReadWriteBarrier();
+        return value;
+    default:
+        return value;
+    }
+#else
+    return __atomic_load_n(ptr, to_gcc_memory_order(order));
+#endif
+}
+
+/// Atomically store a 32-bit unsigned value.
+inline void atomic_store_u32(volatile u32* ptr, u32 value, memory_order order) noexcept {
+#if CORE_COMPILER_MSVC
+    switch (order) {
+    case memory_order::relaxed:
+        *ptr = value;
+        break;
+    case memory_order::release:
+    case memory_order::seq_cst:
+        _ReadWriteBarrier();
+        *ptr = value;
+        break;
+    default:
+        *ptr = value;
+        break;
+    }
+#else
+    __atomic_store_n(ptr, value, to_gcc_memory_order(order));
+#endif
+}
 
 } // namespace detail
 } // namespace core

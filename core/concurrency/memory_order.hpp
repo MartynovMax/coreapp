@@ -8,7 +8,7 @@
 // guarantees for atomic operations.
 // =============================================================================
 
-#include "core/base/core_types.hpp"
+#include "../base/core_types.hpp"
 
 namespace core {
 
