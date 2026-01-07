@@ -338,6 +338,119 @@ inline u64 atomic_fetch_sub_u64(volatile u64* ptr, u64 value, memory_order order
 
 #endif  // CORE_HAS_64BIT_ATOMICS
 
+// -----------------------------------------------------------------------------
+// Pointer atomic operations
+// -----------------------------------------------------------------------------
+
+/// Atomically load a pointer value.
+inline void* atomic_load_ptr(void* const volatile* ptr, memory_order order) noexcept {
+#if CORE_COMPILER_MSVC
+    void* value = *ptr;
+    switch (order) {
+    case memory_order::relaxed:
+        return value;
+    case memory_order::acquire:
+    case memory_order::seq_cst:
+        _ReadWriteBarrier();
+        return value;
+    default:
+        return value;
+    }
+#else
+    return __atomic_load_n(ptr, to_gcc_memory_order(order));
+#endif
+}
+
+/// Atomically store a pointer value.
+inline void atomic_store_ptr(void* volatile* ptr, void* value, memory_order order) noexcept {
+#if CORE_COMPILER_MSVC
+    switch (order) {
+    case memory_order::relaxed:
+        *ptr = value;
+        break;
+    case memory_order::release:
+    case memory_order::seq_cst:
+        _ReadWriteBarrier();
+        *ptr = value;
+        break;
+    default:
+        *ptr = value;
+        break;
+    }
+#else
+    __atomic_store_n(ptr, value, to_gcc_memory_order(order));
+#endif
+}
+
+/// Atomically exchange a pointer value and return the old pointer.
+inline void* atomic_exchange_ptr(void* volatile* ptr, void* value, memory_order order) noexcept {
+#if CORE_COMPILER_MSVC
+    (void)order;
+#if CORE_64BIT
+    return _InterlockedExchangePointer(ptr, value);
+#else
+    return reinterpret_cast<void*>(_InterlockedExchange(
+        reinterpret_cast<volatile long*>(ptr),
+        reinterpret_cast<long>(value)
+    ));
+#endif
+#else
+    return __atomic_exchange_n(ptr, value, to_gcc_memory_order(order));
+#endif
+}
+
+/// Atomically compare and exchange a pointer value (strong version).
+inline bool atomic_compare_exchange_strong_ptr(
+    void* volatile* ptr,
+    void** expected,
+    void* desired,
+    memory_order success,
+    memory_order failure) noexcept {
+#if CORE_COMPILER_MSVC
+    (void)success; (void)failure;
+#if CORE_64BIT
+    void* old = _InterlockedCompareExchangePointer(ptr, desired, *expected);
+#else
+    void* old = reinterpret_cast<void*>(_InterlockedCompareExchange(
+        reinterpret_cast<volatile long*>(ptr),
+        reinterpret_cast<long>(desired),
+        reinterpret_cast<long>(*expected)
+    ));
+#endif
+    if (old == *expected) {
+        return true;
+    }
+    *expected = old;
+    return false;
+#else
+    return __atomic_compare_exchange_n(
+        ptr, expected, desired,
+        false,
+        to_gcc_memory_order(success),
+        to_gcc_memory_order(failure)
+    );
+#endif
+}
+
+/// Atomically compare and exchange a pointer value (weak version).
+inline bool atomic_compare_exchange_weak_ptr(
+    void* volatile* ptr,
+    void** expected,
+    void* desired,
+    memory_order success,
+    memory_order failure) noexcept {
+#if CORE_COMPILER_MSVC
+    return atomic_compare_exchange_strong_ptr(ptr, expected, desired, success, failure);
+#else
+    return __atomic_compare_exchange_n(
+        ptr, expected, desired,
+        true,
+        to_gcc_memory_order(success),
+        to_gcc_memory_order(failure)
+    );
+#endif
+}
+
 } // namespace detail
 } // namespace core
 
