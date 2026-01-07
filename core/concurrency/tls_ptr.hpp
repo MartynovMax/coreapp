@@ -90,5 +90,16 @@ thread_local T tls_value<T>::s_value = T{};
 T tls_value<T>::s_value = T{};
 #endif
 
+// Method implementations
+template<typename T>
+T tls_value<T>::get() noexcept {
+    return s_value;
+}
+
+template<typename T>
+void tls_value<T>::set(T value) noexcept {
+    s_value = value;
+}
+
 } // namespace core
 
