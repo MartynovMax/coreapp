@@ -115,6 +115,19 @@ inline void atomic_store_u32(volatile u32* ptr, u32 value, memory_order order) n
 #endif
 }
 
+/// Atomically exchange a 32-bit unsigned value and return the old value.
+inline u32 atomic_exchange_u32(volatile u32* ptr, u32 value, memory_order order) noexcept {
+#if CORE_COMPILER_MSVC
+    (void)order;  // MSVC InterlockedExchange is always seq_cst
+    return static_cast<u32>(_InterlockedExchange(
+        reinterpret_cast<volatile long*>(ptr),
+        static_cast<long>(value)
+    ));
+#else
+    return __atomic_exchange_n(ptr, value, to_gcc_memory_order(order));
+#endif
+}
+
 } // namespace detail
 } // namespace core
 
