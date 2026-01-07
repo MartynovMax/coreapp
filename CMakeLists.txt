@@ -251,3 +251,38 @@ else()
         -Wno-error=unused-result
     )
 endif()
+
+# atomic_u32 tests
+add_executable(atomic_u32_tests
+    tests/core_concurrency/test_atomic_u32.cpp
+)
+target_link_libraries(atomic_u32_tests PRIVATE coreapp gtest_main)
+add_test(NAME atomic_u32_tests COMMAND atomic_u32_tests)
+
+# atomic_u64 tests
+add_executable(atomic_u64_tests
+    tests/core_concurrency/test_atomic_u64.cpp
+)
+target_link_libraries(atomic_u64_tests PRIVATE coreapp gtest_main)
+add_test(NAME atomic_u64_tests COMMAND atomic_u64_tests)
+
+# atomic_uintptr tests
+add_executable(atomic_uintptr_tests
+    tests/core_concurrency/test_atomic_uintptr.cpp
+)
+target_link_libraries(atomic_uintptr_tests PRIVATE coreapp gtest_main)
+add_test(NAME atomic_uintptr_tests COMMAND atomic_uintptr_tests)
+
+# atomic_ptr tests
+add_executable(atomic_ptr_tests
+    tests/core_concurrency/test_atomic_ptr.cpp
+)
+target_link_libraries(atomic_ptr_tests PRIVATE coreapp gtest_main)
+add_test(NAME atomic_ptr_tests COMMAND atomic_ptr_tests)
+
+# atomic_fence tests
+add_executable(atomic_fence_tests
+    tests/core_concurrency/test_atomic_fence.cpp
+)
+target_link_libraries(atomic_fence_tests PRIVATE coreapp gtest_main)
+add_test(NAME atomic_fence_tests COMMAND atomic_fence_tests)
