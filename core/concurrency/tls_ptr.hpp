@@ -46,5 +46,16 @@ thread_local T* tls_ptr<T>::s_value = nullptr;
 T* tls_ptr<T>::s_value = nullptr;
 #endif
 
+// Method implementations
+template<typename T>
+T* tls_ptr<T>::get() noexcept {
+    return s_value;
+}
+
+template<typename T>
+void tls_ptr<T>::set(T* ptr) noexcept {
+    s_value = ptr;
+}
+
 } // namespace core
 
