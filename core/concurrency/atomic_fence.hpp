@@ -48,5 +48,14 @@ inline void thread_fence(memory_order order) noexcept {
 
 #endif  // CORE_COMPILER_MSVC
 
+#if CORE_COMPILER_GCC || CORE_COMPILER_CLANG
+
+/// Establishes memory synchronization ordering between threads.
+inline void thread_fence(memory_order order) noexcept {
+    __atomic_thread_fence(to_gcc_memory_order(order));
+}
+
+#endif  // GCC/Clang
+
 } // namespace core
 
