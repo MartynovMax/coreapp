@@ -5,8 +5,12 @@
 // Platform-specific atomic intrinsics wrapper.
 //
 // Provides unified interface to compiler-specific atomic operations:
-//   - MSVC: _Interlocked* family
-//   - GCC/Clang: __atomic_* builtins
+//   - MSVC: _Interlocked* family (all operations are effectively seq_cst)
+//   - GCC/Clang: __atomic_* builtins (supports all memory orders)
+//
+// Note: On MSVC, the memory_order parameter is accepted for API compatibility
+// but all atomic operations behave as seq_cst for correctness and portability.
+// This ensures proper synchronization on all architectures including ARM.
 // =============================================================================
 
 #include "../base/core_platform.hpp"
@@ -52,57 +56,51 @@ static_assert(CORE_HAS_64BIT_ATOMICS,
 #endif
 
 // -----------------------------------------------------------------------------
+// Storage types for atomic operations
+// -----------------------------------------------------------------------------
+
+// On MSVC, we use native interlocked types to avoid aliasing issues.
+// On GCC/Clang, we use our standard unsigned types.
+#if CORE_COMPILER_MSVC
+using atomic_u32_storage_t = long;
+using atomic_u64_storage_t = long long;
+#else
+using atomic_u32_storage_t = u32;
+using atomic_u64_storage_t = u64;
+#endif
+
+static_assert(sizeof(atomic_u32_storage_t) == 4, "atomic_u32_storage_t must be 4 bytes");
+static_assert(sizeof(atomic_u64_storage_t) == 8, "atomic_u64_storage_t must be 8 bytes");
+
+// -----------------------------------------------------------------------------
 // 32-bit atomic operations
 // -----------------------------------------------------------------------------
 
 /// Atomically load a 32-bit unsigned value.
-inline u32 atomic_load_u32(const volatile u32* ptr, memory_order order) noexcept {
+inline u32 atomic_load_u32(const volatile atomic_u32_storage_t* ptr, memory_order order) noexcept {
 #if CORE_COMPILER_MSVC
-    u32 value = *ptr;
-    switch (order) {
-    case memory_order::relaxed:
-        return value;
-    case memory_order::acquire:
-    case memory_order::seq_cst:
-        _ReadWriteBarrier();
-        return value;
-    default:
-        return value;
-    }
+    (void)order;
+    return static_cast<u32>(_InterlockedOr(const_cast<volatile long*>(ptr), 0));
 #else
     return __atomic_load_n(ptr, to_gcc_memory_order(order));
 #endif
 }
 
 /// Atomically store a 32-bit unsigned value.
-inline void atomic_store_u32(volatile u32* ptr, u32 value, memory_order order) noexcept {
+inline void atomic_store_u32(volatile atomic_u32_storage_t* ptr, u32 value, memory_order order) noexcept {
 #if CORE_COMPILER_MSVC
-    switch (order) {
-    case memory_order::relaxed:
-        *ptr = value;
-        break;
-    case memory_order::release:
-    case memory_order::seq_cst:
-        _ReadWriteBarrier();
-        *ptr = value;
-        break;
-    default:
-        *ptr = value;
-        break;
-    }
+    (void)order;
+    _InterlockedExchange(ptr, static_cast<long>(value));
 #else
     __atomic_store_n(ptr, value, to_gcc_memory_order(order));
 #endif
 }
 
 /// Atomically exchange a 32-bit unsigned value and return the old value.
-inline u32 atomic_exchange_u32(volatile u32* ptr, u32 value, memory_order order) noexcept {
+inline u32 atomic_exchange_u32(volatile atomic_u32_storage_t* ptr, u32 value, memory_order order) noexcept {
 #if CORE_COMPILER_MSVC
-    (void)order;  // MSVC InterlockedExchange is always seq_cst
-    return static_cast<u32>(_InterlockedExchange(
-        reinterpret_cast<volatile long*>(ptr),
-        static_cast<long>(value)
-    ));
+    (void)order;
+    return static_cast<u32>(_InterlockedExchange(ptr, static_cast<long>(value)));
 #else
     return __atomic_exchange_n(ptr, value, to_gcc_memory_order(order));
 #endif
@@ -110,7 +108,7 @@ inline u32 atomic_exchange_u32(volatile u32* ptr, u32 value, memory_order order)
 
 /// Atomically compare and exchange a 32-bit unsigned value (strong version).
 inline bool atomic_compare_exchange_strong_u32(
-    volatile u32* ptr,
+    volatile atomic_u32_storage_t* ptr,
     u32* expected,
     u32 desired,
     memory_order success,
@@ -118,7 +116,7 @@ inline bool atomic_compare_exchange_strong_u32(
 #if CORE_COMPILER_MSVC
     (void)success; (void)failure;
     u32 old = static_cast<u32>(_InterlockedCompareExchange(
-        reinterpret_cast<volatile long*>(ptr),
+        ptr,
         static_cast<long>(desired),
         static_cast<long>(*expected)
     ));
@@ -130,7 +128,7 @@ inline bool atomic_compare_exchange_strong_u32(
 #else
     return __atomic_compare_exchange_n(
         ptr, expected, desired,
-        false,  // strong
+        false,
         to_gcc_memory_order(success),
         to_gcc_memory_order(failure)
     );
@@ -139,7 +137,7 @@ inline bool atomic_compare_exchange_strong_u32(
 
 /// Atomically compare and exchange a 32-bit unsigned value (weak version).
 inline bool atomic_compare_exchange_weak_u32(
-    volatile u32* ptr,
+    volatile atomic_u32_storage_t* ptr,
     u32* expected,
     u32 desired,
     memory_order success,
@@ -158,26 +156,20 @@ inline bool atomic_compare_exchange_weak_u32(
 }
 
 /// Atomically add a value to a 32-bit unsigned integer and return the old value.
-inline u32 atomic_fetch_add_u32(volatile u32* ptr, u32 value, memory_order order) noexcept {
+inline u32 atomic_fetch_add_u32(volatile atomic_u32_storage_t* ptr, u32 value, memory_order order) noexcept {
 #if CORE_COMPILER_MSVC
     (void)order;
-    return static_cast<u32>(_InterlockedExchangeAdd(
-        reinterpret_cast<volatile long*>(ptr),
-        static_cast<long>(value)
-    ));
+    return static_cast<u32>(_InterlockedExchangeAdd(ptr, static_cast<long>(value)));
 #else
     return __atomic_fetch_add(ptr, value, to_gcc_memory_order(order));
 #endif
 }
 
 /// Atomically subtract a value from a 32-bit unsigned integer and return the old value.
-inline u32 atomic_fetch_sub_u32(volatile u32* ptr, u32 value, memory_order order) noexcept {
+inline u32 atomic_fetch_sub_u32(volatile atomic_u32_storage_t* ptr, u32 value, memory_order order) noexcept {
 #if CORE_COMPILER_MSVC
     (void)order;
-    return static_cast<u32>(_InterlockedExchangeAdd(
-        reinterpret_cast<volatile long*>(ptr),
-        -static_cast<long>(value)
-    ));
+    return static_cast<u32>(_InterlockedExchangeAdd(ptr, -static_cast<long>(value)));
 #else
     return __atomic_fetch_sub(ptr, value, to_gcc_memory_order(order));
 #endif
@@ -190,53 +182,30 @@ inline u32 atomic_fetch_sub_u32(volatile u32* ptr, u32 value, memory_order order
 #if CORE_HAS_64BIT_ATOMICS
 
 /// Atomically load a 64-bit unsigned value.
-inline u64 atomic_load_u64(const volatile u64* ptr, memory_order order) noexcept {
+inline u64 atomic_load_u64(const volatile atomic_u64_storage_t* ptr, memory_order order) noexcept {
 #if CORE_COMPILER_MSVC
-    u64 value = *ptr;
-    switch (order) {
-    case memory_order::relaxed:
-        return value;
-    case memory_order::acquire:
-    case memory_order::seq_cst:
-        _ReadWriteBarrier();
-        return value;
-    default:
-        return value;
-    }
+    (void)order;
+    return static_cast<u64>(_InterlockedOr64(const_cast<volatile long long*>(ptr), 0));
 #else
     return __atomic_load_n(ptr, to_gcc_memory_order(order));
 #endif
 }
 
 /// Atomically store a 64-bit unsigned value.
-inline void atomic_store_u64(volatile u64* ptr, u64 value, memory_order order) noexcept {
+inline void atomic_store_u64(volatile atomic_u64_storage_t* ptr, u64 value, memory_order order) noexcept {
 #if CORE_COMPILER_MSVC
-    switch (order) {
-    case memory_order::relaxed:
-        *ptr = value;
-        break;
-    case memory_order::release:
-    case memory_order::seq_cst:
-        _ReadWriteBarrier();
-        *ptr = value;
-        break;
-    default:
-        *ptr = value;
-        break;
-    }
+    (void)order;
+    _InterlockedExchange64(ptr, static_cast<long long>(value));
 #else
     __atomic_store_n(ptr, value, to_gcc_memory_order(order));
 #endif
 }
 
 /// Atomically exchange a 64-bit unsigned value and return the old value.
-inline u64 atomic_exchange_u64(volatile u64* ptr, u64 value, memory_order order) noexcept {
+inline u64 atomic_exchange_u64(volatile atomic_u64_storage_t* ptr, u64 value, memory_order order) noexcept {
 #if CORE_COMPILER_MSVC
     (void)order;
-    return static_cast<u64>(_InterlockedExchange64(
-        reinterpret_cast<volatile long long*>(ptr),
-        static_cast<long long>(value)
-    ));
+    return static_cast<u64>(_InterlockedExchange64(ptr, static_cast<long long>(value)));
 #else
     return __atomic_exchange_n(ptr, value, to_gcc_memory_order(order));
 #endif
@@ -244,7 +213,7 @@ inline u64 atomic_exchange_u64(volatile u64* ptr, u64 value, memory_order order)
 
 /// Atomically compare and exchange a 64-bit unsigned value (strong version).
 inline bool atomic_compare_exchange_strong_u64(
-    volatile u64* ptr,
+    volatile atomic_u64_storage_t* ptr,
     u64* expected,
     u64 desired,
     memory_order success,
@@ -252,7 +221,7 @@ inline bool atomic_compare_exchange_strong_u64(
 #if CORE_COMPILER_MSVC
     (void)success; (void)failure;
     u64 old = static_cast<u64>(_InterlockedCompareExchange64(
-        reinterpret_cast<volatile long long*>(ptr),
+        ptr,
         static_cast<long long>(desired),
         static_cast<long long>(*expected)
     ));
@@ -273,7 +242,7 @@ inline bool atomic_compare_exchange_strong_u64(
 
 /// Atomically compare and exchange a 64-bit unsigned value (weak version).
 inline bool atomic_compare_exchange_weak_u64(
-    volatile u64* ptr,
+    volatile atomic_u64_storage_t* ptr,
     u64* expected,
     u64 desired,
     memory_order success,
@@ -291,145 +260,26 @@ inline bool atomic_compare_exchange_weak_u64(
 }
 
 /// Atomically add a value to a 64-bit unsigned integer and return the old value.
-inline u64 atomic_fetch_add_u64(volatile u64* ptr, u64 value, memory_order order) noexcept {
+inline u64 atomic_fetch_add_u64(volatile atomic_u64_storage_t* ptr, u64 value, memory_order order) noexcept {
 #if CORE_COMPILER_MSVC
     (void)order;
-    return static_cast<u64>(_InterlockedExchangeAdd64(
-        reinterpret_cast<volatile long long*>(ptr),
-        static_cast<long long>(value)
-    ));
+    return static_cast<u64>(_InterlockedExchangeAdd64(ptr, static_cast<long long>(value)));
 #else
     return __atomic_fetch_add(ptr, value, to_gcc_memory_order(order));
 #endif
 }
 
 /// Atomically subtract a value from a 64-bit unsigned integer and return the old value.
-inline u64 atomic_fetch_sub_u64(volatile u64* ptr, u64 value, memory_order order) noexcept {
+inline u64 atomic_fetch_sub_u64(volatile atomic_u64_storage_t* ptr, u64 value, memory_order order) noexcept {
 #if CORE_COMPILER_MSVC
     (void)order;
-    return static_cast<u64>(_InterlockedExchangeAdd64(
-        reinterpret_cast<volatile long long*>(ptr),
-        -static_cast<long long>(value)
-    ));
+    return static_cast<u64>(_InterlockedExchangeAdd64(ptr, -static_cast<long long>(value)));
 #else
     return __atomic_fetch_sub(ptr, value, to_gcc_memory_order(order));
 #endif
 }
 
 #endif  // CORE_HAS_64BIT_ATOMICS
-
-// -----------------------------------------------------------------------------
-// Pointer atomic operations
-// -----------------------------------------------------------------------------
-
-/// Atomically load a pointer value.
-inline void* atomic_load_ptr(void* const volatile* ptr, memory_order order) noexcept {
-#if CORE_COMPILER_MSVC
-    void* value = *ptr;
-    switch (order) {
-    case memory_order::relaxed:
-        return value;
-    case memory_order::acquire:
-    case memory_order::seq_cst:
-        _ReadWriteBarrier();
-        return value;
-    default:
-        return value;
-    }
-#else
-    return __atomic_load_n(ptr, to_gcc_memory_order(order));
-#endif
-}
-
-/// Atomically store a pointer value.
-inline void atomic_store_ptr(void* volatile* ptr, void* value, memory_order order) noexcept {
-#if CORE_COMPILER_MSVC
-    switch (order) {
-    case memory_order::relaxed:
-        *ptr = value;
-        break;
-    case memory_order::release:
-    case memory_order::seq_cst:
-        _ReadWriteBarrier();
-        *ptr = value;
-        break;
-    default:
-        *ptr = value;
-        break;
-    }
-#else
-    __atomic_store_n(ptr, value, to_gcc_memory_order(order));
-#endif
-}
-
-/// Atomically exchange a pointer value and return the old pointer.
-inline void* atomic_exchange_ptr(void* volatile* ptr, void* value, memory_order order) noexcept {
-#if CORE_COMPILER_MSVC
-    (void)order;
-#if CORE_64BIT
-    return _InterlockedExchangePointer(ptr, value);
-#else
-    return reinterpret_cast<void*>(_InterlockedExchange(
-        reinterpret_cast<volatile long*>(ptr),
-        reinterpret_cast<long>(value)
-    ));
-#endif
-#else
-    return __atomic_exchange_n(ptr, value, to_gcc_memory_order(order));
-#endif
-}
-
-/// Atomically compare and exchange a pointer value (strong version).
-inline bool atomic_compare_exchange_strong_ptr(
-    void* volatile* ptr,
-    void** expected,
-    void* desired,
-    memory_order success,
-    memory_order failure) noexcept {
-#if CORE_COMPILER_MSVC
-    (void)success; (void)failure;
-#if CORE_64BIT
-    void* old = _InterlockedCompareExchangePointer(ptr, desired, *expected);
-#else
-    void* old = reinterpret_cast<void*>(_InterlockedCompareExchange(
-        reinterpret_cast<volatile long*>(ptr),
-        reinterpret_cast<long>(desired),
-        reinterpret_cast<long>(*expected)
-    ));
-#endif
-    if (old == *expected) {
-        return true;
-    }
-    *expected = old;
-    return false;
-#else
-    return __atomic_compare_exchange_n(
-        ptr, expected, desired,
-        false,
-        to_gcc_memory_order(success),
-        to_gcc_memory_order(failure)
-    );
-#endif
-}
-
-/// Atomically compare and exchange a pointer value (weak version).
-inline bool atomic_compare_exchange_weak_ptr(
-    void* volatile* ptr,
-    void** expected,
-    void* desired,
-    memory_order success,
-    memory_order failure) noexcept {
-#if CORE_COMPILER_MSVC
-    return atomic_compare_exchange_strong_ptr(ptr, expected, desired, success, failure);
-#else
-    return __atomic_compare_exchange_n(
-        ptr, expected, desired,
-        true,
-        to_gcc_memory_order(success),
-        to_gcc_memory_order(failure)
-    );
-#endif
-}
 
 } // namespace detail
 } // namespace core

@@ -23,7 +23,7 @@ class atomic_u64 {
 public:
     atomic_u64() noexcept = default;
     
-    explicit atomic_u64(u64 value) noexcept : m_value(value) {}
+    explicit atomic_u64(u64 value) noexcept : m_value(static_cast<decltype(m_value)>(value)) {}
 
     atomic_u64(const atomic_u64&) = delete;
     atomic_u64& operator=(const atomic_u64&) = delete;
@@ -83,7 +83,7 @@ public:
     }
 
 private:
-    alignas(8) volatile u64 m_value;
+    alignas(8) volatile detail::atomic_u64_storage_t m_value;
 };
 
 static_assert(sizeof(atomic_u64) == sizeof(u64), "atomic_u64 must not have overhead");

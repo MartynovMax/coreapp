@@ -38,19 +38,14 @@ namespace core {
 inline void thread_fence(memory_order order) noexcept {
     switch (order) {
     case memory_order::relaxed:
-        // No fence needed for relaxed
         break;
     case memory_order::acquire:
     case memory_order::release:
     case memory_order::acq_rel:
     case memory_order::seq_cst:
-        // Compiler barrier to prevent reordering
         _ReadWriteBarrier();
-        
-        // Hardware memory barrier using a dummy interlocked operation
-        // This ensures visibility across CPU cores
         {
-            static volatile long dummy = 0;
+            volatile long dummy = 0;
             _InterlockedOr(&dummy, 0);
         }
         break;
@@ -64,6 +59,40 @@ inline void thread_fence(memory_order order) noexcept {
 /// Establishes memory synchronization ordering between threads.
 inline void thread_fence(memory_order order) noexcept {
     __atomic_thread_fence(to_gcc_memory_order(order));
+}
+
+#endif  // GCC/Clang
+
+// -----------------------------------------------------------------------------
+// signal_fence: Compiler-only barrier (no CPU fence)
+//
+// Prevents compiler reordering but does not emit hardware fence instructions.
+// Used for signal handlers and single-threaded scenarios with external memory.
+// -----------------------------------------------------------------------------
+
+#if CORE_COMPILER_MSVC
+
+/// Compiler-only memory ordering barrier.
+inline void signal_fence(memory_order order) noexcept {
+    switch (order) {
+    case memory_order::relaxed:
+        break;
+    case memory_order::acquire:
+    case memory_order::release:
+    case memory_order::acq_rel:
+    case memory_order::seq_cst:
+        _ReadWriteBarrier();
+        break;
+    }
+}
+
+#endif  // CORE_COMPILER_MSVC
+
+#if CORE_COMPILER_GCC || CORE_COMPILER_CLANG
+
+/// Compiler-only memory ordering barrier.
+inline void signal_fence(memory_order order) noexcept {
+    __atomic_signal_fence(to_gcc_memory_order(order));
 }
 
 #endif  // GCC/Clang

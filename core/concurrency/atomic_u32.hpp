@@ -17,7 +17,7 @@ class atomic_u32 {
 public:
     atomic_u32() noexcept = default;
     
-    explicit atomic_u32(u32 value) noexcept : m_value(value) {}
+    explicit atomic_u32(u32 value) noexcept : m_value(static_cast<decltype(m_value)>(value)) {}
 
     atomic_u32(const atomic_u32&) = delete;
     atomic_u32& operator=(const atomic_u32&) = delete;
@@ -77,7 +77,7 @@ public:
     }
 
 private:
-    alignas(4) volatile u32 m_value;
+    alignas(4) volatile detail::atomic_u32_storage_t m_value;
 };
 
 static_assert(sizeof(atomic_u32) == sizeof(u32), "atomic_u32 must not have overhead");
