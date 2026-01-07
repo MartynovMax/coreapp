@@ -82,5 +82,13 @@ private:
 #endif
 };
 
+// Static member definition with zero-initialization
+template<typename T>
+#if CORE_HAS_THREADS && CORE_HAS_THREAD_LOCAL
+thread_local T tls_value<T>::s_value = T{};
+#else
+T tls_value<T>::s_value = T{};
+#endif
+
 } // namespace core
 
