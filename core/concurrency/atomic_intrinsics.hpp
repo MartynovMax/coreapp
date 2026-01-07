@@ -128,6 +128,55 @@ inline u32 atomic_exchange_u32(volatile u32* ptr, u32 value, memory_order order)
 #endif
 }
 
+/// Atomically compare and exchange a 32-bit unsigned value (strong version).
+inline bool atomic_compare_exchange_strong_u32(
+    volatile u32* ptr,
+    u32* expected,
+    u32 desired,
+    memory_order success,
+    memory_order failure) noexcept {
+#if CORE_COMPILER_MSVC
+    (void)success; (void)failure;
+    u32 old = static_cast<u32>(_InterlockedCompareExchange(
+        reinterpret_cast<volatile long*>(ptr),
+        static_cast<long>(desired),
+        static_cast<long>(*expected)
+    ));
+    if (old == *expected) {
+        return true;
+    }
+    *expected = old;
+    return false;
+#else
+    return __atomic_compare_exchange_n(
+        ptr, expected, desired,
+        false,  // strong
+        to_gcc_memory_order(success),
+        to_gcc_memory_order(failure)
+    );
+#endif
+}
+
+/// Atomically compare and exchange a 32-bit unsigned value (weak version).
+inline bool atomic_compare_exchange_weak_u32(
+    volatile u32* ptr,
+    u32* expected,
+    u32 desired,
+    memory_order success,
+    memory_order failure) noexcept {
+#if CORE_COMPILER_MSVC
+    // MSVC doesn't have weak CAS, use strong
+    return atomic_compare_exchange_strong_u32(ptr, expected, desired, success, failure);
+#else
+    return __atomic_compare_exchange_n(
+        ptr, expected, desired,
+        true,  // weak
+        to_gcc_memory_order(success),
+        to_gcc_memory_order(failure)
+    );
+#endif
+}
+
 } // namespace detail
 } // namespace core
 
