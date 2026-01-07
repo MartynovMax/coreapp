@@ -57,5 +57,30 @@ void tls_ptr<T>::set(T* ptr) noexcept {
     s_value = ptr;
 }
 
+// =============================================================================
+// tls_value<T> - Thread-local scalar storage
+// =============================================================================
+
+template<typename T>
+class tls_value {
+public:
+    tls_value() = delete;
+    tls_value(const tls_value&) = delete;
+    tls_value& operator=(const tls_value&) = delete;
+
+    /// Get current thread's value.
+    CORE_NODISCARD static T get() noexcept;
+
+    /// Set current thread's value.
+    static void set(T value) noexcept;
+
+private:
+#if CORE_HAS_THREADS && CORE_HAS_THREAD_LOCAL
+    static thread_local T s_value;
+#else
+    static T s_value;
+#endif
+};
+
 } // namespace core
 
