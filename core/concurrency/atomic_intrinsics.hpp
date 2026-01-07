@@ -203,6 +203,141 @@ inline u32 atomic_fetch_sub_u32(volatile u32* ptr, u32 value, memory_order order
 #endif
 }
 
+// -----------------------------------------------------------------------------
+// 64-bit atomic operations
+// -----------------------------------------------------------------------------
+
+#if CORE_HAS_64BIT_ATOMICS
+
+/// Atomically load a 64-bit unsigned value.
+inline u64 atomic_load_u64(const volatile u64* ptr, memory_order order) noexcept {
+#if CORE_COMPILER_MSVC
+    u64 value = *ptr;
+    switch (order) {
+    case memory_order::relaxed:
+        return value;
+    case memory_order::acquire:
+    case memory_order::seq_cst:
+        _ReadWriteBarrier();
+        return value;
+    default:
+        return value;
+    }
+#else
+    return __atomic_load_n(ptr, to_gcc_memory_order(order));
+#endif
+}
+
+/// Atomically store a 64-bit unsigned value.
+inline void atomic_store_u64(volatile u64* ptr, u64 value, memory_order order) noexcept {
+#if CORE_COMPILER_MSVC
+    switch (order) {
+    case memory_order::relaxed:
+        *ptr = value;
+        break;
+    case memory_order::release:
+    case memory_order::seq_cst:
+        _ReadWriteBarrier();
+        *ptr = value;
+        break;
+    default:
+        *ptr = value;
+        break;
+    }
+#else
+    __atomic_store_n(ptr, value, to_gcc_memory_order(order));
+#endif
+}
+
+/// Atomically exchange a 64-bit unsigned value and return the old value.
+inline u64 atomic_exchange_u64(volatile u64* ptr, u64 value, memory_order order) noexcept {
+#if CORE_COMPILER_MSVC
+    (void)order;
+    return static_cast<u64>(_InterlockedExchange64(
+        reinterpret_cast<volatile long long*>(ptr),
+        static_cast<long long>(value)
+    ));
+#else
+    return __atomic_exchange_n(ptr, value, to_gcc_memory_order(order));
+#endif
+}
+
+/// Atomically compare and exchange a 64-bit unsigned value (strong version).
+inline bool atomic_compare_exchange_strong_u64(
+    volatile u64* ptr,
+    u64* expected,
+    u64 desired,
+    memory_order success,
+    memory_order failure) noexcept {
+#if CORE_COMPILER_MSVC
+    (void)success; (void)failure;
+    u64 old = static_cast<u64>(_InterlockedCompareExchange64(
+        reinterpret_cast<volatile long long*>(ptr),
+        static_cast<long long>(desired),
+        static_cast<long long>(*expected)
+    ));
+    if (old == *expected) {
+        return true;
+    }
+    *expected = old;
+    return false;
+#else
+    return __atomic_compare_exchange_n(
+        ptr, expected, desired,
+        false,
+        to_gcc_memory_order(success),
+        to_gcc_memory_order(failure)
+    );
+#endif
+}
+
+/// Atomically compare and exchange a 64-bit unsigned value (weak version).
+inline bool atomic_compare_exchange_weak_u64(
+    volatile u64* ptr,
+    u64* expected,
+    u64 desired,
+    memory_order success,
+    memory_order failure) noexcept {
+#if CORE_COMPILER_MSVC
+    return atomic_compare_exchange_strong_u64(ptr, expected, desired, success, failure);
+#else
+    return __atomic_compare_exchange_n(
+        ptr, expected, desired,
+        true,
+        to_gcc_memory_order(success),
+        to_gcc_memory_order(failure)
+    );
+#endif
+}
+
+/// Atomically add a value to a 64-bit unsigned integer and return the old value.
+inline u64 atomic_fetch_add_u64(volatile u64* ptr, u64 value, memory_order order) noexcept {
+#if CORE_COMPILER_MSVC
+    (void)order;
+    return static_cast<u64>(_InterlockedExchangeAdd64(
+        reinterpret_cast<volatile long long*>(ptr),
+        static_cast<long long>(value)
+    ));
+#else
+    return __atomic_fetch_add(ptr, value, to_gcc_memory_order(order));
+#endif
+}
+
+/// Atomically subtract a value from a 64-bit unsigned integer and return the old value.
+inline u64 atomic_fetch_sub_u64(volatile u64* ptr, u64 value, memory_order order) noexcept {
+#if CORE_COMPILER_MSVC
+    (void)order;
+    return static_cast<u64>(_InterlockedExchangeAdd64(
+        reinterpret_cast<volatile long long*>(ptr),
+        -static_cast<long long>(value)
+    ));
+#else
+    return __atomic_fetch_sub(ptr, value, to_gcc_memory_order(order));
+#endif
+}
+
+#endif  // CORE_HAS_64BIT_ATOMICS
+
 } // namespace detail
 } // namespace core
 
