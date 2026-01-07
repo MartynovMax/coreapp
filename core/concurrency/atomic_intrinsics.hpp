@@ -177,6 +177,32 @@ inline bool atomic_compare_exchange_weak_u32(
 #endif
 }
 
+/// Atomically add a value to a 32-bit unsigned integer and return the old value.
+inline u32 atomic_fetch_add_u32(volatile u32* ptr, u32 value, memory_order order) noexcept {
+#if CORE_COMPILER_MSVC
+    (void)order;
+    return static_cast<u32>(_InterlockedExchangeAdd(
+        reinterpret_cast<volatile long*>(ptr),
+        static_cast<long>(value)
+    ));
+#else
+    return __atomic_fetch_add(ptr, value, to_gcc_memory_order(order));
+#endif
+}
+
+/// Atomically subtract a value from a 32-bit unsigned integer and return the old value.
+inline u32 atomic_fetch_sub_u32(volatile u32* ptr, u32 value, memory_order order) noexcept {
+#if CORE_COMPILER_MSVC
+    (void)order;
+    return static_cast<u32>(_InterlockedExchangeAdd(
+        reinterpret_cast<volatile long*>(ptr),
+        -static_cast<long>(value)
+    ));
+#else
+    return __atomic_fetch_sub(ptr, value, to_gcc_memory_order(order));
+#endif
+}
+
 } // namespace detail
 } // namespace core
 
