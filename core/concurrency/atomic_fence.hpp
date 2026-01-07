@@ -19,6 +19,17 @@ namespace core {
 
 // -----------------------------------------------------------------------------
 // thread_fence: Full memory barrier between threads
+//
+// Synchronizes memory operations between threads by preventing the compiler
+// and CPU from reordering memory accesses across the fence.
+//
+// - acquire: Prevents subsequent reads/writes from moving before the fence
+// - release: Prevents prior reads/writes from moving after the fence
+// - acq_rel: Combines both acquire and release semantics
+// - seq_cst: Sequential consistency with full ordering guarantees
+// - relaxed: No fence, no-op
+//
+// Use when synchronizing non-atomic variables with atomic flags.
 // -----------------------------------------------------------------------------
 
 #if CORE_COMPILER_MSVC
