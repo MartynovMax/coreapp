@@ -13,6 +13,13 @@
 
 namespace core {
 
+// Helper macro for TLS specifier
+#if CORE_HAS_THREADS && CORE_HAS_THREAD_LOCAL
+    #define CORE_TLS_SPEC thread_local
+#else
+    #define CORE_TLS_SPEC
+#endif
+
 // =============================================================================
 // tls_ptr<T> - Thread-local pointer storage
 // =============================================================================
@@ -25,37 +32,18 @@ public:
     tls_ptr& operator=(const tls_ptr&) = delete;
 
     /// Get current thread's pointer value.
-    CORE_NODISCARD static T* get() noexcept;
+    CORE_NODISCARD static T* get() noexcept {
+        return s_value;
+    }
 
     /// Set current thread's pointer value.
-    static void set(T* ptr) noexcept;
+    static void set(T* ptr) noexcept {
+        s_value = ptr;
+    }
 
 private:
-#if CORE_HAS_THREADS && CORE_HAS_THREAD_LOCAL
-    static thread_local T* s_value;
-#else
-    static T* s_value;
-#endif
+    inline static CORE_TLS_SPEC T* s_value = nullptr;
 };
-
-// Static member definition
-template<typename T>
-#if CORE_HAS_THREADS && CORE_HAS_THREAD_LOCAL
-thread_local T* tls_ptr<T>::s_value = nullptr;
-#else
-T* tls_ptr<T>::s_value = nullptr;
-#endif
-
-// Method implementations
-template<typename T>
-T* tls_ptr<T>::get() noexcept {
-    return s_value;
-}
-
-template<typename T>
-void tls_ptr<T>::set(T* ptr) noexcept {
-    s_value = ptr;
-}
 
 // =============================================================================
 // tls_value<T> - Thread-local scalar storage
@@ -69,37 +57,19 @@ public:
     tls_value& operator=(const tls_value&) = delete;
 
     /// Get current thread's value.
-    CORE_NODISCARD static T get() noexcept;
+    CORE_NODISCARD static T get() noexcept {
+        return s_value;
+    }
 
     /// Set current thread's value.
-    static void set(T value) noexcept;
+    static void set(T value) noexcept {
+        s_value = value;
+    }
 
 private:
-#if CORE_HAS_THREADS && CORE_HAS_THREAD_LOCAL
-    static thread_local T s_value;
-#else
-    static T s_value;
-#endif
+    inline static CORE_TLS_SPEC T s_value = T{};
 };
 
-// Static member definition with zero-initialization
-template<typename T>
-#if CORE_HAS_THREADS && CORE_HAS_THREAD_LOCAL
-thread_local T tls_value<T>::s_value = T{};
-#else
-T tls_value<T>::s_value = T{};
-#endif
-
-// Method implementations
-template<typename T>
-T tls_value<T>::get() noexcept {
-    return s_value;
-}
-
-template<typename T>
-void tls_value<T>::set(T value) noexcept {
-    s_value = value;
-}
+#undef CORE_TLS_SPEC
 
 } // namespace core
-
