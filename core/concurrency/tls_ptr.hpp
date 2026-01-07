@@ -38,5 +38,13 @@ private:
 #endif
 };
 
+// Static member definition
+template<typename T>
+#if CORE_HAS_THREADS && CORE_HAS_THREAD_LOCAL
+thread_local T* tls_ptr<T>::s_value = nullptr;
+#else
+T* tls_ptr<T>::s_value = nullptr;
+#endif
+
 } // namespace core
 
