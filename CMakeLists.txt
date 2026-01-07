@@ -286,3 +286,10 @@ add_executable(atomic_fence_tests
 )
 target_link_libraries(atomic_fence_tests PRIVATE coreapp gtest_main)
 add_test(NAME atomic_fence_tests COMMAND atomic_fence_tests)
+
+# tls_ptr tests
+add_executable(tls_ptr_tests
+    tests/core_concurrency/test_tls_ptr.cpp
+)
+target_link_libraries(tls_ptr_tests PRIVATE coreapp gtest_main)
+add_test(NAME tls_ptr_tests COMMAND tls_ptr_tests)
