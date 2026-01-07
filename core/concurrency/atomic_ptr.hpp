@@ -19,7 +19,7 @@ namespace core {
 /// Stores pointer as usize to avoid aliasing issues with interlocked operations.
 class atomic_ptr {
 public:
-    atomic_ptr() noexcept : m_storage(0) {}
+    atomic_ptr() noexcept : m_storage(static_cast<usize>(0)) {}
     
     explicit atomic_ptr(void* value) noexcept 
         : m_storage(reinterpret_cast<usize>(value)) {}
