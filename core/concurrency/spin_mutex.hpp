@@ -75,7 +75,7 @@ inline void spin_mutex::lock() noexcept {
         }
     }
 #elif CORE_DEBUG
-    CORE_ASSERT(!m_locked, "Double lock detected");
+    ASSERT_MSG(!m_locked, "Double lock detected");
     m_locked = true;
 #endif
 }
@@ -99,12 +99,12 @@ inline void spin_mutex::unlock() noexcept {
 #if CORE_HAS_THREADS
     #if CORE_DEBUG
     u32 flag_value = m_flag.load(memory_order::relaxed);
-    CORE_ASSERT(flag_value != 0, "Unlock without lock");
+    ASSERT_MSG(flag_value != 0, "Unlock without lock");
     #endif
     
     m_flag.store(0, memory_order::release);
 #elif CORE_DEBUG
-    CORE_ASSERT(m_locked, "Unlock without lock");
+    ASSERT_MSG(m_locked, "Unlock without lock");
     m_locked = false;
 #endif
 }

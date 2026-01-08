@@ -293,3 +293,24 @@ add_executable(tls_ptr_tests
 )
 target_link_libraries(tls_ptr_tests PRIVATE coreapp gtest_main)
 add_test(NAME tls_ptr_tests COMMAND tls_ptr_tests)
+
+# cpu_relax tests
+add_executable(cpu_relax_tests
+    tests/core_concurrency/test_cpu_relax.cpp
+)
+target_link_libraries(cpu_relax_tests PRIVATE coreapp gtest_main)
+add_test(NAME cpu_relax_tests COMMAND cpu_relax_tests)
+
+# spin_mutex tests
+add_executable(spin_mutex_tests
+    tests/core_concurrency/test_spin_mutex.cpp
+)
+target_link_libraries(spin_mutex_tests PRIVATE coreapp gtest_main)
+add_test(NAME spin_mutex_tests COMMAND spin_mutex_tests)
+
+# scoped_lock tests
+add_executable(scoped_lock_tests
+    tests/core_concurrency/test_scoped_lock.cpp
+)
+target_link_libraries(scoped_lock_tests PRIVATE coreapp gtest_main)
+add_test(NAME scoped_lock_tests COMMAND scoped_lock_tests)
