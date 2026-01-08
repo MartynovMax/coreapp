@@ -72,5 +72,13 @@ inline void spin_mutex::lock() noexcept {
 #endif
 }
 
+inline bool spin_mutex::try_lock() noexcept {
+#if CORE_HAS_THREADS
+    return m_flag.exchange(1, memory_order::acquire) == 0;
+#else
+    return true;
+#endif
+}
+
 } // namespace core
 
