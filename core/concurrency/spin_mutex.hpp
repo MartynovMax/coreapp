@@ -39,8 +39,20 @@ private:
     #if CORE_DEBUG
     atomic_u32 m_lock_count{0};
     #endif
+#else
+    bool m_locked{false};  // Single-thread verification flag
 #endif
 };
+
+#if CORE_HAS_THREADS
+    #if CORE_DEBUG
+    static_assert(sizeof(spin_mutex) <= 2 * sizeof(u32), "spin_mutex debug size too large");
+    #else
+    static_assert(sizeof(spin_mutex) == sizeof(u32), "spin_mutex must have minimal overhead");
+    #endif
+#else
+static_assert(sizeof(spin_mutex) == sizeof(bool), "spin_mutex single-thread size must be one bool");
+#endif
 
 // -----------------------------------------------------------------------------
 // Implementation
@@ -69,6 +81,9 @@ inline void spin_mutex::lock() noexcept {
             }
         }
     }
+#else
+    CORE_ASSERT(!m_locked, "Double lock detected");
+    m_locked = true;
 #endif
 }
 
@@ -85,7 +100,11 @@ inline bool spin_mutex::try_lock() noexcept {
     
     return acquired;
 #else
-    return true;
+    if (!m_locked) {
+        m_locked = true;
+        return true;
+    }
+    return false;
 #endif
 }
 
@@ -97,6 +116,9 @@ inline void spin_mutex::unlock() noexcept {
     #endif
     
     m_flag.store(0, memory_order::release);
+#else
+    CORE_ASSERT(m_locked, "Unlock without lock");
+    m_locked = false;
 #endif
 }
 
