@@ -1,5 +1,8 @@
 #include "allocation_tracker.hpp"
 #include "../base/core_assert.hpp"
+#include "../concurrency/core_atomic.hpp"
+#include "../concurrency/core_sync.hpp"
+#include "../concurrency/tls_ptr.hpp"
 
 namespace core {
 
@@ -13,13 +16,6 @@ struct ListenerEntry {
     u32 handle = 0;  // 0 = unused slot
 };
 
-struct GlobalStats {
-    memory_size currentAllocated = 0;
-    memory_size peakAllocated = 0;
-    memory_size totalAllocations = 0;
-    memory_size totalDeallocations = 0;
-};
-
 struct TagStatsEntry {
     memory_tag tag = 0;  // 0 = unused slot
     memory_size currentAllocated = 0;
@@ -30,11 +26,18 @@ struct TagStatsEntry {
 
 ListenerEntry _listeners[CORE_ALLOCATION_TRACKER_MAX_LISTENERS];
 u32 _nextHandle = 1;
-GlobalStats _globalStats;
-TagStatsEntry _tagStats[CORE_ALLOCATION_TRACKER_MAX_TAGS];
 
-bool _trackingEnabled = false;
-bool _insideTracker = false;  // Re-entrancy guard
+atomic_u64 _currentAllocated{0};
+atomic_u64 _peakAllocated{0};
+atomic_u64 _totalAllocations{0};
+atomic_u64 _totalDeallocations{0};
+
+TagStatsEntry _tagStats[CORE_ALLOCATION_TRACKER_MAX_TAGS];
+spin_mutex _tagStatsMutex;
+spin_mutex _listenersMutex;
+
+atomic_u32 _trackingEnabled{0};
+using InsideTrackerTLS = tls_value<bool>;
 
 TagStatsEntry* FindTagEntry(memory_tag tag) noexcept {
     if (tag == 0) {
@@ -54,13 +57,11 @@ TagStatsEntry* FindOrCreateTagEntry(memory_tag tag) noexcept {
         return nullptr;
     }
     
-    // Try to find existing
     TagStatsEntry* existing = FindTagEntry(tag);
     if (existing) {
         return existing;
     }
     
-    // Find free slot
     for (auto& entry : _tagStats) {
         if (entry.tag == 0) {
             entry.tag = tag;
@@ -68,22 +69,25 @@ TagStatsEntry* FindOrCreateTagEntry(memory_tag tag) noexcept {
         }
     }
     
-    return nullptr;  // Table full
+    return nullptr;
 }
 
 void UpdateStatsOnAllocation(memory_size size, memory_tag tag) noexcept {
-    // Update global stats
-    // NOTE: Not thread-safe - may race under concurrent allocations
-    // Full thread-safety will be added in epic #95
-    _globalStats.currentAllocated += size;
-    _globalStats.totalAllocations++;
+    u64 newCurrent = _currentAllocated.fetch_add(size, memory_order::relaxed) + size;
     
-    if (_globalStats.currentAllocated > _globalStats.peakAllocated) {
-        _globalStats.peakAllocated = _globalStats.currentAllocated;
+    // CAS loop for peak tracking
+    u64 currentPeak = _peakAllocated.load(memory_order::relaxed);
+    while (newCurrent > currentPeak) {
+        if (_peakAllocated.compare_exchange_weak(currentPeak, newCurrent, 
+            memory_order::relaxed, memory_order::relaxed)) {
+            break;
+        }
     }
     
-    // Update per-tag stats
+    (void)_totalAllocations.fetch_add(1, memory_order::relaxed);
+    
     if (tag != 0) {
+        scoped_lock<spin_mutex> lock(_tagStatsMutex);
         TagStatsEntry* entry = FindOrCreateTagEntry(tag);
         if (entry) {
             entry->currentAllocated += size;
@@ -97,13 +101,11 @@ void UpdateStatsOnAllocation(memory_size size, memory_tag tag) noexcept {
 }
 
 void UpdateStatsOnDeallocation(memory_size size, memory_tag tag) noexcept {
-    // Update global stats
-    // NOTE: Not thread-safe - may race under concurrent deallocations
-    _globalStats.currentAllocated -= size;
-    _globalStats.totalDeallocations++;
+    (void)_currentAllocated.fetch_sub(size, memory_order::relaxed);
+    (void)_totalDeallocations.fetch_add(1, memory_order::relaxed);
     
-    // Update per-tag stats
     if (tag != 0) {
+        scoped_lock<spin_mutex> lock(_tagStatsMutex);
         TagStatsEntry* entry = FindTagEntry(tag);
         if (entry) {
             entry->currentAllocated -= size;
@@ -118,10 +120,23 @@ void NotifyListeners(
     const AllocationRequest* request,
     const AllocationInfo* info) noexcept
 {
-    for (const auto& entry : _listeners) {
-        if (entry.callback != nullptr) {
-            entry.callback(event, allocator, request, info, entry.userData);
+    AllocationListenerFn callbacks[CORE_ALLOCATION_TRACKER_MAX_LISTENERS];
+    void* userDatas[CORE_ALLOCATION_TRACKER_MAX_LISTENERS];
+    u32 count = 0;
+    
+    {
+        scoped_lock<spin_mutex> lock(_listenersMutex);
+        for (const auto& entry : _listeners) {
+            if (entry.callback != nullptr) {
+                callbacks[count] = entry.callback;
+                userDatas[count] = entry.userData;
+                ++count;
+            }
         }
+    }
+    
+    for (u32 i = 0; i < count; ++i) {
+        callbacks[i](event, allocator, request, info, userDatas[i]);
     }
 }
 
@@ -134,18 +149,15 @@ void TrackerHookCallback(
 {
     CORE_UNUSED(user);
     
-    // Check if tracking is enabled
-    if (!_trackingEnabled) {
+    if (_trackingEnabled.load(memory_order::relaxed) == 0) {
         return;
     }
     
-    // Re-entrancy guard
-    if (_insideTracker) {
+    if (InsideTrackerTLS::get()) {
         return;
     }
-    _insideTracker = true;
+    InsideTrackerTLS::set(true);
     
-    // Update statistics
     switch (event) {
         case AllocationEvent::AllocateEnd:
             if (info && info->ptr && request) {
@@ -163,10 +175,9 @@ void TrackerHookCallback(
             break;
     }
     
-    // Notify listeners
     NotifyListeners(event, allocator, request, info);
     
-    _insideTracker = false;
+    InsideTrackerTLS::set(false);
 }
 
 AllocationListenerHandle RegisterAllocationListenerImpl(
@@ -177,12 +188,16 @@ AllocationListenerHandle RegisterAllocationListenerImpl(
         return kInvalidListenerHandle;
     }
     
-    // Find free slot
+    scoped_lock<spin_mutex> lock(_listenersMutex);
+    
     for (auto& entry : _listeners) {
         if (entry.callback == nullptr) {
             entry.callback = callback;
             entry.userData = userData;
             entry.handle = _nextHandle++;
+            if (_nextHandle == kInvalidListenerHandle) {
+                _nextHandle = 1;
+            }
             return entry.handle;
         }
     }
@@ -194,6 +209,8 @@ bool UnregisterAllocationListenerImpl(AllocationListenerHandle handle) noexcept 
     if (handle == kInvalidListenerHandle) {
         return false;
     }
+    
+    scoped_lock<spin_mutex> lock(_listenersMutex);
     
     for (auto& entry : _listeners) {
         if (entry.handle == handle) {
@@ -208,6 +225,8 @@ bool UnregisterAllocationListenerImpl(AllocationListenerHandle handle) noexcept 
 }
 
 void ClearAllocationListenersImpl() noexcept {
+    scoped_lock<spin_mutex> lock(_listenersMutex);
+    
     for (auto& entry : _listeners) {
         entry.callback = nullptr;
         entry.userData = nullptr;
@@ -216,34 +235,36 @@ void ClearAllocationListenersImpl() noexcept {
 }
 
 void EnableAllocationTrackingImpl() noexcept {
-    _trackingEnabled = true;
+    _trackingEnabled.store(1, memory_order::relaxed);
 }
 
 void DisableAllocationTrackingImpl() noexcept {
-    _trackingEnabled = false;
+    _trackingEnabled.store(0, memory_order::relaxed);
 }
 
 bool IsAllocationTrackingEnabledImpl() noexcept {
-    return _trackingEnabled;
+    return _trackingEnabled.load(memory_order::relaxed) != 0;
 }
 
 AllocationTrackerStats GetAllocationTrackerStatsImpl() noexcept {
     AllocationTrackerStats stats;
-    stats.current_allocated = _globalStats.currentAllocated;
-    stats.peak_allocated = _globalStats.peakAllocated;
-    stats.total_allocations = _globalStats.totalAllocations;
-    stats.total_deallocations = _globalStats.totalDeallocations;
+    stats.current_allocated = _currentAllocated.load(memory_order::relaxed);
+    stats.peak_allocated = _peakAllocated.load(memory_order::relaxed);
+    stats.total_allocations = _totalAllocations.load(memory_order::relaxed);
+    stats.total_deallocations = _totalDeallocations.load(memory_order::relaxed);
     return stats;
 }
 
 void ResetAllocationTrackerStatsImpl() noexcept {
-    _globalStats.currentAllocated = 0;
-    _globalStats.peakAllocated = 0;
-    _globalStats.totalAllocations = 0;
-    _globalStats.totalDeallocations = 0;
+    _currentAllocated.store(0, memory_order::relaxed);
+    _peakAllocated.store(0, memory_order::relaxed);
+    _totalAllocations.store(0, memory_order::relaxed);
+    _totalDeallocations.store(0, memory_order::relaxed);
 }
 
 bool GetTagStatsImpl(memory_tag tag, TagStats& outStats) noexcept {
+    scoped_lock<spin_mutex> lock(_tagStatsMutex);
+    
     TagStatsEntry* entry = FindTagEntry(tag);
     if (!entry) {
         return false;
@@ -265,6 +286,8 @@ void EnumerateTagStatsImpl(
         return;
     }
     
+    scoped_lock<spin_mutex> lock(_tagStatsMutex);
+    
     for (const auto& entry : _tagStats) {
         if (entry.tag != 0) {
             TagStats stats;
@@ -280,6 +303,8 @@ void EnumerateTagStatsImpl(
 }
 
 void ResetTagStatsImpl() noexcept {
+    scoped_lock<spin_mutex> lock(_tagStatsMutex);
+    
     for (auto& entry : _tagStats) {
         entry.tag = 0;
         entry.currentAllocated = 0;
@@ -405,21 +430,16 @@ void ResetTagStats() noexcept {
 
 void InitializeAllocationTracker() noexcept {
 #if CORE_MEMORY_TRACKING
-    // Register tracker as a hook
     bool registered = AddAllocationHook(detail::TrackerHookCallback, nullptr);
     CORE_MEM_ASSERT(registered && "Failed to register allocation tracker hook");
     
-    // Enable tracking by default
-    detail::_trackingEnabled = true;
+    detail::_trackingEnabled.store(1, memory_order::relaxed);
 #endif
 }
 
 void ShutdownAllocationTracker() noexcept {
 #if CORE_MEMORY_TRACKING
-    // Disable tracking
-    detail::_trackingEnabled = false;
-    
-    // Unregister hook
+    detail::_trackingEnabled.store(0, memory_order::relaxed);
     RemoveAllocationHook(detail::TrackerHookCallback);
 #endif
 }

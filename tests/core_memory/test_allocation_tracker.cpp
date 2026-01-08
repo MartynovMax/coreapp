@@ -1,6 +1,10 @@
 #include "core/memory/allocation_tracker.hpp"
 #include "core/memory/malloc_allocator.hpp"
+#include "core/concurrency/core_atomic.hpp"
+#include "core/concurrency/core_sync.hpp"
+#include "../core_concurrency/test_helpers.hpp"
 #include <gtest/gtest.h>
+#include <vector>
 
 namespace {
 
@@ -47,7 +51,6 @@ void TestListener(
         data->lastSize = info->size;
     }
 }
-
 // ----------------------------------------------------------------------------
 // Global Statistics Tests
 // ----------------------------------------------------------------------------
@@ -537,6 +540,146 @@ TEST_F(AllocationTrackerTest, MaxTags) {
     }
 #else
     GTEST_SKIP() << "CORE_MEMORY_TRACKING disabled";
+#endif
+}
+
+// ----------------------------------------------------------------------------
+// Multithreaded Tests
+// ----------------------------------------------------------------------------
+
+TEST_F(AllocationTrackerTest, ConcurrentAllocationsStats) {
+#if CORE_MEMORY_TRACKING && CORE_HAS_THREADS
+    constexpr int kThreadCount = 8;
+    constexpr int kAllocsPerThread = 1000;
+    constexpr core::memory_size kAllocSize = 64;
+    
+    core::MallocAllocator allocator;
+    
+    core::test::RunConcurrent(kThreadCount, [&](int) {
+        for (int i = 0; i < kAllocsPerThread; ++i) {
+            void* ptr = core::AllocateBytes(allocator, kAllocSize, 8, 0);
+            ASSERT_NE(ptr, nullptr);
+            core::DeallocateBytes(allocator, ptr, kAllocSize, 8, 0);
+        }
+    });
+    
+    auto stats = core::GetAllocationTrackerStats();
+    EXPECT_EQ(stats.current_allocated, 0u);
+    EXPECT_EQ(stats.total_allocations, kThreadCount * kAllocsPerThread);
+    EXPECT_EQ(stats.total_deallocations, kThreadCount * kAllocsPerThread);
+#else
+    GTEST_SKIP();
+#endif
+}
+
+TEST_F(AllocationTrackerTest, ConcurrentPeakTracking) {
+#if CORE_MEMORY_TRACKING && CORE_HAS_THREADS
+    constexpr int kThreadCount = 4;
+    constexpr int kAllocsPerThread = 100;
+    constexpr core::memory_size kMaxSize = 1024;
+    
+    core::MallocAllocator allocator;
+    
+    struct PtrEntry {
+        void* ptr;
+        core::memory_size size;
+    };
+    std::vector<PtrEntry> ptrs;
+    ptrs.reserve(kThreadCount * kAllocsPerThread);
+    
+    core::spin_mutex ptrsMutex;
+    
+    core::test::RunConcurrent(kThreadCount, [&](int threadId) {
+        for (int i = 0; i < kAllocsPerThread; ++i) {
+            core::memory_size size = ((threadId * kAllocsPerThread + i) % kMaxSize) + 64;
+            void* ptr = core::AllocateBytes(allocator, size, 8, 0);
+            ASSERT_NE(ptr, nullptr);
+            
+            core::scoped_lock<core::spin_mutex> lock(ptrsMutex);
+            ptrs.push_back({ptr, size});
+        }
+    });
+    
+    auto stats = core::GetAllocationTrackerStats();
+    EXPECT_GT(stats.peak_allocated, 0u);
+    EXPECT_GE(stats.peak_allocated, stats.current_allocated);
+    
+    for (const auto& entry : ptrs) {
+        core::DeallocateBytes(allocator, entry.ptr, entry.size, 8, 0);
+    }
+    
+    stats = core::GetAllocationTrackerStats();
+    EXPECT_EQ(stats.current_allocated, 0u);
+#else
+    GTEST_SKIP();
+#endif
+}
+
+TEST_F(AllocationTrackerTest, ConcurrentTagStats) {
+#if CORE_MEMORY_TRACKING && CORE_HAS_THREADS
+    constexpr int kThreadCount = 4;
+    constexpr int kAllocsPerThread = 500;
+    constexpr core::memory_size kAllocSize = 128;
+    
+    core::MallocAllocator allocator;
+    
+    core::test::RunConcurrent(kThreadCount, [&](int threadId) {
+        core::memory_tag tag = static_cast<core::memory_tag>(threadId + 1);
+        
+        for (int i = 0; i < kAllocsPerThread; ++i) {
+            void* ptr = core::AllocateBytes(allocator, kAllocSize, 8, tag);
+            ASSERT_NE(ptr, nullptr);
+            core::DeallocateBytes(allocator, ptr, kAllocSize, 8, tag);
+        }
+    });
+    
+    for (int i = 0; i < kThreadCount; ++i) {
+        core::memory_tag tag = static_cast<core::memory_tag>(i + 1);
+        core::TagStats tagStats;
+        bool found = core::GetTagStats(tag, tagStats);
+        
+        ASSERT_TRUE(found);
+        EXPECT_EQ(tagStats.tag, tag);
+        EXPECT_EQ(tagStats.current_allocated, 0u);
+        EXPECT_EQ(tagStats.alloc_count, kAllocsPerThread);
+        EXPECT_EQ(tagStats.dealloc_count, kAllocsPerThread);
+    }
+#else
+    GTEST_SKIP();
+#endif
+}
+
+TEST_F(AllocationTrackerTest, ConcurrentListenerDispatch) {
+#if CORE_MEMORY_TRACKING && CORE_HAS_THREADS
+    constexpr int kThreadCount = 4;
+    constexpr int kAllocsPerThread = 200;
+    
+    core::atomic_u64 listenerCallCount{0};
+    
+    auto listener = [](core::AllocationEvent event, const core::IAllocator*,
+                      const core::AllocationRequest*, const core::AllocationInfo*,
+                      void* user) noexcept {
+        if (event == core::AllocationEvent::AllocateEnd) {
+            auto* counter = static_cast<core::atomic_u64*>(user);
+            (void)counter->fetch_add(1, core::memory_order::relaxed);
+        }
+    };
+    
+    core::RegisterAllocationListener(listener, &listenerCallCount);
+    
+    core::MallocAllocator allocator;
+    
+    core::test::RunConcurrent(kThreadCount, [&](int) {
+        for (int i = 0; i < kAllocsPerThread; ++i) {
+            void* ptr = core::AllocateBytes(allocator, 64, 8, 0);
+            core::DeallocateBytes(allocator, ptr, 64, 8, 0);
+        }
+    });
+    
+    EXPECT_EQ(listenerCallCount.load(core::memory_order::relaxed), 
+              kThreadCount * kAllocsPerThread);
+#else
+    GTEST_SKIP();
 #endif
 }
 
