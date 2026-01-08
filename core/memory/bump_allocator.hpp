@@ -26,5 +26,16 @@
 
 namespace core {
 
+class BumpAllocator final : public IAllocator {
+public:
+    ~BumpAllocator() noexcept override = default;
+
+    BumpAllocator(const BumpAllocator&) = delete;
+    BumpAllocator& operator=(const BumpAllocator&) = delete;
+
+    void* Allocate(const AllocationRequest& request) noexcept override;
+    void Deallocate(const AllocationInfo& info) noexcept override;
+};
+
 } // namespace core
 
