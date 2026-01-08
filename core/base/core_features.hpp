@@ -125,6 +125,37 @@
 #endif
 #endif
 
+// -----------------------------------------------------------------------------
+// Concurrency configuration contract
+// -----------------------------------------------------------------------------
+//
+// Supported configurations:
+//   [THREADS=0, ATOMICS=0] Single-thread, no atomics (synchronization is no-op)
+//   [THREADS=0, ATOMICS=1] Atomics without threads (signal handlers, interrupts)
+//   [THREADS=1, ATOMICS=1] Full threading support (all primitives available)
+//
+// Invalid combinations:
+//   - THREADS=1 requires ATOMICS=1 (threads need atomic primitives)
+//   - 64BIT_ATOMICS=1 requires ATOMICS=1
+//   - THREAD_FENCE=1 requires ATOMICS=1 and MEMORY_MODEL=1
+// -----------------------------------------------------------------------------
+
+#if CORE_HAS_THREADS && !CORE_HAS_ATOMICS
+#error "CORE_HAS_THREADS=1 requires CORE_HAS_ATOMICS=1 (threads need atomic primitives)"
+#endif
+
+#if CORE_HAS_64BIT_ATOMICS && !CORE_HAS_ATOMICS
+#error "CORE_HAS_64BIT_ATOMICS=1 requires CORE_HAS_ATOMICS=1"
+#endif
+
+#if CORE_HAS_THREAD_FENCE && !CORE_HAS_ATOMICS
+#error "CORE_HAS_THREAD_FENCE=1 requires CORE_HAS_ATOMICS=1"
+#endif
+
+#if CORE_HAS_THREAD_FENCE && !CORE_HAS_MEMORY_MODEL
+#error "CORE_HAS_THREAD_FENCE=1 requires CORE_HAS_MEMORY_MODEL=1"
+#endif
+
 // =============================================================================
 // SIMD / CPU features (compile-time only)
 // =============================================================================
