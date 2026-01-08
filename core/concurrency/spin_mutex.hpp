@@ -6,6 +6,10 @@
 //
 // Uses atomic operations to implement a busy-wait lock suitable for protecting
 // short critical sections. Does not block at the OS level.
+//
+// Debug checks:
+// - Unlock-without-lock detection: available in all debug builds
+// - Double-lock detection: available only in single-thread debug builds
 // =============================================================================
 
 #include "../base/core_config.hpp"
@@ -35,23 +39,17 @@ public:
 private:
 #if CORE_HAS_THREADS
     atomic_u32 m_flag{0};  // 0 = unlocked, 1 = locked
-
-    #if CORE_DEBUG
-    atomic_u32 m_lock_count{0};
-    #endif
-#else
-    bool m_locked{false};  // Single-thread verification flag
+#elif CORE_DEBUG
+    bool m_locked{false};  // Single-thread debug verification flag
 #endif
 };
 
 #if CORE_HAS_THREADS
-    #if CORE_DEBUG
-    static_assert(sizeof(spin_mutex) <= 2 * sizeof(u32), "spin_mutex debug size too large");
-    #else
-    static_assert(sizeof(spin_mutex) == sizeof(u32), "spin_mutex must have minimal overhead");
-    #endif
+static_assert(sizeof(spin_mutex) <= 2 * sizeof(u32), "spin_mutex size must be reasonable");
+#elif CORE_DEBUG
+static_assert(sizeof(spin_mutex) == sizeof(bool), "spin_mutex debug size must be one bool");
 #else
-static_assert(sizeof(spin_mutex) == sizeof(bool), "spin_mutex single-thread size must be one bool");
+static_assert(sizeof(spin_mutex) == 1, "spin_mutex must be empty in single-thread release");
 #endif
 
 // -----------------------------------------------------------------------------
@@ -60,13 +58,8 @@ static_assert(sizeof(spin_mutex) == sizeof(bool), "spin_mutex single-thread size
 
 inline void spin_mutex::lock() noexcept {
 #if CORE_HAS_THREADS
-    #if CORE_DEBUG
-    u32 prev_count = m_lock_count.fetch_add(1, memory_order::relaxed);
-    CORE_ASSERT(prev_count == 0, "Double lock detected");
-    #endif
-
     u32 spin_count = 0;
-    constexpr u32 MAX_SPIN = 32;
+    constexpr u32 MAX_SPIN = 10;
 
     while (m_flag.exchange(1, memory_order::acquire) != 0) {
         spin_count = 0;
@@ -81,7 +74,7 @@ inline void spin_mutex::lock() noexcept {
             }
         }
     }
-#else
+#elif CORE_DEBUG
     CORE_ASSERT(!m_locked, "Double lock detected");
     m_locked = true;
 #endif
@@ -89,34 +82,28 @@ inline void spin_mutex::lock() noexcept {
 
 inline bool spin_mutex::try_lock() noexcept {
 #if CORE_HAS_THREADS
-    bool acquired = m_flag.exchange(1, memory_order::acquire) == 0;
-    
-    #if CORE_DEBUG
-    if (acquired) {
-        u32 prev_count = m_lock_count.fetch_add(1, memory_order::relaxed);
-        CORE_ASSERT(prev_count == 0, "Double lock detected");
-    }
-    #endif
-    
-    return acquired;
-#else
+    u32 expected = 0;
+    return m_flag.compare_exchange_strong(expected, 1, memory_order::acquire, memory_order::relaxed);
+#elif CORE_DEBUG
     if (!m_locked) {
         m_locked = true;
         return true;
     }
     return false;
+#else
+    return true;
 #endif
 }
 
 inline void spin_mutex::unlock() noexcept {
 #if CORE_HAS_THREADS
     #if CORE_DEBUG
-    u32 prev_count = m_lock_count.fetch_sub(1, memory_order::relaxed);
-    CORE_ASSERT(prev_count == 1, "Unlock without lock");
+    u32 flag_value = m_flag.load(memory_order::relaxed);
+    CORE_ASSERT(flag_value != 0, "Unlock without lock");
     #endif
     
     m_flag.store(0, memory_order::release);
-#else
+#elif CORE_DEBUG
     CORE_ASSERT(m_locked, "Unlock without lock");
     m_locked = false;
 #endif
