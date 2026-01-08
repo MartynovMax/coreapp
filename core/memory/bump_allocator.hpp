@@ -35,6 +35,11 @@ public:
 
     void* Allocate(const AllocationRequest& request) noexcept override;
     void Deallocate(const AllocationInfo& info) noexcept override;
+
+private:
+    u8* _begin;    // Start of the memory region
+    u8* _current;  // Current allocation pointer (bumps forward)
+    u8* _end;      // End of the memory region
 };
 
 } // namespace core
