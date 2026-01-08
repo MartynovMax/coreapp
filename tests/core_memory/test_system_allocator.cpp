@@ -10,6 +10,11 @@
     #include <unistd.h>
 #endif
 
+#if CORE_HAS_THREADS
+    #include <thread>
+    #include <vector>
+#endif
+
 namespace {
 
 TEST(SystemAllocator, BasicAllocation) {
@@ -257,6 +262,47 @@ TEST(SystemAllocator, GetAccessorReturnsSameInstance) {
     EXPECT_EQ(&alloc1, &alloc2);
     EXPECT_EQ(&alloc1, &inst);
 }
+
+#if CORE_HAS_THREADS
+TEST(SystemAllocator, MultithreadedSmokeTest) {
+    core::SystemAllocator& allocator = core::SystemAllocator::Instance();
+    
+    constexpr int thread_count = 4;
+    constexpr int allocations_per_thread = 100;
+    constexpr core::memory_size alloc_size = 1024;
+    
+    auto worker = [&allocator](int thread_id) {
+        CORE_UNUSED(thread_id);
+        
+        for (int i = 0; i < allocations_per_thread; ++i) {
+            core::AllocationRequest req{};
+            req.size = alloc_size;
+            req.alignment = 16;
+            
+            void* ptr = allocator.Allocate(req);
+            ASSERT_NE(ptr, nullptr);
+            EXPECT_TRUE(core::IsAlignedPtr(ptr, req.alignment));
+            
+            static_cast<core::byte*>(ptr)[0] = static_cast<core::byte>(i);
+            EXPECT_EQ(static_cast<core::byte*>(ptr)[0], static_cast<core::byte>(i));
+            
+            core::AllocationInfo info{ptr, req.size, req.alignment, 0};
+            allocator.Deallocate(info);
+        }
+    };
+    
+    std::vector<std::thread> threads;
+    threads.reserve(thread_count);
+    
+    for (int i = 0; i < thread_count; ++i) {
+        threads.emplace_back(worker, i);
+    }
+    
+    for (auto& t : threads) {
+        t.join();
+    }
+}
+#endif
 
 } // namespace
 
