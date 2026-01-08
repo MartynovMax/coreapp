@@ -74,7 +74,16 @@ inline void spin_mutex::lock() noexcept {
 
 inline bool spin_mutex::try_lock() noexcept {
 #if CORE_HAS_THREADS
-    return m_flag.exchange(1, memory_order::acquire) == 0;
+    bool acquired = m_flag.exchange(1, memory_order::acquire) == 0;
+    
+    #if CORE_DEBUG
+    if (acquired) {
+        u32 prev_count = m_lock_count.fetch_add(1, memory_order::relaxed);
+        CORE_ASSERT(prev_count == 0, "Double lock detected");
+    }
+    #endif
+    
+    return acquired;
 #else
     return true;
 #endif
@@ -82,6 +91,11 @@ inline bool spin_mutex::try_lock() noexcept {
 
 inline void spin_mutex::unlock() noexcept {
 #if CORE_HAS_THREADS
+    #if CORE_DEBUG
+    u32 prev_count = m_lock_count.fetch_sub(1, memory_order::relaxed);
+    CORE_ASSERT(prev_count == 1, "Unlock without lock");
+    #endif
+    
     m_flag.store(0, memory_order::release);
 #endif
 }
