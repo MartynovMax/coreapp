@@ -34,5 +34,21 @@ void BumpAllocator::Deallocate(const AllocationInfo& info) noexcept {
     CORE_UNUSED(info);
 }
 
+void BumpAllocator::Reset() noexcept {
+    _current = _begin;
+}
+
+memory_size BumpAllocator::Used() const noexcept {
+    return static_cast<memory_size>(_current - _begin);
+}
+
+memory_size BumpAllocator::Capacity() const noexcept {
+    return static_cast<memory_size>(_end - _begin);
+}
+
+memory_size BumpAllocator::Remaining() const noexcept {
+    return static_cast<memory_size>(_end - _current);
+}
+
 } // namespace core
 

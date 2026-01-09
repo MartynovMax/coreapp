@@ -17,7 +17,7 @@
 //
 // Deallocation:
 //   - Deallocate() is a no-op
-//   - Use reset() to reclaim all memory at once
+//   - Use Reset() to reclaim all memory at once
 // =============================================================================
 
 #include "core_memory.hpp"
@@ -35,6 +35,12 @@ public:
 
     void* Allocate(const AllocationRequest& request) noexcept override;
     void Deallocate(const AllocationInfo& info) noexcept override;
+
+    void Reset() noexcept;
+    
+    memory_size Used() const noexcept;
+    memory_size Capacity() const noexcept;
+    memory_size Remaining() const noexcept;
 
 private:
     u8* _begin;    // Start of the memory region
