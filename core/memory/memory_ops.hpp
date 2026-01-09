@@ -81,5 +81,37 @@ CORE_FORCE_INLINE void* ManualMemset(
 
 } // namespace detail
 
+CORE_FORCE_INLINE void* memory_copy(
+    void* dst,
+    const void* src,
+    memory_size size) noexcept
+{
+#if CORE_MEMORY_DEBUG
+    CORE_MEM_ASSERT((dst != nullptr || size == 0) && "memory_copy: dst is null");
+    CORE_MEM_ASSERT((src != nullptr || size == 0) && "memory_copy: src is null");
+
+    if (size > 0 && dst != src) {
+        CORE_MEM_ASSERT(!detail::MemoryRangesOverlap(dst, src, size) &&
+                        "memory_copy: overlapping ranges (use memory_move)");
+    }
+#endif
+
+    if (size == 0) {
+        return dst;
+    }
+
+#if CORE_COMPILER_CLANG || CORE_COMPILER_GCC
+    return __builtin_memcpy(dst, src, size);
+#elif CORE_COMPILER_MSVC
+    #if _MSC_VER >= 1928
+        return __builtin_memcpy(dst, src, size);
+    #else
+        return detail::ManualMemcpy(dst, src, size);
+    #endif
+#else
+    return detail::ManualMemcpy(dst, src, size);
+#endif
+}
+
 } // namespace core
 
