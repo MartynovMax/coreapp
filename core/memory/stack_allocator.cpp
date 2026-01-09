@@ -1,33 +1,112 @@
 #include "stack_allocator.hpp"
+#include "memory_ops.hpp"
 
 namespace core {
 
+namespace detail {
+
+#if CORE_MEMORY_DEBUG
+constexpr u32 kStackHeaderMagic = 0xDEADBEEF;
+#endif
+
+// Get header from user pointer
+CORE_FORCE_INLINE StackAllocationHeader* GetHeaderFromUserPtr(void* user_ptr) noexcept {
+    u8* ptr = static_cast<u8*>(user_ptr);
+    return reinterpret_cast<StackAllocationHeader*>(ptr - sizeof(StackAllocationHeader));
+}
+
+} // namespace detail
+
 StackAllocator::StackAllocator(void* buffer, memory_size size) noexcept
-    : _begin(nullptr)
-    , _current(nullptr)
-    , _end(nullptr)
-    , _upstream(nullptr)
+    : _upstream(nullptr)
 {
-    CORE_UNUSED(buffer);
-    CORE_UNUSED(size);
+    if (buffer == nullptr || size == 0) {
+        _begin = nullptr;
+        _current = nullptr;
+        _end = nullptr;
+    } else {
+        _begin = static_cast<u8*>(buffer);
+        _current = _begin;
+        _end = _begin + size;
+    }
 }
 
 StackAllocator::StackAllocator(memory_size capacity, IAllocator& upstream) noexcept
-    : _begin(nullptr)
-    , _current(nullptr)
-    , _end(nullptr)
-    , _upstream(nullptr)
+    : _upstream(&upstream)
 {
-    CORE_UNUSED(capacity);
-    CORE_UNUSED(upstream);
+    _begin = static_cast<u8*>(AllocateBytes(upstream, capacity));
+    if (_begin == nullptr) {
+        _current = nullptr;
+        _end = nullptr;
+    } else {
+        _current = _begin;
+        _end = _begin + capacity;
+    }
 }
 
 StackAllocator::~StackAllocator() noexcept {
+    if (_upstream && _begin) {
+        memory_size capacity = static_cast<memory_size>(_end - _begin);
+        DeallocateBytes(*_upstream, _begin, capacity);
+    }
 }
 
 void* StackAllocator::Allocate(const AllocationRequest& request) noexcept {
-    CORE_UNUSED(request);
-    return nullptr;
+    if (request.size == 0) {
+        return nullptr;
+    }
+    
+    if (_begin == nullptr) {
+        return nullptr;
+    }
+
+    const memory_alignment alignment = detail::NormalizeAlignment(request.alignment);
+
+#if CORE_MEMORY_DEBUG
+    CORE_MEM_ASSERT(detail::IsValidAlignment(alignment));
+#endif
+
+    // Step 1: Calculate where user data should start (aligned)
+    u8* block_start = _current;
+    u8* header_pos = block_start;
+    u8* user_pos_unaligned = header_pos + sizeof(detail::StackAllocationHeader);
+    u8* user_pos = AlignPtrUp(user_pos_unaligned, alignment);
+    
+    header_pos = user_pos - sizeof(detail::StackAllocationHeader);
+    
+    // Step 2: Calculate total size needed from block_start to end of user data
+    u8* end_pos = user_pos + request.size;
+    memory_size total_size = static_cast<memory_size>(end_pos - block_start);
+    
+    // Step 3: Check if we have enough space
+    if (block_start + total_size > _end) {
+#if CORE_MEMORY_DEBUG
+        if (Any(request.flags & AllocationFlags::NoFail)) {
+            CORE_MEM_ASSERT(false && "StackAllocator: out of memory with NoFail flag");
+        }
+#endif
+        return nullptr;
+    }
+    
+    // Step 4: Write allocation header
+    auto* header = reinterpret_cast<detail::StackAllocationHeader*>(header_pos);
+    header->total_size = total_size;
+    header->user_size = request.size;
+    
+#if CORE_MEMORY_DEBUG
+    header->magic = detail::kStackHeaderMagic;
+    header->padding_bytes = 0;
+#endif
+    
+    // Step 5: Update current pointer
+    _current = end_pos;
+    
+    // Step 6: Zero-initialize if requested
+    if (Any(request.flags & AllocationFlags::ZeroInitialize)) {
+        memory_zero(user_pos, request.size);
+    }
+    
+    return user_pos;
 }
 
 void StackAllocator::Deallocate(const AllocationInfo& info) noexcept {
@@ -35,8 +114,11 @@ void StackAllocator::Deallocate(const AllocationInfo& info) noexcept {
 }
 
 bool StackAllocator::Owns(const void* ptr) const noexcept {
-    CORE_UNUSED(ptr);
-    return false;
+    if (ptr == nullptr || _begin == nullptr) {
+        return false;
+    }
+    const u8* p = static_cast<const u8*>(ptr);
+    return p >= _begin && p < _end;
 }
 
 } // namespace core

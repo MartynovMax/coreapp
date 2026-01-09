@@ -11,6 +11,20 @@
 
 namespace core {
 
+namespace detail {
+
+struct StackAllocationHeader {
+    memory_size total_size;  // Total size from block start to end of user data
+    memory_size user_size;   // Size of user data only
+    
+#if CORE_MEMORY_DEBUG
+    u32 magic;               // Magic number for validation (0xDEADBEEF)
+    u32 padding_bytes;       // For alignment and future use
+#endif
+};
+
+} // namespace detail
+
 class StackAllocator final : public IAllocator {
 public:
     StackAllocator(void* buffer, memory_size size) noexcept;
