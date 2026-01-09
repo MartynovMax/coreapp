@@ -249,6 +249,13 @@ add_executable(memory_ops_tests
 target_link_libraries(memory_ops_tests PRIVATE coreapp gtest_main)
 add_test(NAME memory_ops_tests COMMAND memory_ops_tests)
 
+# bump_allocator tests
+add_executable(bump_allocator_tests
+    tests/core_memory/test_bump_allocator.cpp
+)
+target_link_libraries(bump_allocator_tests PRIVATE coreapp gtest_main)
+add_test(NAME bump_allocator_tests COMMAND bump_allocator_tests)
+
 # core_attributes warnings (build-only, excluded from ALL)
 add_executable(core_attributes_warnings_tests EXCLUDE_FROM_ALL
     tests/core_base/test_core_attributes_warnings.cpp
