@@ -148,28 +148,37 @@ void PoolAllocator::Deallocate(const AllocationInfo& info) noexcept {
 }
 
 bool PoolAllocator::Owns(const void* ptr) const noexcept {
-    CORE_UNUSED(ptr);
-    return false;
+    if (ptr == nullptr || _begin == nullptr) {
+        return false;
+    }
+    const u8* p = static_cast<const u8*>(ptr);
+    return p >= _begin && p < _end;
 }
 
 memory_size PoolAllocator::BlockSize() const noexcept {
-    return 0;
+    return _blockSize;
 }
 
 memory_size PoolAllocator::BlockCount() const noexcept {
-    return 0;
+    return _blockCount;
 }
 
 memory_size PoolAllocator::FreeBlocks() const noexcept {
-    return 0;
+    memory_size count = 0;
+    void* current = _freeList;
+    while (current != nullptr) {
+        ++count;
+        current = detail::GetNextFreeBlock(current);
+    }
+    return count;
 }
 
 memory_size PoolAllocator::UsedBlocks() const noexcept {
-    return 0;
+    return _blockCount - FreeBlocks();
 }
 
 memory_size PoolAllocator::CapacityBytes() const noexcept {
-    return 0;
+    return _blockSize * _blockCount;
 }
 
 } // namespace core
