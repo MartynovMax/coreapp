@@ -9,6 +9,9 @@
 
 namespace core {
 
+// Ensure usize is suitable for pointer arithmetic
+static_assert(sizeof(usize) == sizeof(void*), "usize must be pointer-sized for address arithmetic");
+
 namespace detail {
 
 CORE_FORCE_INLINE bool MemoryRangesOverlap(
@@ -20,12 +23,21 @@ CORE_FORCE_INLINE bool MemoryRangesOverlap(
         return false;
     }
 
-    const auto* dst_bytes = static_cast<const u8*>(dst);
-    const auto* src_bytes = static_cast<const u8*>(src);
-    const auto* dst_end = dst_bytes + size;
-    const auto* src_end = src_bytes + size;
+    const usize a = reinterpret_cast<usize>(dst);
+    const usize b = reinterpret_cast<usize>(src);
+    const usize n = static_cast<usize>(size);
 
-    return (dst_bytes < src_end) && (src_bytes < dst_end);
+    // Check for potential overflow in end address computation
+    const usize max = static_cast<usize>(~usize(0));
+    if (a > (max - n) || b > (max - n)) {
+        CORE_MEM_ASSERT(false && "MemoryRangesOverlap: size too large, address overflow");
+        return false;
+    }
+
+    const usize a_end = a + n;
+    const usize b_end = b + n;
+
+    return (a < b_end) && (b < a_end);
 }
 
 CORE_FORCE_INLINE void* ManualMemcpy(
@@ -48,14 +60,23 @@ CORE_FORCE_INLINE void* ManualMemmove(
     const void* src,
     memory_size size) noexcept
 {
+    if (dst == src || size == 0) {
+        return dst;
+    }
+
     auto* d = static_cast<u8*>(dst);
     const auto* s = static_cast<const u8*>(src);
 
-    if (d < s) {
+    const usize a = reinterpret_cast<usize>(d);
+    const usize b = reinterpret_cast<usize>(s);
+
+    if (a < b) {
+        // Forward copy is safe
         for (memory_size i = 0; i < size; ++i) {
             d[i] = s[i];
         }
-    } else if (d > s) {
+    } else {
+        // Backward copy to handle overlap
         for (memory_size i = size; i > 0; --i) {
             d[i - 1] = s[i - 1];
         }
@@ -96,18 +117,12 @@ CORE_FORCE_INLINE void* memory_copy(
     }
 #endif
 
-    if (size == 0) {
+    if (size == 0 || dst == src) {
         return dst;
     }
 
 #if CORE_COMPILER_CLANG || CORE_COMPILER_GCC
     return __builtin_memcpy(dst, src, size);
-#elif CORE_COMPILER_MSVC
-    #if _MSC_VER >= 1928
-        return __builtin_memcpy(dst, src, size);
-    #else
-        return detail::ManualMemcpy(dst, src, size);
-    #endif
 #else
     return detail::ManualMemcpy(dst, src, size);
 #endif
@@ -123,18 +138,12 @@ CORE_FORCE_INLINE void* memory_move(
     CORE_MEM_ASSERT((src != nullptr || size == 0) && "memory_move: src is null");
 #endif
 
-    if (size == 0) {
+    if (size == 0 || dst == src) {
         return dst;
     }
 
 #if CORE_COMPILER_CLANG || CORE_COMPILER_GCC
     return __builtin_memmove(dst, src, size);
-#elif CORE_COMPILER_MSVC
-    #if _MSC_VER >= 1928
-        return __builtin_memmove(dst, src, size);
-    #else
-        return detail::ManualMemmove(dst, src, size);
-    #endif
 #else
     return detail::ManualMemmove(dst, src, size);
 #endif
@@ -155,12 +164,6 @@ CORE_FORCE_INLINE void* memory_set(
 
 #if CORE_COMPILER_CLANG || CORE_COMPILER_GCC
     return __builtin_memset(dst, value, size);
-#elif CORE_COMPILER_MSVC
-    #if _MSC_VER >= 1928
-        return __builtin_memset(dst, value, size);
-    #else
-        return detail::ManualMemset(dst, value, size);
-    #endif
 #else
     return detail::ManualMemset(dst, value, size);
 #endif
