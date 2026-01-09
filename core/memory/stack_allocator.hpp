@@ -3,6 +3,33 @@
 // =============================================================================
 // stack_allocator.hpp
 // LIFO (stack-style) allocator with per-allocation deallocation support.
+//
+// Manages a contiguous memory region, allocates by bumping a pointer forward,
+// but supports LIFO frees (free must happen in reverse order of allocate).
+//
+// Use cases:
+//   - Nested scopes with clear allocation/deallocation patterns
+//   - Frame/sub-frame allocations with strict lifetimes
+//   - Temporary working memory with LIFO constraints
+//   - Recursive algorithms with scoped temporary data
+//
+// AllocationFlags:
+//   - ZeroInitialize: Supported via memory_zero
+//   - NoFail: Asserts in debug if out of memory; returns nullptr in release
+//   - Other flags: Currently ignored
+//
+// Thread-safety:
+//   - NOT thread-safe
+//   - Requires external synchronization or per-thread instances
+//
+// Deallocation:
+//   - Deallocate() must be called in LIFO order (reverse of allocation)
+//   - Out-of-order deallocation triggers assertion in debug builds
+//   - Use RewindToMarker() to free multiple allocations at once
+//
+// Tracking integration:
+//   - Hooks are dispatched via AllocateBytes/DeallocateBytes helpers (owning mode)
+//   - Direct Allocate/Deallocate calls do not trigger hooks (by design)
 // =============================================================================
 
 #include "core_memory.hpp"
