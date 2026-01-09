@@ -153,7 +153,7 @@ TEST(AtomicU64Test, ConcurrentIncrement) {
     
     RunConcurrent(kThreadCount, [&](int) {
         for (int i = 0; i < kIncrementsPerThread; ++i) {
-            counter.fetch_add(1, memory_order::relaxed);
+            (void)counter.fetch_add(1, memory_order::relaxed);
         }
     });
     
@@ -189,7 +189,7 @@ TEST(AtomicU64Test, LargeValueIncrement) {
     
     RunConcurrent(kThreadCount, [&](int) {
         for (int i = 0; i < kIncrementsPerThread; ++i) {
-            counter.fetch_add(1, memory_order::relaxed);
+            (void)counter.fetch_add(1, memory_order::relaxed);
         }
     });
     
@@ -224,7 +224,7 @@ TEST(AtomicU64Test, HighContentionCounter) {
     
     RunConcurrent(kThreadCount, [&](int) {
         for (int i = 0; i < kOperationsPerThread; ++i) {
-            counter.fetch_add(1, memory_order::seq_cst);
+            (void)counter.fetch_add(1, memory_order::seq_cst);
         }
     });
     
@@ -239,9 +239,9 @@ TEST(AtomicU64Test, MixedOperations) {
     RunConcurrent(kThreadCount, [&](int thread_id) {
         for (int i = 0; i < kOperationsPerThread; ++i) {
             if (thread_id % 2 == 0) {
-                value.fetch_add(1, memory_order::relaxed);
+                (void)value.fetch_add(1, memory_order::relaxed);
             } else {
-                value.fetch_sub(1, memory_order::relaxed);
+                (void)value.fetch_sub(1, memory_order::relaxed);
             }
         }
     });

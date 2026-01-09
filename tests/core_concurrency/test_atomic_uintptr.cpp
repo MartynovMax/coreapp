@@ -151,7 +151,7 @@ TEST(AtomicUintptrTest, ConcurrentIncrement) {
     
     RunConcurrent(kThreadCount, [&](int) {
         for (int i = 0; i < kIncrementsPerThread; ++i) {
-            counter.fetch_add(1, memory_order::relaxed);
+            (void)counter.fetch_add(1, memory_order::relaxed);
         }
     });
     
@@ -186,7 +186,7 @@ TEST(AtomicUintptrTest, HighContentionCounter) {
     
     RunConcurrent(kThreadCount, [&](int) {
         for (int i = 0; i < kOperationsPerThread; ++i) {
-            counter.fetch_add(1, memory_order::seq_cst);
+            (void)counter.fetch_add(1, memory_order::seq_cst);
         }
     });
     

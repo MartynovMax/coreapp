@@ -184,7 +184,7 @@ TEST(AtomicPtrTest, ConcurrentExchange) {
     
     RunConcurrent(kThreadCount, [&](int thread_id) {
         for (int i = 0; i < kIterations; ++i) {
-            shared.exchange(&values[thread_id], memory_order::relaxed);
+            (void)shared.exchange(&values[thread_id], memory_order::relaxed);
         }
     });
     
@@ -201,7 +201,7 @@ TEST(AtomicPtrTest, CASSetOnce) {
     RunConcurrent(kThreadCount, [&](int) {
         void* expected = nullptr;
         if (shared.compare_exchange_strong(expected, &value, memory_order::release)) {
-            winner_count.fetch_add(1, memory_order::relaxed);
+            (void)winner_count.fetch_add(1, memory_order::relaxed);
         }
     });
     
@@ -354,12 +354,12 @@ TEST(AtomicPtrTest, DISABLED_TreiberStackStress) {
             if (i % 3 == 0) {
                 int value = thread_id * 100000 + i;
                 stack.push(new Node(value));
-                operations.fetch_add(1, memory_order::relaxed);
+                (void)operations.fetch_add(1, memory_order::relaxed);
             } else {
                 Node* node = stack.pop();
                 if (node) {
                     delete node;
-                    operations.fetch_add(1, memory_order::relaxed);
+                    (void)operations.fetch_add(1, memory_order::relaxed);
                 }
             }
         }

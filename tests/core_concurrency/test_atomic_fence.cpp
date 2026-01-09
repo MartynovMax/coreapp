@@ -194,7 +194,7 @@ TEST(AtomicFenceTest, FenceWithAtomicOps) {
         for (int i = 0; i < 100; ++i) {
             data = i;
             thread_fence(memory_order::release);
-            counter.fetch_add(1, memory_order::relaxed);
+            (void)counter.fetch_add(1, memory_order::relaxed);
         }
     });
     
