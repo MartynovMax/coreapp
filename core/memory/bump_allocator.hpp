@@ -8,7 +8,8 @@
 // Ideal for temporary/scoped memory: frame allocations, parsing, scratch buffers.
 //
 // AllocationFlags:
-//   - ZeroInitialize: Supported via memset after allocation
+//   - ZeroInitialize: Supported via memory_zero
+//   - NoFail: Asserts in debug if out of memory; returns nullptr in release
 //   - Other flags: Currently ignored
 //
 // Thread-safety:
@@ -18,6 +19,10 @@
 // Deallocation:
 //   - Deallocate() is a no-op
 //   - Use Reset() to reclaim all memory at once
+//
+// Tracking integration:
+//   - Hooks are dispatched via AllocateBytes/DeallocateBytes helpers (owning mode)
+//   - Direct Allocate/Deallocate calls do not trigger hooks (by design)
 // =============================================================================
 
 #include "core_memory.hpp"
@@ -44,6 +49,8 @@ public:
     memory_size Used() const noexcept;
     memory_size Capacity() const noexcept;
     memory_size Remaining() const noexcept;
+    
+    bool Owns(const void* ptr) const noexcept;
 
 private:
     u8* _begin;    // Start of the memory region
