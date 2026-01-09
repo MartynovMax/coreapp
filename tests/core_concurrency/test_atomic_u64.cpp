@@ -84,7 +84,7 @@ TEST(AtomicU64Test, CompareExchangeStrongUpdatesExpected) {
     atomic_u64 a{0xCAFEBABE};
     
     u64 expected = 0xDEADBEEF;
-    a.compare_exchange_strong(expected, 0x12345678);
+    (void)a.compare_exchange_strong(expected, 0x12345678);
     
     EXPECT_EQ(expected, 0xCAFEBABEull);
 }

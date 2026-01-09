@@ -155,7 +155,7 @@ TEST(AtomicPtrTest, CompareExchangeStrongUpdatesExpected) {
     atomic_ptr a{&v1};
     
     void* expected = nullptr;
-    a.compare_exchange_strong(expected, &v2);
+    (void)a.compare_exchange_strong(expected, &v2);
     
     EXPECT_EQ(expected, &v1);
 }

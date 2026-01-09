@@ -80,7 +80,7 @@ TEST(AtomicU32Test, CompareExchangeStrongUpdatesExpected) {
     atomic_u32 a{100};
     
     u32 expected = 50;
-    a.compare_exchange_strong(expected, 200);
+    (void)a.compare_exchange_strong(expected, 200);
     
     EXPECT_EQ(expected, 100u);
 }

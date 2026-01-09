@@ -56,7 +56,7 @@ TEST(AtomicUintptrTest, CompareExchangeStrongUpdatesExpected) {
     atomic_uintptr a{100};
     
     usize expected = 50;
-    a.compare_exchange_strong(expected, 200);
+    (void)a.compare_exchange_strong(expected, 200);
     
     EXPECT_EQ(expected, static_cast<usize>(100));
 }
