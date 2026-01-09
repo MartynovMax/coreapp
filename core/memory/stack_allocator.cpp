@@ -59,17 +59,18 @@ void* StackAllocator::Allocate(const AllocationRequest& request) noexcept {
         return nullptr;
     }
 
-    // Ensure user ptr alignment is at least header alignment to avoid unaligned header access
     memory_alignment alignment = detail::NormalizeAlignment(request.alignment);
+
+#if CORE_MEMORY_DEBUG
+    CORE_MEM_ASSERT(detail::IsValidAlignment(alignment));
+#endif
+
+    // Ensure user ptr alignment is at least header alignment to avoid unaligned header access
     const memory_alignment header_align = 
         static_cast<memory_alignment>(alignof(detail::StackAllocationHeader));
     if (alignment < header_align) {
         alignment = header_align;
     }
-
-#if CORE_MEMORY_DEBUG
-    CORE_MEM_ASSERT(detail::IsValidAlignment(alignment));
-#endif
 
     // Step 1: Calculate where user data should start (aligned)
     u8* block_start = _current;
