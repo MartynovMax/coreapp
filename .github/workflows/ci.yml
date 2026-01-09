@@ -6,9 +6,13 @@ on:
   pull_request:
     branches: [ main ]
 
+env:
+  # Increase number of parallel build jobs
+  BUILD_PARALLEL_LEVEL: 4
+
 jobs:
   build-and-test:
-    name: ${{ matrix.os }} / ${{ matrix.compiler }} / ${{ matrix.config }}
+    name: ${{ matrix.os }} / ${{ matrix.compiler }} / ${{ matrix.config }}${{ matrix.sanitizer && format(' / {0}', matrix.sanitizer) || '' }}
     runs-on: ${{ matrix.os }}
 
     strategy:
@@ -17,13 +21,24 @@ jobs:
         os: [ubuntu-latest, windows-latest, macos-latest]
         compiler: [gcc, clang, msvc]
         config: [Debug, Release]
+        sanitizer: ['']
+        include:
+          # Add sanitizers for Debug builds on Linux
+          - os: ubuntu-latest
+            compiler: gcc
+            config: Debug
+            sanitizer: asan
+          - os: ubuntu-latest
+            compiler: clang
+            config: Debug
+            sanitizer: asan-ubsan
         exclude:
-          # GCC/Clang на Windows не используем
+          # Don't use GCC/Clang on Windows
           - os: windows-latest
             compiler: gcc
           - os: windows-latest
             compiler: clang
-          # MSVC только на Windows
+          # MSVC only on Windows
           - os: ubuntu-latest
             compiler: msvc
           - os: macos-latest
@@ -33,12 +48,45 @@ jobs:
       - name: Checkout sources
         uses: actions/checkout@v4
 
+      # ---------- Cache build artifacts ----------
+      - name: Cache CMake build
+        uses: actions/cache@v4
+        with:
+          path: |
+            build
+            !build/Testing
+            !build/**/*.log
+          key: ${{ runner.os }}-${{ matrix.compiler }}-${{ matrix.config }}-${{ matrix.sanitizer }}-${{ hashFiles('**/CMakeLists.txt', '**/*.cmake') }}
+          restore-keys: |
+            ${{ runner.os }}-${{ matrix.compiler }}-${{ matrix.config }}-${{ matrix.sanitizer }}-
+            ${{ runner.os }}-${{ matrix.compiler }}-${{ matrix.config }}-
+            ${{ runner.os }}-${{ matrix.compiler }}-
+
+      # ---------- Install compilers (Linux) ----------
+      - name: Install GCC
+        if: runner.os == 'Linux' && matrix.compiler == 'gcc'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y gcc-13 g++-13
+          sudo update-alternatives --install /usr/bin/gcc gcc /usr/bin/gcc-13 100
+          sudo update-alternatives --install /usr/bin/g++ g++ /usr/bin/g++-13 100
+
+      - name: Install Clang
+        if: runner.os == 'Linux' && matrix.compiler == 'clang'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y clang-17
+          sudo update-alternatives --install /usr/bin/clang clang /usr/bin/clang-17 100
+          sudo update-alternatives --install /usr/bin/clang++ clang++ /usr/bin/clang++-17 100
+
       # ---------- Configure (Linux/macOS) ----------
       - name: Configure CMake (Unix)
         if: runner.os != 'Windows'
         shell: bash
         run: |
           echo "Using compiler: ${{ matrix.compiler }}"
+          
+          # Set compiler
           if [ "${{ matrix.compiler }}" = "gcc" ]; then
             export CC=gcc
             export CXX=g++
@@ -46,21 +94,66 @@ jobs:
             export CC=clang
             export CXX=clang++
           fi
-          cmake -S . -B build -DCMAKE_BUILD_TYPE=${{ matrix.config }}
+          
+          # Base CMake flags
+          CMAKE_FLAGS="-DCMAKE_BUILD_TYPE=${{ matrix.config }}"
+          
+          # Warnings as errors for Release builds
+          if [ "${{ matrix.config }}" = "Release" ]; then
+            CMAKE_FLAGS="$CMAKE_FLAGS -DCMAKE_COMPILE_WARNING_AS_ERROR=ON"
+          fi
+          
+          # Sanitizers for Debug builds
+          if [ "${{ matrix.sanitizer }}" = "asan" ]; then
+            CMAKE_FLAGS="$CMAKE_FLAGS -DCMAKE_CXX_FLAGS='-fsanitize=address -fno-omit-frame-pointer -g'"
+            CMAKE_FLAGS="$CMAKE_FLAGS -DCMAKE_C_FLAGS='-fsanitize=address -fno-omit-frame-pointer -g'"
+            export ASAN_OPTIONS=detect_leaks=1:check_initialization_order=1
+          elif [ "${{ matrix.sanitizer }}" = "asan-ubsan" ]; then
+            CMAKE_FLAGS="$CMAKE_FLAGS -DCMAKE_CXX_FLAGS='-fsanitize=address,undefined -fno-omit-frame-pointer -g'"
+            CMAKE_FLAGS="$CMAKE_FLAGS -DCMAKE_C_FLAGS='-fsanitize=address,undefined -fno-omit-frame-pointer -g'"
+            export ASAN_OPTIONS=detect_leaks=1:check_initialization_order=1
+            export UBSAN_OPTIONS=print_stacktrace=1
+          fi
+          
+          echo "CMake flags: $CMAKE_FLAGS"
+          cmake -S . -B build $CMAKE_FLAGS
 
       # ---------- Configure (Windows / MSVC) ----------
       - name: Configure CMake (Windows / MSVC)
         if: runner.os == 'Windows'
-        run: cmake -S . -B build -DCMAKE_BUILD_TYPE=${{ matrix.config }}
+        run: |
+          $CMAKE_FLAGS = "-DCMAKE_BUILD_TYPE=${{ matrix.config }}"
+          
+          # Warnings as errors for Release builds
+          if ("${{ matrix.config }}" -eq "Release") {
+            $CMAKE_FLAGS += " -DCMAKE_COMPILE_WARNING_AS_ERROR=ON"
+          }
+          
+          Write-Host "CMake flags: $CMAKE_FLAGS"
+          cmake -S . -B build $CMAKE_FLAGS.Split()
 
       # ---------- Build ----------
       - name: Build
         run: |
           echo "Building on ${{ runner.os }} with ${{ matrix.compiler }} / config: ${{ matrix.config }}"
-          cmake --build build --config ${{ matrix.config }} --parallel 4
+          cmake --build build --config ${{ matrix.config }} --parallel ${{ env.BUILD_PARALLEL_LEVEL }}
         shell: bash
 
       # ---------- Run tests ----------
       - name: Run tests
         working-directory: build
-        run: ctest --output-on-failure -C ${{ matrix.config }}
+        run: ctest --output-on-failure --parallel ${{ env.BUILD_PARALLEL_LEVEL }} -C ${{ matrix.config }}
+        env:
+          ASAN_OPTIONS: detect_leaks=1:check_initialization_order=1
+          UBSAN_OPTIONS: print_stacktrace=1
+
+      # ---------- Upload logs on failure ----------
+      - name: Upload test logs
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-logs-${{ matrix.os }}-${{ matrix.compiler }}-${{ matrix.config }}${{ matrix.sanitizer && format('-{0}', matrix.sanitizer) || '' }}
+          path: |
+            build/Testing/Temporary/
+            build/**/*.log
+          retention-days: 7
