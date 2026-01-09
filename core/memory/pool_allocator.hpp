@@ -11,6 +11,36 @@
 
 namespace core {
 
+namespace detail {
+
+constexpr memory_size kMinBlockSize = sizeof(void*);
+
+CORE_FORCE_INLINE void* GetNextFreeBlock(void* block) noexcept {
+    return *static_cast<void**>(block);
+}
+
+CORE_FORCE_INLINE void SetNextFreeBlock(void* block, void* next) noexcept {
+    *static_cast<void**>(block) = next;
+}
+
+CORE_FORCE_INLINE memory_size ComputeBlockSize(memory_size requested_size, memory_alignment alignment) noexcept {
+    memory_size size = (requested_size < kMinBlockSize) ? kMinBlockSize : requested_size;
+    size = AlignUp(size, alignment);
+    return size;
+}
+
+CORE_FORCE_INLINE bool IsBlockAligned(const void* ptr, const void* pool_begin, memory_size block_size) noexcept {
+    if (block_size == 0) {
+        return false;
+    }
+    const u8* p = static_cast<const u8*>(ptr);
+    const u8* base = static_cast<const u8*>(pool_begin);
+    const memory_size offset = static_cast<memory_size>(p - base);
+    return (offset % block_size) == 0;
+}
+
+} // namespace detail
+
 class PoolAllocator final : public IAllocator {
 public:
     PoolAllocator(void* buffer, memory_size buffer_size, memory_size block_size) noexcept;
