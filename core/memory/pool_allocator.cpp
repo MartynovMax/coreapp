@@ -5,17 +5,17 @@ namespace core {
 
 namespace {
 
-void InitializePool(u8* begin, memory_size block_size, memory_size block_count, void*& out_free_list) noexcept {
-    if (begin == nullptr || block_size == 0 || block_count == 0) {
-        out_free_list = nullptr;
+void InitializePool(u8* begin, memory_size blockSize, memory_size blockCount, void*& outFreeList) noexcept {
+    if (begin == nullptr || blockSize == 0 || blockCount == 0) {
+        outFreeList = nullptr;
         return;
     }
     
-    out_free_list = begin;
+    outFreeList = begin;
     u8* current = begin;
     
-    for (memory_size i = 0; i < block_count - 1; ++i) {
-        u8* next = current + block_size;
+    for (memory_size i = 0; i < blockCount - 1; ++i) {
+        u8* next = current + blockSize;
         detail::SetNextFreeBlock(current, next);
         current = next;
     }
@@ -25,76 +25,108 @@ void InitializePool(u8* begin, memory_size block_size, memory_size block_count, 
 
 } // anonymous namespace
 
-PoolAllocator::PoolAllocator(void* buffer, memory_size buffer_size, memory_size block_size) noexcept
+PoolAllocator::PoolAllocator(void* buffer, memory_size bufferSize, memory_size blockSize) noexcept
     : _upstream(nullptr)
 {
-    if (buffer == nullptr || buffer_size == 0 || block_size == 0) {
+    if (buffer == nullptr || bufferSize == 0 || blockSize == 0) {
         _begin = nullptr;
         _end = nullptr;
-        _free_list = nullptr;
-        _block_size = 0;
-        _block_count = 0;
+        _freeList = nullptr;
+        _blockSize = 0;
+        _blockCount = 0;
         return;
     }
     
-    _block_size = detail::ComputeBlockSize(block_size, CORE_DEFAULT_ALIGNMENT);
-    _block_count = buffer_size / _block_size;
+    _blockSize = detail::ComputeBlockSize(blockSize, CORE_DEFAULT_ALIGNMENT);
+    _blockCount = bufferSize / _blockSize;
     
-    if (_block_count == 0) {
+    if (_blockCount == 0) {
         _begin = nullptr;
         _end = nullptr;
-        _free_list = nullptr;
-        _block_size = 0;
+        _freeList = nullptr;
+        _blockSize = 0;
         return;
     }
     
     _begin = static_cast<u8*>(buffer);
-    _end = _begin + (_block_size * _block_count);
+    _end = _begin + (_blockSize * _blockCount);
     
-    InitializePool(_begin, _block_size, _block_count, _free_list);
+    InitializePool(_begin, _blockSize, _blockCount, _freeList);
 }
 
-PoolAllocator::PoolAllocator(memory_size block_size, memory_size block_count, IAllocator& upstream) noexcept
+PoolAllocator::PoolAllocator(memory_size blockSize, memory_size blockCount, IAllocator& upstream) noexcept
     : _upstream(&upstream)
 {
-    if (block_size == 0 || block_count == 0) {
+    if (blockSize == 0 || blockCount == 0) {
         _begin = nullptr;
         _end = nullptr;
-        _free_list = nullptr;
-        _block_size = 0;
-        _block_count = 0;
+        _freeList = nullptr;
+        _blockSize = 0;
+        _blockCount = 0;
         return;
     }
     
-    _block_size = detail::ComputeBlockSize(block_size, CORE_DEFAULT_ALIGNMENT);
-    _block_count = block_count;
+    _blockSize = detail::ComputeBlockSize(blockSize, CORE_DEFAULT_ALIGNMENT);
+    _blockCount = blockCount;
     
-    const memory_size total_size = _block_size * _block_count;
-    _begin = static_cast<u8*>(AllocateBytes(upstream, total_size));
+    const memory_size totalSize = _blockSize * _blockCount;
+    _begin = static_cast<u8*>(AllocateBytes(upstream, totalSize));
     
     if (_begin == nullptr) {
         _end = nullptr;
-        _free_list = nullptr;
-        _block_size = 0;
-        _block_count = 0;
+        _freeList = nullptr;
+        _blockSize = 0;
+        _blockCount = 0;
         return;
     }
     
-    _end = _begin + total_size;
+    _end = _begin + totalSize;
     
-    InitializePool(_begin, _block_size, _block_count, _free_list);
+    InitializePool(_begin, _blockSize, _blockCount, _freeList);
 }
 
 PoolAllocator::~PoolAllocator() noexcept {
     if (_upstream && _begin) {
-        const memory_size total_size = _block_size * _block_count;
-        DeallocateBytes(*_upstream, _begin, total_size);
+        const memory_size totalSize = _blockSize * _blockCount;
+        DeallocateBytes(*_upstream, _begin, totalSize);
     }
 }
 
 void* PoolAllocator::Allocate(const AllocationRequest& request) noexcept {
-    CORE_UNUSED(request);
-    return nullptr;
+    if (request.size == 0) {
+        return nullptr;
+    }
+    
+    if (_begin == nullptr) {
+        return nullptr;
+    }
+
+#if CORE_MEMORY_DEBUG
+    CORE_MEM_ASSERT(request.size <= _blockSize && 
+                    "PoolAllocator: requested size exceeds block size");
+    
+    const memory_alignment reqAlignment = detail::NormalizeAlignment(request.alignment);
+    CORE_MEM_ASSERT(reqAlignment <= CORE_DEFAULT_ALIGNMENT && 
+                    "PoolAllocator: requested alignment exceeds block alignment");
+#endif
+
+    if (_freeList == nullptr) {
+#if CORE_MEMORY_DEBUG
+        if (Any(request.flags & AllocationFlags::NoFail)) {
+            CORE_MEM_ASSERT(false && "PoolAllocator: out of memory with NoFail flag");
+        }
+#endif
+        return nullptr;
+    }
+
+    void* block = _freeList;
+    _freeList = detail::GetNextFreeBlock(_freeList);
+
+    if (Any(request.flags & AllocationFlags::ZeroInitialize)) {
+        memory_zero(block, _blockSize);
+    }
+
+    return block;
 }
 
 void PoolAllocator::Deallocate(const AllocationInfo& info) noexcept {

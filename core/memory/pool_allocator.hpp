@@ -65,12 +65,12 @@ public:
     memory_size CapacityBytes() const noexcept;
 
 private:
-    u8* _begin;                  // Start of the pool memory
-    u8* _end;                    // End of the pool memory
-    void* _free_list;            // Head of the free-block singly linked list
-    memory_size _block_size;     // Aligned size of each block
-    memory_size _block_count;    // Total number of blocks in the pool
-    IAllocator* _upstream;       // Upstream allocator (owning mode) or nullptr
+    u8* _begin;
+    u8* _end;
+    void* _freeList;
+    memory_size _blockSize;
+    memory_size _blockCount;
+    IAllocator* _upstream;
 };
 
 } // namespace core
