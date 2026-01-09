@@ -34,22 +34,40 @@ PoolAllocator::PoolAllocator(void* buffer, memory_size bufferSize, memory_size b
         _freeList = nullptr;
         _blockSize = 0;
         _blockCount = 0;
+        _freeCount = 0;
         return;
     }
     
+    u8* alignedBegin = AlignPtrUp(static_cast<u8*>(buffer), CORE_DEFAULT_ALIGNMENT);
+    const memory_size alignmentOffset = static_cast<memory_size>(alignedBegin - static_cast<u8*>(buffer));
+    
+    if (alignmentOffset >= bufferSize) {
+        _begin = nullptr;
+        _end = nullptr;
+        _freeList = nullptr;
+        _blockSize = 0;
+        _blockCount = 0;
+        _freeCount = 0;
+        return;
+    }
+    
+    const memory_size adjustedSize = bufferSize - alignmentOffset;
+    
     _blockSize = detail::ComputeBlockSize(blockSize, CORE_DEFAULT_ALIGNMENT);
-    _blockCount = bufferSize / _blockSize;
+    _blockCount = adjustedSize / _blockSize;
     
     if (_blockCount == 0) {
         _begin = nullptr;
         _end = nullptr;
         _freeList = nullptr;
         _blockSize = 0;
+        _freeCount = 0;
         return;
     }
     
-    _begin = static_cast<u8*>(buffer);
+    _begin = alignedBegin;
     _end = _begin + (_blockSize * _blockCount);
+    _freeCount = _blockCount;
     
     InitializePool(_begin, _blockSize, _blockCount, _freeList);
 }
@@ -63,6 +81,7 @@ PoolAllocator::PoolAllocator(memory_size blockSize, memory_size blockCount, IAll
         _freeList = nullptr;
         _blockSize = 0;
         _blockCount = 0;
+        _freeCount = 0;
         return;
     }
     
@@ -77,10 +96,12 @@ PoolAllocator::PoolAllocator(memory_size blockSize, memory_size blockCount, IAll
         _freeList = nullptr;
         _blockSize = 0;
         _blockCount = 0;
+        _freeCount = 0;
         return;
     }
     
     _end = _begin + totalSize;
+    _freeCount = _blockCount;
     
     InitializePool(_begin, _blockSize, _blockCount, _freeList);
 }
@@ -101,29 +122,37 @@ void* PoolAllocator::Allocate(const AllocationRequest& request) noexcept {
         return nullptr;
     }
 
-#if CORE_MEMORY_DEBUG
-    CORE_MEM_ASSERT(request.size <= _blockSize && 
-                    "PoolAllocator: requested size exceeds block size");
-    
     const memory_alignment reqAlignment = detail::NormalizeAlignment(request.alignment);
-    CORE_MEM_ASSERT(reqAlignment <= CORE_DEFAULT_ALIGNMENT && 
-                    "PoolAllocator: requested alignment exceeds block alignment");
+    
+    if (reqAlignment > CORE_DEFAULT_ALIGNMENT) {
+#if CORE_MEMORY_DEBUG
+        CORE_MEM_ASSERT(false && 
+                        "PoolAllocator: requested alignment exceeds block alignment");
 #endif
+        return nullptr;
+    }
+    
+    if (request.size > _blockSize) {
+#if CORE_MEMORY_DEBUG
+        CORE_MEM_ASSERT(false && 
+                        "PoolAllocator: requested size exceeds block size");
+#endif
+        return nullptr;
+    }
 
     if (_freeList == nullptr) {
-#if CORE_MEMORY_DEBUG
         if (Any(request.flags & AllocationFlags::NoFail)) {
-            CORE_MEM_ASSERT(false && "PoolAllocator: out of memory with NoFail flag");
+            FATAL("PoolAllocator: out of memory with NoFail flag");
         }
-#endif
         return nullptr;
     }
 
     void* block = _freeList;
     _freeList = detail::GetNextFreeBlock(_freeList);
+    --_freeCount;
 
     if (Any(request.flags & AllocationFlags::ZeroInitialize)) {
-        memory_zero(block, _blockSize);
+        memory_zero(block, request.size);
     }
 
     return block;
@@ -140,11 +169,15 @@ void PoolAllocator::Deallocate(const AllocationInfo& info) noexcept {
     
     CORE_MEM_ASSERT(detail::IsBlockAligned(info.ptr, _begin, _blockSize) &&
                     "PoolAllocator: pointer is not aligned to block boundary");
+    
+    CORE_MEM_ASSERT(_freeCount < _blockCount &&
+                    "PoolAllocator: double free or corruption detected");
 #endif
 
     void* block = info.ptr;
     detail::SetNextFreeBlock(block, _freeList);
     _freeList = block;
+    ++_freeCount;
 }
 
 bool PoolAllocator::Owns(const void* ptr) const noexcept {
@@ -164,17 +197,11 @@ memory_size PoolAllocator::BlockCount() const noexcept {
 }
 
 memory_size PoolAllocator::FreeBlocks() const noexcept {
-    memory_size count = 0;
-    void* current = _freeList;
-    while (current != nullptr) {
-        ++count;
-        current = detail::GetNextFreeBlock(current);
-    }
-    return count;
+    return _freeCount;
 }
 
 memory_size PoolAllocator::UsedBlocks() const noexcept {
-    return _blockCount - FreeBlocks();
+    return _blockCount - _freeCount;
 }
 
 memory_size PoolAllocator::CapacityBytes() const noexcept {

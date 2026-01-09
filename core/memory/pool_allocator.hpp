@@ -3,6 +3,36 @@
 // =============================================================================
 // pool_allocator.hpp
 // Fixed-size block allocator that manages a contiguous pool using a free-list.
+//
+// Block layout (intrusive design):
+//   - Free block: first sizeof(void*) bytes store next pointer; rest is unused
+//   - Allocated block: all bytes are user data (including first sizeof(void*))
+//   - Important: allocator may overwrite first sizeof(void*) bytes after free
+//
+// Constructor parameters:
+//   - block_size: Maximum allocation size (stride); must be >= sizeof(void*)
+//   - Actual block stride = max(block_size, sizeof(void*)), aligned to CORE_DEFAULT_ALIGNMENT
+//
+// AllocationFlags:
+//   - ZeroInitialize: Zeroes requested size (not entire block)
+//   - NoFail: Fatal error on out-of-memory (terminates program in debug and release)
+//
+// Thread-safety: NOT thread-safe
+//
+// Deallocation contract:
+//   - Can be called in any order (non-LIFO)
+//   - Passing invalid pointer is UB (checked only in debug via Owns/IsBlockAligned)
+//   - Caller must ensure pointer was allocated by this pool
+//
+// Tracking:
+//   - Hooks dispatched via AllocateBytes/DeallocateBytes for pool buffer (owning mode)
+//   - Individual block allocations are NOT tracked by hooks (by design)
+//   - This matches the pattern used by other allocators in the project
+//
+// Alignment:
+//   - Non-owning mode: buffer is automatically aligned to CORE_DEFAULT_ALIGNMENT
+//   - Block size is aligned to CORE_DEFAULT_ALIGNMENT
+//   - Requests with alignment > CORE_DEFAULT_ALIGNMENT will fail
 // =============================================================================
 
 #include "core_memory.hpp"
@@ -33,9 +63,15 @@ CORE_FORCE_INLINE bool IsBlockAligned(const void* ptr, const void* pool_begin, m
     if (block_size == 0) {
         return false;
     }
-    const u8* p = static_cast<const u8*>(ptr);
-    const u8* base = static_cast<const u8*>(pool_begin);
-    const memory_size offset = static_cast<memory_size>(p - base);
+    
+    const usize p_addr = reinterpret_cast<usize>(ptr);
+    const usize base_addr = reinterpret_cast<usize>(pool_begin);
+    
+    if (p_addr < base_addr) {
+        return false;
+    }
+    
+    const memory_size offset = static_cast<memory_size>(p_addr - base_addr);
     return (offset % block_size) == 0;
 }
 
@@ -70,6 +106,7 @@ private:
     void* _freeList;
     memory_size _blockSize;
     memory_size _blockCount;
+    memory_size _freeCount;
     IAllocator* _upstream;
 };
 
