@@ -130,7 +130,21 @@ void* PoolAllocator::Allocate(const AllocationRequest& request) noexcept {
 }
 
 void PoolAllocator::Deallocate(const AllocationInfo& info) noexcept {
-    CORE_UNUSED(info);
+    if (info.ptr == nullptr) {
+        return;
+    }
+
+#if CORE_MEMORY_DEBUG
+    CORE_MEM_ASSERT(Owns(info.ptr) && 
+                    "PoolAllocator: pointer does not belong to this pool");
+    
+    CORE_MEM_ASSERT(detail::IsBlockAligned(info.ptr, _begin, _blockSize) &&
+                    "PoolAllocator: pointer is not aligned to block boundary");
+#endif
+
+    void* block = info.ptr;
+    detail::SetNextFreeBlock(block, _freeList);
+    _freeList = block;
 }
 
 bool PoolAllocator::Owns(const void* ptr) const noexcept {
