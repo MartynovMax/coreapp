@@ -166,5 +166,10 @@ CORE_FORCE_INLINE void* memory_set(
 #endif
 }
 
+CORE_FORCE_INLINE void* memory_zero(void* dst, memory_size size) noexcept
+{
+    return memory_set(dst, 0, size);
+}
+
 } // namespace core
 
