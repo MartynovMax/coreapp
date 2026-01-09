@@ -7,20 +7,12 @@
 // Manages a contiguous memory region, allocates by bumping a pointer forward,
 // but supports LIFO frees (free must happen in reverse order of allocate).
 //
-// Use cases:
-//   - Nested scopes with clear allocation/deallocation patterns
-//   - Frame/sub-frame allocations with strict lifetimes
-//   - Temporary working memory with LIFO constraints
-//   - Recursive algorithms with scoped temporary data
-//
 // AllocationFlags:
 //   - ZeroInitialize: Supported via memory_zero
 //   - NoFail: Asserts in debug if out of memory; returns nullptr in release
 //   - Other flags: Currently ignored
 //
-// Thread-safety:
-//   - NOT thread-safe
-//   - Requires external synchronization or per-thread instances
+// Thread-safety: NOT thread-safe
 //
 // Deallocation:
 //   - Deallocate() must be called in LIFO order (reverse of allocation)
@@ -28,8 +20,7 @@
 //   - Use RewindToMarker() to free multiple allocations at once
 //
 // Tracking integration:
-//   - Hooks are dispatched via AllocateBytes/DeallocateBytes helpers (owning mode)
-//   - Direct Allocate/Deallocate calls do not trigger hooks (by design)
+//   - Hooks are dispatched by AllocateBytes/DeallocateBytes wrappers (core_allocator.hpp)
 // =============================================================================
 
 #include "core_memory.hpp"
@@ -46,9 +37,13 @@ struct StackAllocationHeader {
     
 #if CORE_MEMORY_DEBUG
     u32 magic;               // Magic number for validation (0xDEADBEEF)
-    u32 padding_bytes;       // For alignment and future use
+    u32 padding_bytes;       // Reserved / future use
 #endif
 };
+
+// Ensure header can be placed immediately before user ptr without breaking alignment
+static_assert((sizeof(StackAllocationHeader) % alignof(StackAllocationHeader)) == 0,
+              "StackAllocationHeader size must be a multiple of its alignment");
 
 } // namespace detail
 
@@ -67,16 +62,11 @@ public:
 
     bool Owns(const void* ptr) const noexcept override;
 
-    // Stack marker for scope-based rewind
     struct Marker {
         u8* position;
         
-        bool operator==(const Marker& other) const noexcept {
-            return position == other.position;
-        }
-        bool operator!=(const Marker& other) const noexcept {
-            return position != other.position;
-        }
+        bool operator==(const Marker& other) const noexcept { return position == other.position; }
+        bool operator!=(const Marker& other) const noexcept { return position != other.position; }
     };
     
     Marker GetMarker() const noexcept;

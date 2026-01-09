@@ -9,7 +9,6 @@ namespace detail {
 constexpr u32 kStackHeaderMagic = 0xDEADBEEF;
 #endif
 
-// Get header from user pointer
 CORE_FORCE_INLINE StackAllocationHeader* GetHeaderFromUserPtr(void* user_ptr) noexcept {
     u8* ptr = static_cast<u8*>(user_ptr);
     return reinterpret_cast<StackAllocationHeader*>(ptr - sizeof(StackAllocationHeader));
@@ -60,7 +59,13 @@ void* StackAllocator::Allocate(const AllocationRequest& request) noexcept {
         return nullptr;
     }
 
-    const memory_alignment alignment = detail::NormalizeAlignment(request.alignment);
+    // Ensure user ptr alignment is at least header alignment to avoid unaligned header access
+    memory_alignment alignment = detail::NormalizeAlignment(request.alignment);
+    const memory_alignment header_align = 
+        static_cast<memory_alignment>(alignof(detail::StackAllocationHeader));
+    if (alignment < header_align) {
+        alignment = header_align;
+    }
 
 #if CORE_MEMORY_DEBUG
     CORE_MEM_ASSERT(detail::IsValidAlignment(alignment));
@@ -117,7 +122,6 @@ void StackAllocator::Deallocate(const AllocationInfo& info) noexcept {
     u8* user_ptr = static_cast<u8*>(info.ptr);
     
 #if CORE_MEMORY_DEBUG
-    // Validate that pointer belongs to this allocator
     CORE_MEM_ASSERT(Owns(info.ptr) && 
                     "StackAllocator: pointer does not belong to this allocator");
 #endif
@@ -126,18 +130,21 @@ void StackAllocator::Deallocate(const AllocationInfo& info) noexcept {
     auto* header = detail::GetHeaderFromUserPtr(user_ptr);
     
 #if CORE_MEMORY_DEBUG
-    // Validate header magic
     CORE_MEM_ASSERT(header->magic == detail::kStackHeaderMagic && 
                     "StackAllocator: corrupted or invalid allocation header");
     
-    // Validate LIFO: the allocation must end exactly at _current
+    if (info.size != 0) {
+        CORE_MEM_ASSERT(info.size == header->user_size &&
+                        "StackAllocator: size mismatch between info and header");
+    }
+    
     u8* expected_end = user_ptr + header->user_size;
     CORE_MEM_ASSERT(expected_end == _current && 
-                    "StackAllocator: LIFO violation - attempting to free allocation that is not at top of stack");
+                    "StackAllocator: LIFO violation - allocation is not at top of stack");
 #endif
     
     // Step 2: Calculate block start from header metadata
-    u8* block_start = user_ptr - header->total_size + header->user_size;
+    u8* block_start = user_ptr + header->user_size - header->total_size;
     
 #if CORE_MEMORY_DEBUG
     CORE_MEM_ASSERT(block_start >= _begin && block_start < _current &&
@@ -172,6 +179,9 @@ void StackAllocator::RewindToMarker(Marker marker) noexcept {
 }
 
 void StackAllocator::Reset() noexcept {
+    if (_begin == nullptr) {
+        return;
+    }
     _current = _begin;
 }
 
