@@ -242,6 +242,13 @@ add_executable(allocation_tracker_tests
 target_link_libraries(allocation_tracker_tests PRIVATE coreapp gtest_main)
 add_test(NAME allocation_tracker_tests COMMAND allocation_tracker_tests)
 
+# memory_ops tests
+add_executable(memory_ops_tests
+    tests/core_memory/test_memory_ops.cpp
+)
+target_link_libraries(memory_ops_tests PRIVATE coreapp gtest_main)
+add_test(NAME memory_ops_tests COMMAND memory_ops_tests)
+
 # core_attributes warnings (build-only, excluded from ALL)
 add_executable(core_attributes_warnings_tests EXCLUDE_FROM_ALL
     tests/core_base/test_core_attributes_warnings.cpp
