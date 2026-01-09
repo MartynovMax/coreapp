@@ -43,6 +43,27 @@ CORE_FORCE_INLINE void* ManualMemcpy(
     return dst;
 }
 
+CORE_FORCE_INLINE void* ManualMemmove(
+    void* dst,
+    const void* src,
+    memory_size size) noexcept
+{
+    auto* d = static_cast<u8*>(dst);
+    const auto* s = static_cast<const u8*>(src);
+
+    if (d < s) {
+        for (memory_size i = 0; i < size; ++i) {
+            d[i] = s[i];
+        }
+    } else if (d > s) {
+        for (memory_size i = size; i > 0; --i) {
+            d[i - 1] = s[i - 1];
+        }
+    }
+
+    return dst;
+}
+
 } // namespace detail
 
 } // namespace core
