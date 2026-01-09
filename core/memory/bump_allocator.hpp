@@ -44,13 +44,13 @@ public:
     void* Allocate(const AllocationRequest& request) noexcept override;
     void Deallocate(const AllocationInfo& info) noexcept override;
 
+    bool Owns(const void* ptr) const noexcept override;
+    
     void Reset() noexcept;
     
     memory_size Used() const noexcept;
     memory_size Capacity() const noexcept;
     memory_size Remaining() const noexcept;
-    
-    bool Owns(const void* ptr) const noexcept;
 
 private:
     u8* _begin;    // Start of the memory region
