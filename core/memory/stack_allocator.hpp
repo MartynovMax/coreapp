@@ -40,6 +40,22 @@ public:
 
     bool Owns(const void* ptr) const noexcept override;
 
+    // Stack marker for scope-based rewind
+    struct Marker {
+        u8* position;
+        
+        bool operator==(const Marker& other) const noexcept {
+            return position == other.position;
+        }
+        bool operator!=(const Marker& other) const noexcept {
+            return position != other.position;
+        }
+    };
+    
+    Marker GetMarker() const noexcept;
+    void RewindToMarker(Marker marker) noexcept;
+    void Reset() noexcept;
+
 private:
     u8* _begin;
     u8* _current;

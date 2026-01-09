@@ -156,5 +156,24 @@ bool StackAllocator::Owns(const void* ptr) const noexcept {
     return p >= _begin && p < _end;
 }
 
+StackAllocator::Marker StackAllocator::GetMarker() const noexcept {
+    return Marker{_current};
+}
+
+void StackAllocator::RewindToMarker(Marker marker) noexcept {
+#if CORE_MEMORY_DEBUG
+    CORE_MEM_ASSERT(_begin != nullptr && 
+                    "StackAllocator: cannot rewind uninitialized allocator");
+    CORE_MEM_ASSERT(marker.position >= _begin && marker.position <= _current &&
+                    "StackAllocator: invalid marker position");
+#endif
+    
+    _current = marker.position;
+}
+
+void StackAllocator::Reset() noexcept {
+    _current = _begin;
+}
+
 } // namespace core
 
