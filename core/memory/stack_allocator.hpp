@@ -56,6 +56,11 @@ public:
     void RewindToMarker(Marker marker) noexcept;
     void Reset() noexcept;
 
+    // Introspection
+    memory_size Used() const noexcept;
+    memory_size Capacity() const noexcept;
+    memory_size Remaining() const noexcept;
+
 private:
     u8* _begin;
     u8* _current;

@@ -175,5 +175,26 @@ void StackAllocator::Reset() noexcept {
     _current = _begin;
 }
 
+memory_size StackAllocator::Used() const noexcept {
+    if (_begin == nullptr) {
+        return 0;
+    }
+    return static_cast<memory_size>(_current - _begin);
+}
+
+memory_size StackAllocator::Capacity() const noexcept {
+    if (_begin == nullptr) {
+        return 0;
+    }
+    return static_cast<memory_size>(_end - _begin);
+}
+
+memory_size StackAllocator::Remaining() const noexcept {
+    if (_begin == nullptr) {
+        return 0;
+    }
+    return static_cast<memory_size>(_end - _current);
+}
+
 } // namespace core
 
