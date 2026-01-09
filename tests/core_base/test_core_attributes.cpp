@@ -57,5 +57,6 @@ TEST(CoreAttributes, CompilesAndRuns) {
 
     EXPECT_EQ(ComputeValue(), 42);
 
-    (void)NeverReturns; // not called
+    // Reference to NeverReturns to avoid unused function warning
+    (void)&NeverReturns;
 }
