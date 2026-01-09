@@ -96,6 +96,14 @@ add_executable(core_attributes_tests
     tests/core_base/test_core_attributes.cpp
 )
 target_link_libraries(core_attributes_tests PRIVATE coreapp gtest_main)
+
+# Suppress deprecated warnings in this test (intentionally tests deprecated APIs)
+if (MSVC)
+    target_compile_options(core_attributes_tests PRIVATE /wd4996)
+else()
+    target_compile_options(core_attributes_tests PRIVATE -Wno-deprecated-declarations)
+endif()
+
 add_test(NAME core_attributes_tests COMMAND core_attributes_tests)
 
 # core_defs tests
