@@ -140,5 +140,31 @@ CORE_FORCE_INLINE void* memory_move(
 #endif
 }
 
+CORE_FORCE_INLINE void* memory_set(
+    void* dst,
+    int value,
+    memory_size size) noexcept
+{
+#if CORE_MEMORY_DEBUG
+    CORE_MEM_ASSERT((dst != nullptr || size == 0) && "memory_set: dst is null");
+#endif
+
+    if (size == 0) {
+        return dst;
+    }
+
+#if CORE_COMPILER_CLANG || CORE_COMPILER_GCC
+    return __builtin_memset(dst, value, size);
+#elif CORE_COMPILER_MSVC
+    #if _MSC_VER >= 1928
+        return __builtin_memset(dst, value, size);
+    #else
+        return detail::ManualMemset(dst, value, size);
+    #endif
+#else
+    return detail::ManualMemset(dst, value, size);
+#endif
+}
+
 } // namespace core
 
