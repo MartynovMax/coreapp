@@ -113,5 +113,32 @@ CORE_FORCE_INLINE void* memory_copy(
 #endif
 }
 
+CORE_FORCE_INLINE void* memory_move(
+    void* dst,
+    const void* src,
+    memory_size size) noexcept
+{
+#if CORE_MEMORY_DEBUG
+    CORE_MEM_ASSERT((dst != nullptr || size == 0) && "memory_move: dst is null");
+    CORE_MEM_ASSERT((src != nullptr || size == 0) && "memory_move: src is null");
+#endif
+
+    if (size == 0) {
+        return dst;
+    }
+
+#if CORE_COMPILER_CLANG || CORE_COMPILER_GCC
+    return __builtin_memmove(dst, src, size);
+#elif CORE_COMPILER_MSVC
+    #if _MSC_VER >= 1928
+        return __builtin_memmove(dst, src, size);
+    #else
+        return detail::ManualMemmove(dst, src, size);
+    #endif
+#else
+    return detail::ManualMemmove(dst, src, size);
+#endif
+}
+
 } // namespace core
 
