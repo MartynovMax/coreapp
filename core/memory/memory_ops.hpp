@@ -64,6 +64,21 @@ CORE_FORCE_INLINE void* ManualMemmove(
     return dst;
 }
 
+CORE_FORCE_INLINE void* ManualMemset(
+    void* dst,
+    int value,
+    memory_size size) noexcept
+{
+    auto* d = static_cast<u8*>(dst);
+    const u8 byte_value = static_cast<u8>(value);
+
+    for (memory_size i = 0; i < size; ++i) {
+        d[i] = byte_value;
+    }
+
+    return dst;
+}
+
 } // namespace detail
 
 } // namespace core
