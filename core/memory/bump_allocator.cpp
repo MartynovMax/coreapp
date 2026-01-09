@@ -3,6 +3,13 @@
 
 namespace core {
 
+BumpAllocator::BumpAllocator(void* buffer, memory_size size) noexcept
+    : _begin(static_cast<u8*>(buffer))
+    , _current(static_cast<u8*>(buffer))
+    , _end(static_cast<u8*>(buffer) + size)
+{
+}
+
 void* BumpAllocator::Allocate(const AllocationRequest& request) noexcept {
     if (request.size == 0) {
         return nullptr;

@@ -28,6 +28,8 @@ namespace core {
 
 class BumpAllocator final : public IAllocator {
 public:
+    BumpAllocator(void* buffer, memory_size size) noexcept;
+    
     ~BumpAllocator() noexcept override = default;
 
     BumpAllocator(const BumpAllocator&) = delete;
