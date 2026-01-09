@@ -110,7 +110,42 @@ void* StackAllocator::Allocate(const AllocationRequest& request) noexcept {
 }
 
 void StackAllocator::Deallocate(const AllocationInfo& info) noexcept {
-    CORE_UNUSED(info);
+    if (info.ptr == nullptr) {
+        return;
+    }
+    
+    u8* user_ptr = static_cast<u8*>(info.ptr);
+    
+#if CORE_MEMORY_DEBUG
+    // Validate that pointer belongs to this allocator
+    CORE_MEM_ASSERT(Owns(info.ptr) && 
+                    "StackAllocator: pointer does not belong to this allocator");
+#endif
+    
+    // Step 1: Get header from user pointer
+    auto* header = detail::GetHeaderFromUserPtr(user_ptr);
+    
+#if CORE_MEMORY_DEBUG
+    // Validate header magic
+    CORE_MEM_ASSERT(header->magic == detail::kStackHeaderMagic && 
+                    "StackAllocator: corrupted or invalid allocation header");
+    
+    // Validate LIFO: the allocation must end exactly at _current
+    u8* expected_end = user_ptr + header->user_size;
+    CORE_MEM_ASSERT(expected_end == _current && 
+                    "StackAllocator: LIFO violation - attempting to free allocation that is not at top of stack");
+#endif
+    
+    // Step 2: Calculate block start from header metadata
+    u8* block_start = user_ptr - header->total_size + header->user_size;
+    
+#if CORE_MEMORY_DEBUG
+    CORE_MEM_ASSERT(block_start >= _begin && block_start < _current &&
+                    "StackAllocator: invalid block_start calculation");
+#endif
+    
+    // Step 3: Rewind current pointer to block start
+    _current = block_start;
 }
 
 bool StackAllocator::Owns(const void* ptr) const noexcept {
