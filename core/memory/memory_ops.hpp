@@ -28,6 +28,21 @@ CORE_FORCE_INLINE bool MemoryRangesOverlap(
     return (dst_bytes < src_end) && (src_bytes < dst_end);
 }
 
+CORE_FORCE_INLINE void* ManualMemcpy(
+    void* dst,
+    const void* src,
+    memory_size size) noexcept
+{
+    auto* d = static_cast<u8*>(dst);
+    const auto* s = static_cast<const u8*>(src);
+
+    for (memory_size i = 0; i < size; ++i) {
+        d[i] = s[i];
+    }
+
+    return dst;
+}
+
 } // namespace detail
 
 } // namespace core
