@@ -7,7 +7,22 @@ BumpAllocator::BumpAllocator(void* buffer, memory_size size) noexcept
     : _begin(static_cast<u8*>(buffer))
     , _current(static_cast<u8*>(buffer))
     , _end(static_cast<u8*>(buffer) + size)
+    , _upstream(nullptr)
 {
+}
+
+BumpAllocator::BumpAllocator(memory_size capacity, IAllocator& upstream) noexcept
+    : _upstream(&upstream)
+{
+    _begin = static_cast<u8*>(AllocateBytes(upstream, capacity));
+    _current = _begin;
+    _end = _begin + capacity;
+}
+
+BumpAllocator::~BumpAllocator() noexcept {
+    if (_upstream && _begin) {
+        DeallocateBytes(*_upstream, _begin, Capacity());
+    }
 }
 
 void* BumpAllocator::Allocate(const AllocationRequest& request) noexcept {

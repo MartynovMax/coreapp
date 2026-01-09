@@ -29,8 +29,9 @@ namespace core {
 class BumpAllocator final : public IAllocator {
 public:
     BumpAllocator(void* buffer, memory_size size) noexcept;
+    BumpAllocator(memory_size capacity, IAllocator& upstream) noexcept;
     
-    ~BumpAllocator() noexcept override = default;
+    ~BumpAllocator() noexcept override;
 
     BumpAllocator(const BumpAllocator&) = delete;
     BumpAllocator& operator=(const BumpAllocator&) = delete;
@@ -48,6 +49,7 @@ private:
     u8* _begin;    // Start of the memory region
     u8* _current;  // Current allocation pointer (bumps forward)
     u8* _end;      // End of the memory region
+    IAllocator* _upstream;
 };
 
 } // namespace core
