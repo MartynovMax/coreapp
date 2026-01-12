@@ -263,6 +263,13 @@ add_executable(stack_allocator_tests
 target_link_libraries(stack_allocator_tests PRIVATE coreapp gtest_main)
 add_test(NAME stack_allocator_tests COMMAND stack_allocator_tests)
 
+# pool_allocator tests
+add_executable(pool_allocator_tests
+    tests/core_memory/test_pool_allocator.cpp
+)
+target_link_libraries(pool_allocator_tests PRIVATE coreapp gtest_main)
+add_test(NAME pool_allocator_tests COMMAND pool_allocator_tests)
+
 # core_attributes warnings (build-only, excluded from ALL)
 add_executable(core_attributes_warnings_tests EXCLUDE_FROM_ALL
     tests/core_base/test_core_attributes_warnings.cpp

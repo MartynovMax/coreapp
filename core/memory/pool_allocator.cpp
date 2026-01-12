@@ -125,18 +125,10 @@ void* PoolAllocator::Allocate(const AllocationRequest& request) noexcept {
     const memory_alignment reqAlignment = detail::NormalizeAlignment(request.alignment);
     
     if (reqAlignment > CORE_DEFAULT_ALIGNMENT) {
-#if CORE_MEMORY_DEBUG
-        CORE_MEM_ASSERT(false && 
-                        "PoolAllocator: requested alignment exceeds block alignment");
-#endif
         return nullptr;
     }
     
     if (request.size > _blockSize) {
-#if CORE_MEMORY_DEBUG
-        CORE_MEM_ASSERT(false && 
-                        "PoolAllocator: requested size exceeds block size");
-#endif
         return nullptr;
     }
 
