@@ -2,7 +2,9 @@
 
 namespace core {
 
-SegregatedListAllocator::SegregatedListAllocator() noexcept {
+SegregatedListAllocator::SegregatedListAllocator() noexcept
+    : _class_count(0)
+{
 }
 
 SegregatedListAllocator::~SegregatedListAllocator() noexcept {
