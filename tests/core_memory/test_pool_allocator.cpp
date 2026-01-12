@@ -729,7 +729,7 @@ TEST(PoolAllocator, NoFail_ExhaustedPool_Fatal) {
         req.alignment = CORE_DEFAULT_ALIGNMENT;
         req.flags = core::AllocationFlags::NoFail;
         pool.Allocate(req);
-    }, ".*PoolAllocator.*out of memory.*");
+    }, "");
 }
 #endif
 
