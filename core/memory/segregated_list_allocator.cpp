@@ -83,12 +83,40 @@ void* SegregatedListAllocator::Allocate(const AllocationRequest& request) noexce
 }
 
 void SegregatedListAllocator::Deallocate(const AllocationInfo& info) noexcept {
-    CORE_UNUSED(info);
+    if (info.ptr == nullptr) {
+        return;
+    }
+
+    if (info.size > 0 && info.size <= _maxClassSize) {
+        memory_size classIndex = SelectSizeClass(info.size);
+        if (classIndex != kInvalidClass) {
+            _classes[classIndex].pool->Deallocate(info);
+            return;
+        }
+    }
+
+    for (memory_size i = 0; i < _classCount; ++i) {
+        if (_classes[i].pool->Owns(info.ptr)) {
+            _classes[i].pool->Deallocate(info);
+            return;
+        }
+    }
+
+    _fallback->Deallocate(info);
 }
 
 bool SegregatedListAllocator::Owns(const void* ptr) const noexcept {
-    CORE_UNUSED(ptr);
-    return false;
+    if (ptr == nullptr) {
+        return false;
+    }
+
+    for (memory_size i = 0; i < _classCount; ++i) {
+        if (_classes[i].pool->Owns(ptr)) {
+            return true;
+        }
+    }
+
+    return _fallback->Owns(ptr);
 }
 
 memory_size SegregatedListAllocator::SelectSizeClass(memory_size size) const noexcept {
