@@ -54,8 +54,32 @@ SegregatedListAllocator::~SegregatedListAllocator() noexcept {
 }
 
 void* SegregatedListAllocator::Allocate(const AllocationRequest& request) noexcept {
-    CORE_UNUSED(request);
-    return nullptr;
+    if (request.size == 0) {
+        return nullptr;
+    }
+
+    const memory_alignment reqAlignment = detail::NormalizeAlignment(request.alignment);
+
+    if (reqAlignment > CORE_DEFAULT_ALIGNMENT) {
+        return _fallback->Allocate(request);
+    }
+
+    if (request.size > _maxClassSize) {
+        return _fallback->Allocate(request);
+    }
+
+    memory_size classIndex = SelectSizeClass(request.size);
+    if (classIndex == kInvalidClass) {
+        return _fallback->Allocate(request);
+    }
+
+    void* ptr = _classes[classIndex].pool->Allocate(request);
+    
+    if (ptr == nullptr) {
+        return _fallback->Allocate(request);
+    }
+
+    return ptr;
 }
 
 void SegregatedListAllocator::Deallocate(const AllocationInfo& info) noexcept {
