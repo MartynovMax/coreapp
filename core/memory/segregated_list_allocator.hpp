@@ -34,7 +34,12 @@ public:
     static constexpr memory_size kMaxSizeClasses = 32;
     static constexpr memory_size kInvalidClass = static_cast<memory_size>(-1);
 
-    SegregatedListAllocator() noexcept;
+    SegregatedListAllocator(
+        const SizeClassConfig* configs,
+        memory_size configCount,
+        IAllocator& upstream,
+        IAllocator& fallback) noexcept;
+    
     ~SegregatedListAllocator() noexcept override;
 
     SegregatedListAllocator(const SegregatedListAllocator&) = delete;
@@ -51,6 +56,9 @@ private:
 
     detail::SizeClass _classes[kMaxSizeClasses];
     memory_size _classCount;
+    memory_size _maxClassSize;
+    IAllocator* _upstream;
+    IAllocator* _fallback;
 };
 
 } // namespace core
