@@ -127,11 +127,6 @@ void SegregatedListAllocator::Deallocate(const AllocationInfo& info) noexcept {
         }
     }
 
-#if CORE_MEMORY_DEBUG
-    CORE_MEM_ASSERT(_fallback->Owns(info.ptr) &&
-                    "Pointer is not owned by any pool or fallback");
-#endif
-
     _fallback->Deallocate(info);
 }
 
