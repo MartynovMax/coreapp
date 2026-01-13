@@ -3,6 +3,12 @@
 // =============================================================================
 // segregated_list_allocator.hpp
 // Allocator that manages multiple size classes, each backed by its own pool.
+//
+// Tuning: Configure size classes based on allocation patterns. Typical: 16, 32,
+//         64, 128, 256, 512 bytes. More classes = better fit, more overhead.
+//
+// Extension: Upstream allocator creates pools, fallback handles large sizes.
+//            Introspection methods help profile and adjust configuration.
 // =============================================================================
 
 #include "core_memory.hpp"
