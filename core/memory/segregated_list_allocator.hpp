@@ -31,8 +31,8 @@ struct SizeClass {
 
 class SegregatedListAllocator final : public IAllocator {
 public:
-    // Maximum number of size classes supported
     static constexpr memory_size kMaxSizeClasses = 32;
+    static constexpr memory_size kInvalidClass = static_cast<memory_size>(-1);
 
     SegregatedListAllocator() noexcept;
     ~SegregatedListAllocator() noexcept override;
@@ -46,8 +46,11 @@ public:
     bool Owns(const void* ptr) const noexcept override;
 
 private:
-    detail::SizeClass _classes[kMaxSizeClasses];  // Array of size classes
-    memory_size _class_count;                     // Number of active size classes
+
+    memory_size SelectSizeClass(memory_size size) const noexcept;
+
+    detail::SizeClass _classes[kMaxSizeClasses];
+    memory_size _classCount;
 };
 
 } // namespace core
