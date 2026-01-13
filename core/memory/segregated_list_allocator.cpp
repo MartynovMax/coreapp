@@ -1,10 +1,6 @@
 #include "segregated_list_allocator.hpp"
 #include "pool_allocator.hpp"
-
-// Placement new operator (no STL dependency)
-inline void* operator new(core::usize, void* ptr) noexcept {
-    return ptr;
-}
+#include <new>
 
 namespace core {
 
@@ -37,12 +33,26 @@ SegregatedListAllocator::SegregatedListAllocator(
 
         new (pool) PoolAllocator(blockSize, blockCount, upstream);
 
-        _classes[_classCount].block_size = pool->BlockSize();
+        memory_size actualBlockSize = pool->BlockSize();
+
+        const bool ascending = (_classCount == 0 || actualBlockSize > _classes[_classCount - 1].block_size);
+
+#if CORE_MEMORY_DEBUG
+        CORE_MEM_ASSERT(ascending && "Size classes must be strictly ascending");
+#endif
+
+        if (!ascending) {
+            pool->~PoolAllocator();
+            DeallocateObject(*_upstream, pool);
+            continue;
+        }
+
+        _classes[_classCount].block_size = actualBlockSize;
         _classes[_classCount].pool = pool;
         _classes[_classCount].block_count = blockCount;
 
-        if (_classes[_classCount].block_size > _maxClassSize) {
-            _maxClassSize = _classes[_classCount].block_size;
+        if (actualBlockSize > _maxClassSize) {
+            _maxClassSize = actualBlockSize;
         }
 
         ++_classCount;
@@ -78,6 +88,11 @@ void* SegregatedListAllocator::Allocate(const AllocationRequest& request) noexce
         return _fallback->Allocate(request);
     }
 
+#if CORE_MEMORY_DEBUG
+    CORE_MEM_ASSERT(request.size <= _classes[classIndex].block_size &&
+                    "Size must fit in selected class");
+#endif
+
     void* ptr = _classes[classIndex].pool->Allocate(request);
     
     if (ptr == nullptr) {
@@ -93,19 +108,29 @@ void SegregatedListAllocator::Deallocate(const AllocationInfo& info) noexcept {
     }
 
     if (info.size > 0 && info.size <= _maxClassSize) {
-        u32 classIndex = SelectSizeClass(info.size);
+        const u32 classIndex = SelectSizeClass(info.size);
         if (classIndex != kInvalidClass) {
-            _classes[classIndex].pool->Deallocate(info);
-            return;
+            PoolAllocator* pool = _classes[classIndex].pool;
+            
+            if (pool != nullptr && pool->Owns(info.ptr)) {
+                pool->Deallocate(info);
+                return;
+            }
         }
     }
 
     for (u32 i = 0; i < _classCount; ++i) {
-        if (_classes[i].pool->Owns(info.ptr)) {
-            _classes[i].pool->Deallocate(info);
+        PoolAllocator* pool = _classes[i].pool;
+        if (pool != nullptr && pool->Owns(info.ptr)) {
+            pool->Deallocate(info);
             return;
         }
     }
+
+#if CORE_MEMORY_DEBUG
+    CORE_MEM_ASSERT(_fallback->Owns(info.ptr) &&
+                    "Pointer is not owned by any pool or fallback");
+#endif
 
     _fallback->Deallocate(info);
 }
@@ -116,7 +141,8 @@ bool SegregatedListAllocator::Owns(const void* ptr) const noexcept {
     }
 
     for (u32 i = 0; i < _classCount; ++i) {
-        if (_classes[i].pool->Owns(ptr)) {
+        PoolAllocator* pool = _classes[i].pool;
+        if (pool != nullptr && pool->Owns(ptr)) {
             return true;
         }
     }
