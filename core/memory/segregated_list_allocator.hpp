@@ -31,12 +31,12 @@ struct SizeClass {
 
 class SegregatedListAllocator final : public IAllocator {
 public:
-    static constexpr memory_size kMaxSizeClasses = 32;
-    static constexpr memory_size kInvalidClass = static_cast<memory_size>(-1);
+    static constexpr u32 kMaxSizeClasses = 32;
+    static constexpr u32 kInvalidClass = static_cast<u32>(-1);
 
     SegregatedListAllocator(
         const SizeClassConfig* configs,
-        memory_size configCount,
+        u32 configCount,
         IAllocator& upstream,
         IAllocator& fallback) noexcept;
     
@@ -50,12 +50,21 @@ public:
     void Deallocate(const AllocationInfo& info) noexcept override;
     bool Owns(const void* ptr) const noexcept override;
 
+    // Introspection
+    u32 SizeClassCount() const noexcept;
+    memory_size MaxClassSize() const noexcept;
+    memory_size ClassBlockSize(u32 classIndex) const noexcept;
+    memory_size ClassBlockCount(u32 classIndex) const noexcept;
+    memory_size ClassFreeBlocks(u32 classIndex) const noexcept;
+    memory_size ClassUsedBlocks(u32 classIndex) const noexcept;
+    memory_size ClassCapacityBytes(u32 classIndex) const noexcept;
+
 private:
 
-    memory_size SelectSizeClass(memory_size size) const noexcept;
+    u32 SelectSizeClass(memory_size size) const noexcept;
 
     detail::SizeClass _classes[kMaxSizeClasses];
-    memory_size _classCount;
+    u32 _classCount;
     memory_size _maxClassSize;
     IAllocator* _upstream;
     IAllocator* _fallback;
