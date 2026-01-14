@@ -3,6 +3,26 @@
 // =============================================================================
 // arena.hpp
 // Unified arena interface for linear/stack-style memory allocation.
+//
+// Provides fast temporary memory allocation with bulk deallocation.
+// Ideal for per-frame allocations, parsing, scratch buffers, etc.
+//
+// Ownership and Lifetime:
+//   - Arenas may own backing memory (allocated from upstream) or
+//     operate on external buffers (non-owning)
+//   - Owning arenas deallocate backing memory in destructor
+//   - Non-owning arenas require external buffer lifetime > arena lifetime
+//   - Reset/RewindTo affect only arena state, never backing allocator
+//
+// Marker Lifetime:
+//   - Markers valid only for the arena that created them
+//   - Markers invalidated by Reset() or arena destruction
+//   - Using invalid markers is undefined behavior
+//   - Markers ordered by creation: can only rewind to earlier markers
+//
+// Thread-safety:
+//   - NOT thread-safe by default
+//   - Requires external synchronization or per-thread instances
 // =============================================================================
 
 #include "core_memory.hpp"
