@@ -34,5 +34,30 @@ struct ArenaMarker {
 static_assert(sizeof(ArenaMarker) <= 16, "ArenaMarker should be small");
 static_assert(is_trivially_copyable_v<ArenaMarker>(), "ArenaMarker must be trivially copyable");
 
+// ----------------------------------------------------------------------------
+// IArena - Arena allocator interface
+// ----------------------------------------------------------------------------
+
+class IArena {
+public:
+    virtual ~IArena() = default;
+    
+    // Allocate memory from arena
+    // Returns nullptr on failure
+    virtual void* Allocate(
+        memory_size size,
+        memory_alignment alignment = CORE_DEFAULT_ALIGNMENT
+    ) noexcept = 0;
+    
+    // Release all arena allocations at once
+    virtual void Reset() noexcept = 0;
+    
+    // Capture current arena state
+    virtual ArenaMarker GetMarker() const noexcept = 0;
+    
+    // Rewind allocations back to marker
+    virtual void RewindTo(ArenaMarker marker) noexcept = 0;
+};
+
 } // namespace core
 
