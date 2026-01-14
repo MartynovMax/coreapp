@@ -277,6 +277,13 @@ add_executable(segregated_list_allocator_tests
 target_link_libraries(segregated_list_allocator_tests PRIVATE coreapp gtest_main)
 add_test(NAME segregated_list_allocator_tests COMMAND segregated_list_allocator_tests)
 
+# arena tests
+add_executable(arena_tests
+    tests/core_memory/test_arena.cpp
+)
+target_link_libraries(arena_tests PRIVATE coreapp gtest_main)
+add_test(NAME arena_tests COMMAND arena_tests)
+
 # core_attributes warnings (build-only, excluded from ALL)
 add_executable(core_attributes_warnings_tests EXCLUDE_FROM_ALL
     tests/core_base/test_core_attributes_warnings.cpp
