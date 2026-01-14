@@ -18,15 +18,22 @@
 //   - Markers valid only for the arena that created them
 //   - Markers invalidated by Reset() or arena destruction
 //   - Using invalid markers is undefined behavior
-//   - Markers ordered by creation: can only rewind to earlier markers
+//   - Concrete arenas may enforce additional ordering constraints
 //
 // Thread-safety:
 //   - NOT thread-safe by default
 //   - Requires external synchronization or per-thread instances
+//
+// Integration with IAllocator and Tracking:
+//   - Arenas can be wrapped as IAllocator via ArenaAllocatorAdapter
+//   - Tracking hooks are guaranteed only when using IAllocator path
+//   - Direct IArena::Allocate() calls may bypass tracking (implementation-specific)
+//   - Use adapter for generic code requiring IAllocator interface
 // =============================================================================
 
 #include "core_memory.hpp"
 #include "memory_traits.hpp"
+#include "core_allocator.hpp"
 
 namespace core {
 
@@ -85,6 +92,56 @@ public:
     
     virtual const char* Name() const noexcept { return nullptr; }
     virtual bool Owns(const void* ptr) const noexcept { CORE_UNUSED(ptr); return false; }
+};
+
+// ----------------------------------------------------------------------------
+// ArenaAllocatorAdapter - Wrap IArena as IAllocator
+// ----------------------------------------------------------------------------
+//
+// Allows arenas to be used with generic code expecting IAllocator interface.
+// Enables automatic integration with Core allocation tracking hooks.
+//
+// Semantics:
+//   - Allocate() forwards to arena.Allocate()
+//   - Deallocate() is NO-OP (arenas don't support individual frees)
+//   - Owns() forwards to arena.Owns()
+//   - TryGetStats() returns false (arena stats not compatible with IAllocator)
+//
+// Note: Individual deallocations are silently ignored.
+//       Use Reset() on underlying arena to free all memory.
+
+class ArenaAllocatorAdapter final : public IAllocator {
+public:
+    explicit ArenaAllocatorAdapter(IArena& arena) noexcept
+        : arena_(&arena)
+    {}
+    
+    void* Allocate(const AllocationRequest& request) noexcept override {
+        return arena_->Allocate(request.size, request.alignment);
+    }
+    
+    void Deallocate(const AllocationInfo& info) noexcept override {
+        CORE_UNUSED(info);
+        // Arena doesn't support individual deallocation - NO-OP
+    }
+    
+    bool Owns(const void* ptr) const noexcept override {
+        return arena_->Owns(ptr);
+    }
+    
+    bool TryGetStats(AllocatorStats& out_stats) const noexcept override {
+        CORE_UNUSED(out_stats);
+        // Arena stats (Used/Capacity) don't map cleanly to allocator stats
+        // (peak/total/counts). Return false to indicate stats unavailable.
+        return false;
+    }
+    
+    IArena& GetArena() const noexcept {
+        return *arena_;
+    }
+    
+private:
+    IArena* arena_;
 };
 
 } // namespace core
