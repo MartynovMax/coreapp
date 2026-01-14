@@ -57,6 +57,14 @@ public:
     
     // Rewind allocations back to marker
     virtual void RewindTo(ArenaMarker marker) noexcept = 0;
+    
+    // Introspection
+    virtual memory_size Capacity() const noexcept = 0;
+    virtual memory_size Used() const noexcept = 0;
+    virtual memory_size Remaining() const noexcept = 0;
+    
+    virtual const char* Name() const noexcept { return nullptr; }
+    virtual bool Owns(const void* ptr) const noexcept { CORE_UNUSED(ptr); return false; }
 };
 
 } // namespace core
