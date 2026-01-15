@@ -41,10 +41,14 @@ public:
     ScopedArena& operator=(ScopedArena&& other) noexcept = delete;
     
     // Arena access
-    IArena& GetArena() const noexcept;
+    IArena& GetArena() const noexcept {
+        return *_arena;
+    }
     
     // Allocation helper
-    void* Allocate(memory_size size, memory_alignment alignment = CORE_DEFAULT_ALIGNMENT) noexcept;
+    void* Allocate(memory_size size, memory_alignment alignment = CORE_DEFAULT_ALIGNMENT) noexcept {
+        return _arena->Allocate(size, alignment);
+    }
 
 private:
     IArena* _arena;
