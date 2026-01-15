@@ -113,11 +113,11 @@ public:
 class ArenaAllocatorAdapter final : public IAllocator {
 public:
     explicit ArenaAllocatorAdapter(IArena& arena) noexcept
-        : arena_(&arena)
+        : _arena(&arena)
     {}
     
     void* Allocate(const AllocationRequest& request) noexcept override {
-        return arena_->Allocate(request.size, request.alignment);
+        return _arena->Allocate(request.size, request.alignment);
     }
     
     void Deallocate(const AllocationInfo& info) noexcept override {
@@ -126,7 +126,7 @@ public:
     }
     
     bool Owns(const void* ptr) const noexcept override {
-        return arena_->Owns(ptr);
+        return _arena->Owns(ptr);
     }
     
     bool TryGetStats(AllocatorStats& out_stats) const noexcept override {
@@ -137,11 +137,11 @@ public:
     }
     
     IArena& GetArena() const noexcept {
-        return *arena_;
+        return *_arena;
     }
     
 private:
-    IArena* arena_;
+    IArena* _arena;
 };
 
 } // namespace core

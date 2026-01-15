@@ -13,13 +13,13 @@ template<typename Mutex>
 class scoped_lock {
 public:
     explicit scoped_lock(Mutex& mutex) noexcept
-        : m_mutex(mutex)
+        : _mutex(mutex)
     {
-        m_mutex.lock();
+        _mutex.lock();
     }
 
     ~scoped_lock() noexcept {
-        m_mutex.unlock();
+        _mutex.unlock();
     }
 
     scoped_lock(const scoped_lock&) = delete;
@@ -28,7 +28,7 @@ public:
     scoped_lock& operator=(scoped_lock&&) = delete;
 
 private:
-    Mutex& m_mutex;
+    Mutex& _mutex;
 };
 
 } // namespace core

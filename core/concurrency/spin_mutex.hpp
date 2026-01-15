@@ -38,9 +38,9 @@ public:
 
 private:
 #if CORE_HAS_THREADS
-    atomic_u32 m_flag{0};  // 0 = unlocked, 1 = locked
+    atomic_u32 _flag{0};  // 0 = unlocked, 1 = locked
 #elif CORE_DEBUG
-    bool m_locked{false};  // Single-thread debug verification flag
+    bool _locked{false};  // Single-thread debug verification flag
 #endif
 };
 
@@ -61,9 +61,9 @@ inline void spin_mutex::lock() noexcept {
     u32 spin_count = 0;
     constexpr u32 MAX_SPIN = 10;
 
-    while (m_flag.exchange(1, memory_order::acquire) != 0) {
+    while (_flag.exchange(1, memory_order::acquire) != 0) {
         spin_count = 0;
-        while (m_flag.load(memory_order::relaxed) != 0) {
+        while (_flag.load(memory_order::relaxed) != 0) {
             if (spin_count < MAX_SPIN) {
                 for (u32 i = 0; i < (1u << spin_count); ++i) {
                     cpu_relax();
@@ -75,18 +75,18 @@ inline void spin_mutex::lock() noexcept {
         }
     }
 #elif CORE_DEBUG
-    ASSERT_MSG(!m_locked, "Double lock detected");
-    m_locked = true;
+    ASSERT_MSG(!_locked, "Double lock detected");
+    _locked = true;
 #endif
 }
 
 inline bool spin_mutex::try_lock() noexcept {
 #if CORE_HAS_THREADS
     u32 expected = 0;
-    return m_flag.compare_exchange_strong(expected, 1, memory_order::acquire, memory_order::relaxed);
+    return _flag.compare_exchange_strong(expected, 1, memory_order::acquire, memory_order::relaxed);
 #elif CORE_DEBUG
-    if (!m_locked) {
-        m_locked = true;
+    if (!_locked) {
+        _locked = true;
         return true;
     }
     return false;
@@ -98,14 +98,14 @@ inline bool spin_mutex::try_lock() noexcept {
 inline void spin_mutex::unlock() noexcept {
 #if CORE_HAS_THREADS
     #if CORE_DEBUG
-    u32 flag_value = m_flag.load(memory_order::relaxed);
+    u32 flag_value = _flag.load(memory_order::relaxed);
     ASSERT_MSG(flag_value != 0, "Unlock without lock");
     #endif
     
-    m_flag.store(0, memory_order::release);
+    _flag.store(0, memory_order::release);
 #elif CORE_DEBUG
-    ASSERT_MSG(m_locked, "Unlock without lock");
-    m_locked = false;
+    ASSERT_MSG(_locked, "Unlock without lock");
+    _locked = false;
 #endif
 }
 
