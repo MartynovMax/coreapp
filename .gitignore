@@ -2,6 +2,7 @@
 # Build artifacts (CMake, MSVC, Ninja)
 ############################################
 /build/
+/build_*/
 /out/
 /cmake-build*/
 /CMakeFiles/
