@@ -7,6 +7,10 @@
 // ScopedArena captures an ArenaMarker on construction and automatically
 // rewinds the arena to that marker on destruction, providing exception-safe
 // temporary allocations within a C++ scope.
+//
+// Supports nested scopes: multiple ScopedArena instances can operate on the
+// same arena, rewinding in LIFO order. Memory allocated in a scope is
+// invalidated when that scope exits.
 // =============================================================================
 
 #include "arena.hpp"
