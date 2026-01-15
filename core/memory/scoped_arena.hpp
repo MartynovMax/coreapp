@@ -27,8 +27,10 @@ public:
     {
     }
     
-    // Destructor
-    ~ScopedArena() noexcept;
+    // Destructor - rewinds arena to captured marker
+    ~ScopedArena() noexcept {
+        _arena->RewindTo(_marker);
+    }
     
     // Non-copyable
     ScopedArena(const ScopedArena& other) = delete;
