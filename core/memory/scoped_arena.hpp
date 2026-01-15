@@ -21,11 +21,7 @@
 
 namespace core {
 
-// ----------------------------------------------------------------------------
-// ScopedArena - RAII arena state manager
-// ----------------------------------------------------------------------------
-
-class ScopedArena {
+class ScopedArena final {
 public:
     // Constructor - captures arena state on construction
     explicit ScopedArena(IArena& arena) noexcept
@@ -66,6 +62,11 @@ public:
         return *this;
     }
     
+    // Check if this ScopedArena is valid (not moved-from)
+    bool IsValid() const noexcept {
+        return _arena != nullptr;
+    }
+    
     // Arena access
     IArena& GetArena() const noexcept {
         CORE_MEM_ASSERT(_arena && "Cannot use moved-from ScopedArena");
@@ -79,8 +80,8 @@ public:
     }
 
 private:
-    IArena* _arena;
-    ArenaMarker _marker;
+    IArena* _arena = nullptr;
+    ArenaMarker _marker{};
 };
 
 } // namespace core
