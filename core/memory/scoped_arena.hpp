@@ -20,8 +20,12 @@ namespace core {
 
 class ScopedArena {
 public:
-    // Constructor
-    explicit ScopedArena(IArena& arena) noexcept;
+    // Constructor - captures arena state on construction
+    explicit ScopedArena(IArena& arena) noexcept
+        : _arena(&arena)
+        , _marker(arena.GetMarker())
+    {
+    }
     
     // Destructor
     ~ScopedArena() noexcept;
