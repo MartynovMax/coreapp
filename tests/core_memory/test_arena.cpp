@@ -2,115 +2,12 @@
 #include "core/memory/core_allocator.hpp"
 #include "core/memory/core_memory.hpp"
 #include "core/memory/memory_ops.hpp"
+#include "test_helpers.hpp"
 #include <gtest/gtest.h>
 
 namespace {
 
-// =============================================================================
-// SimpleTestArena - Minimal arena implementation for interface validation
-// =============================================================================
-
-class SimpleTestArena final : public core::IArena {
-public:
-    explicit SimpleTestArena(void* buffer, core::memory_size size) noexcept
-        : _begin(static_cast<core::u8*>(buffer))
-        , _current(static_cast<core::u8*>(buffer))
-        , _end(static_cast<core::u8*>(buffer) + size)
-        , _name("SimpleTestArena")
-#if CORE_MEMORY_DEBUG
-        , _arenaId(GenerateArenaId())
-        , _generation(0)
-#endif
-    {}
-    
-    void* Allocate(core::memory_size size, core::memory_alignment alignment) noexcept override {
-        if (size == 0 || _begin == nullptr) {
-            return nullptr;
-        }
-        
-        core::u8* aligned = core::AlignPtrUp(_current, alignment);
-        if (aligned < _current || aligned > _end) {
-            return nullptr;
-        }
-        
-        core::memory_size available = static_cast<core::memory_size>(_end - aligned);
-        if (size > available) {
-            return nullptr;
-        }
-        
-        _current = aligned + size;
-        return aligned;
-    }
-    
-    void Reset() noexcept override {
-        _current = _begin;
-#if CORE_MEMORY_DEBUG
-        ++_generation; // Invalidate all previous markers
-#endif
-    }
-    
-    core::ArenaMarker GetMarker() const noexcept override {
-        core::ArenaMarker marker;
-        marker.internal_state = _current;
-#if CORE_MEMORY_DEBUG
-        marker.debug_arena_id = _arenaId;
-        marker.debug_sequence = _generation;
-#endif
-        return marker;
-    }
-    
-    void RewindTo(core::ArenaMarker marker) noexcept override {
-#if CORE_MEMORY_DEBUG
-        CORE_MEM_ASSERT(marker.debug_arena_id == _arenaId && "Marker from different arena");
-        CORE_MEM_ASSERT(marker.debug_sequence == _generation && "Stale marker (from before Reset)");
-        CORE_MEM_ASSERT(static_cast<core::u8*>(marker.internal_state) >= _begin &&
-                       static_cast<core::u8*>(marker.internal_state) <= _current &&
-                       "Invalid marker position");
-#endif
-        _current = static_cast<core::u8*>(marker.internal_state);
-    }
-    
-    core::memory_size Capacity() const noexcept override {
-        if (_begin == nullptr) return 0;
-        return static_cast<core::memory_size>(_end - _begin);
-    }
-    
-    core::memory_size Used() const noexcept override {
-        if (_begin == nullptr) return 0;
-        return static_cast<core::memory_size>(_current - _begin);
-    }
-    
-    core::memory_size Remaining() const noexcept override {
-        if (_begin == nullptr) return 0;
-        return static_cast<core::memory_size>(_end - _current);
-    }
-    
-    const char* Name() const noexcept override {
-        return _name;
-    }
-    
-    bool Owns(const void* ptr) const noexcept override {
-        if (ptr == nullptr || _begin == nullptr) return false;
-        const core::u8* p = static_cast<const core::u8*>(ptr);
-        return p >= _begin && p < _end;
-    }
-
-private:
-    core::u8* _begin;
-    core::u8* _current;
-    core::u8* _end;
-    const char* _name;
-    
-#if CORE_MEMORY_DEBUG
-    core::u32 _arenaId;
-    core::u32 _generation; // Incremented on Reset() to invalidate old markers
-    
-    static core::u32 GenerateArenaId() {
-        static core::u32 nextId = 1;
-        return nextId++;
-    }
-#endif
-};
+using SimpleTestArena = core::test::SimpleTestArena;
 
 // =============================================================================
 // ArenaMarker Tests

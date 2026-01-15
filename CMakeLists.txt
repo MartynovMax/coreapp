@@ -284,6 +284,13 @@ add_executable(arena_tests
 target_link_libraries(arena_tests PRIVATE coreapp gtest_main)
 add_test(NAME arena_tests COMMAND arena_tests)
 
+# scoped_arena tests
+add_executable(scoped_arena_tests
+    tests/core_memory/test_scoped_arena.cpp
+)
+target_link_libraries(scoped_arena_tests PRIVATE coreapp gtest_main)
+add_test(NAME scoped_arena_tests COMMAND scoped_arena_tests)
+
 # core_attributes warnings (build-only, excluded from ALL)
 add_executable(core_attributes_warnings_tests EXCLUDE_FROM_ALL
     tests/core_base/test_core_attributes_warnings.cpp
