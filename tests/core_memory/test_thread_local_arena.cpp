@@ -5,6 +5,7 @@
 #include <vector>
 #include <mutex>
 #include <atomic>
+#include <condition_variable>
 
 namespace {
 
@@ -164,35 +165,49 @@ TEST_F(ThreadLocalArenaTest, ReinitAfterDestroy) {
 // =============================================================================
 
 TEST(ThreadLocalArena, MultipleThreadsGetDifferentArenas) {
-    std::vector<uintptr_t> arenaAddresses;
+    constexpr int kThreadCount = 4;
+    std::vector<uintptr_t> arenaAddresses(kThreadCount, 0);
     std::mutex mtx;
+    std::condition_variable cv;
+    std::atomic<int> initialized{0};
     
-    auto worker = [&]() {
+    auto worker = [&](int id) {
+        // Ensure arena is initialized
         IArena& arena = GetThreadLocalArena();
-        std::lock_guard<std::mutex> lock(mtx);
-        // Store address as integer to avoid dangling pointer issues
-        arenaAddresses.push_back(reinterpret_cast<uintptr_t>(&arena));
+        uintptr_t addr = reinterpret_cast<uintptr_t>(&arena);
+        
+        // Signal that this thread has initialized its arena
+        {
+            std::lock_guard<std::mutex> lock(mtx);
+            arenaAddresses[id] = addr;
+            initialized.fetch_add(1, std::memory_order_release);
+        }
+        cv.notify_all();
+        
+        // Wait for all threads to initialize
+        std::unique_lock<std::mutex> lock(mtx);
+        cv.wait(lock, [&]() { 
+            return initialized.load(std::memory_order_acquire) >= kThreadCount; 
+        });
     };
     
-    constexpr int kThreadCount = 4;
     std::vector<std::thread> threads;
     threads.reserve(kThreadCount);
     
     for (int i = 0; i < kThreadCount; ++i) {
-        threads.emplace_back(worker);
+        threads.emplace_back(worker, i);
     }
     
     for (auto& t : threads) {
         t.join();
     }
     
-    ASSERT_EQ(arenaAddresses.size(), kThreadCount);
-    
-    // Verify all addresses are distinct (each thread has its own arena)
+    // Verify all addresses are non-zero and distinct
     for (size_t i = 0; i < arenaAddresses.size(); ++i) {
-        EXPECT_NE(arenaAddresses[i], 0u);
+        EXPECT_NE(arenaAddresses[i], 0u) << "Thread " << i << " has null arena";
         for (size_t j = i + 1; j < arenaAddresses.size(); ++j) {
-            EXPECT_NE(arenaAddresses[i], arenaAddresses[j]);
+            EXPECT_NE(arenaAddresses[i], arenaAddresses[j]) 
+                << "Threads " << i << " and " << j << " have the same arena address";
         }
     }
 }
