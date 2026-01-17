@@ -84,7 +84,7 @@ function(add_module_test_suite MODULE_NAME)
 endfunction()
 
 # Automatically add all test suites (auto-discovers test_*.cpp files)
-add_module_test_suite(core_base "test_core_attributes_warnings" "test_core_api")
+add_module_test_suite(core_base "test_core_attributes_warnings" "test_core_api" "test_core_attributes")
 add_module_test_suite(core_memory)
 add_module_test_suite(core_concurrency)
 
