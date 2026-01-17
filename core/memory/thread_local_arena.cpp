@@ -3,6 +3,7 @@
 #include "system_allocator.hpp"
 #include "core_memory.hpp"
 #include <new>
+#include <cstdint>
 
 namespace core {
 namespace detail {

@@ -1,4 +1,5 @@
 #include "bump_arena.hpp"
+#include <cstdint>
 
 namespace core {
 
