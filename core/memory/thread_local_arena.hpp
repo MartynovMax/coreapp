@@ -21,5 +21,8 @@ bool HasThreadLocalArena() noexcept;
 // Reset current thread's arena (no-op if not initialized)
 void ResetThreadLocalArena() noexcept;
 
+// Destroy current thread's arena (explicit cleanup)
+void DestroyThreadLocalArena() noexcept;
+
 } // namespace core
 

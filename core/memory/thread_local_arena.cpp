@@ -78,5 +78,9 @@ void ResetThreadLocalArena() noexcept {
     }
 }
 
+void DestroyThreadLocalArena() noexcept {
+    detail::tlsArenaState.DestroyArena();
+}
+
 } // namespace core
 
