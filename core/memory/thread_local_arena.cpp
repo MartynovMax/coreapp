@@ -1,24 +1,16 @@
 #include "thread_local_arena.hpp"
-#include "bump_allocator.hpp"
+#include "bump_arena.hpp"
 #include "system_allocator.hpp"
 #include "core_memory.hpp"
-#include <new> // For placement new
+#include <new>
 
 namespace core {
 namespace detail {
 
-// =============================================================================
-// Configuration
-// =============================================================================
-
 constexpr memory_size kDefaultThreadArenaCapacity = 1024 * 1024;
 
-// =============================================================================
-// ThreadLocalArenaState - Per-thread arena storage
-// =============================================================================
-
 struct ThreadLocalArenaState {
-    alignas(BumpAllocator) u8 _arenaStorage[sizeof(BumpAllocator)];
+    alignas(BumpArena) u8 _arenaStorage[sizeof(BumpArena)];
     char _nameBuffer[64];
     bool _initialized = false;
     
@@ -41,7 +33,7 @@ struct ThreadLocalArenaState {
         
         IAllocator& upstream = SystemAllocator::Instance();
         void* storage = static_cast<void*>(_arenaStorage);
-        new (storage) BumpAllocator(kDefaultThreadArenaCapacity, upstream);
+        new (storage) BumpArena(kDefaultThreadArenaCapacity, upstream);
         
         _initialized = true;
     }
@@ -51,8 +43,8 @@ struct ThreadLocalArenaState {
             return;
         }
         
-        BumpAllocator* bump = reinterpret_cast<BumpAllocator*>(_arenaStorage);
-        bump->~BumpAllocator();
+        BumpArena* arena = reinterpret_cast<BumpArena*>(_arenaStorage);
+        arena->~BumpArena();
         _initialized = false;
     }
     
