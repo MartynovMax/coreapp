@@ -2,42 +2,65 @@
 #include "bump_allocator.hpp"
 #include "system_allocator.hpp"
 #include "core_memory.hpp"
+#include <new> // For placement new
 
 namespace core {
 namespace detail {
+
+// =============================================================================
+// Configuration
+// =============================================================================
+
+constexpr memory_size kDefaultThreadArenaCapacity = 1024 * 1024;
 
 // =============================================================================
 // ThreadLocalArenaState - Per-thread arena storage
 // =============================================================================
 
 struct ThreadLocalArenaState {
-    // Arena instance storage (placement new/delete)
-    alignas(BumpAllocator) u8 _arena_storage[sizeof(BumpAllocator)];
-    
-    // Name buffer for debug/introspection
-    char _name_buffer[64];
-    
-    // Initialization flag
+    alignas(BumpAllocator) u8 _arenaStorage[sizeof(BumpAllocator)];
+    char _nameBuffer[64];
     bool _initialized = false;
     
-    // Get arena pointer (nullptr if not initialized)
     IArena* GetArena() noexcept {
         if (!_initialized) {
             return nullptr;
         }
-        return reinterpret_cast<IArena*>(_arena_storage);
+        return reinterpret_cast<IArena*>(_arenaStorage);
     }
     
-    // Get arena pointer (const version)
     const IArena* GetArena() const noexcept {
         if (!_initialized) {
             return nullptr;
         }
-        return reinterpret_cast<const IArena*>(_arena_storage);
+        return reinterpret_cast<const IArena*>(_arenaStorage);
+    }
+    
+    void CreateArena() noexcept {
+        CORE_MEM_ASSERT(!_initialized && "Arena already initialized");
+        
+        IAllocator& upstream = SystemAllocator::Instance();
+        void* storage = static_cast<void*>(_arenaStorage);
+        new (storage) BumpAllocator(kDefaultThreadArenaCapacity, upstream);
+        
+        _initialized = true;
+    }
+    
+    void DestroyArena() noexcept {
+        if (!_initialized) {
+            return;
+        }
+        
+        BumpAllocator* bump = reinterpret_cast<BumpAllocator*>(_arenaStorage);
+        bump->~BumpAllocator();
+        _initialized = false;
+    }
+    
+    ~ThreadLocalArenaState() noexcept {
+        DestroyArena();
     }
 };
 
-// Thread-local storage - each thread gets its own instance
 inline thread_local ThreadLocalArenaState tlsArenaState;
 
 } // namespace detail
