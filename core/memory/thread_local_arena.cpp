@@ -58,8 +58,12 @@ inline thread_local ThreadLocalArenaState tlsArenaState;
 } // namespace detail
 
 IArena& GetThreadLocalArena() noexcept {
+    if (!detail::tlsArenaState._initialized) {
+        detail::tlsArenaState.CreateArena();
+    }
+    
     IArena* arena = detail::tlsArenaState.GetArena();
-    CORE_MEM_ASSERT(arena && "Arena not initialized");
+    CORE_MEM_ASSERT(arena && "Arena creation failed");
     return *arena;
 }
 
