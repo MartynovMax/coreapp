@@ -47,6 +47,7 @@ public:
     bool Owns(const void* ptr) const noexcept override;
     
     void Reset() noexcept;
+    void RewindToUsed(memory_size used) noexcept;
     
     memory_size Used() const noexcept;
     memory_size Capacity() const noexcept;

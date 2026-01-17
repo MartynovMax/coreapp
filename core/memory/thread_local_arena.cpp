@@ -18,14 +18,16 @@ struct ThreadLocalArenaState {
         if (!_initialized) {
             return nullptr;
         }
-        return reinterpret_cast<IArena*>(_arenaStorage);
+        BumpArena* arena = reinterpret_cast<BumpArena*>(_arenaStorage);
+        return static_cast<IArena*>(arena);
     }
     
     const IArena* GetArena() const noexcept {
         if (!_initialized) {
             return nullptr;
         }
-        return reinterpret_cast<const IArena*>(_arenaStorage);
+        const BumpArena* arena = reinterpret_cast<const BumpArena*>(_arenaStorage);
+        return static_cast<const IArena*>(arena);
     }
     
     void CreateArena() noexcept {

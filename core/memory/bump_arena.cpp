@@ -29,17 +29,14 @@ void BumpArena::Reset() noexcept {
 
 ArenaMarker BumpArena::GetMarker() const noexcept {
     ArenaMarker marker;
-    marker.internal_state = reinterpret_cast<void*>(_allocator.Used());
+    memory_size used = _allocator.Used();
+    marker.internal_state = reinterpret_cast<void*>(static_cast<uintptr_t>(used));
     return marker;
 }
 
 void BumpArena::RewindTo(ArenaMarker marker) noexcept {
-    memory_size targetUsed = reinterpret_cast<memory_size>(marker.internal_state);
-    memory_size currentUsed = _allocator.Used();
-    
-    if (targetUsed < currentUsed) {
-        _allocator.Reset();
-    }
+    memory_size targetUsed = static_cast<memory_size>(reinterpret_cast<uintptr_t>(marker.internal_state));
+    _allocator.RewindToUsed(targetUsed);
 }
 
 memory_size BumpArena::Capacity() const noexcept {
@@ -59,7 +56,7 @@ bool BumpArena::Owns(const void* ptr) const noexcept {
 }
 
 const char* BumpArena::Name() const noexcept {
-    return _name;
+    return _name ? _name : "bump_arena";
 }
 
 } // namespace core

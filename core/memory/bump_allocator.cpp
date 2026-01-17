@@ -81,7 +81,30 @@ void BumpAllocator::Deallocate(const AllocationInfo& info) noexcept {
 }
 
 void BumpAllocator::Reset() noexcept {
+    if (_begin == nullptr) {
+        return;
+    }
     _current = _begin;
+}
+
+void BumpAllocator::RewindToUsed(memory_size used) noexcept {
+    if (_begin == nullptr) {
+        return;
+    }
+    
+#if CORE_MEMORY_DEBUG
+    CORE_MEM_ASSERT(used <= Capacity() && "Rewind target exceeds capacity");
+    CORE_MEM_ASSERT(used <= Used() && "Rewind target exceeds current Used()");
+#else
+    if (used > Capacity()) {
+        used = Capacity();
+    }
+    if (used > Used()) {
+        used = Used();
+    }
+#endif
+    
+    _current = _begin + used;
 }
 
 memory_size BumpAllocator::Used() const noexcept {
