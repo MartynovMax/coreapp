@@ -17,6 +17,7 @@ class BumpArena final : public IArena {
 public:
     BumpArena(void* buffer, memory_size size) noexcept;
     BumpArena(memory_size capacity, IAllocator& upstream) noexcept;
+    BumpArena(memory_size capacity, IAllocator& upstream, const char* name) noexcept;
     
     ~BumpArena() noexcept override = default;
 
@@ -34,9 +35,11 @@ public:
     memory_size Remaining() const noexcept override;
     
     bool Owns(const void* ptr) const noexcept override;
+    const char* Name() const noexcept override;
 
 private:
     BumpAllocator _allocator;
+    const char* _name = nullptr;
 };
 
 } // namespace core

@@ -33,9 +33,28 @@ struct ThreadLocalArenaState {
         
         IAllocator& upstream = SystemAllocator::Instance();
         void* storage = static_cast<void*>(_arenaStorage);
-        new (storage) BumpArena(kDefaultThreadArenaCapacity, upstream);
+        
+        GenerateName();
+        
+        new (storage) BumpArena(kDefaultThreadArenaCapacity, upstream, _nameBuffer);
         
         _initialized = true;
+    }
+    
+    void GenerateName() noexcept {
+        uintptr_t threadId = reinterpret_cast<uintptr_t>(this);
+        
+        char* p = _nameBuffer;
+        const char* prefix = "thread_arena_0x";
+        while (*prefix) {
+            *p++ = *prefix++;
+        }
+        
+        for (int i = sizeof(uintptr_t) * 2 - 1; i >= 0; --i) {
+            u32 nibble = (threadId >> (i * 4)) & 0xF;
+            *p++ = nibble < 10 ? ('0' + nibble) : ('a' + nibble - 10);
+        }
+        *p = '\0';
     }
     
     void DestroyArena() noexcept {

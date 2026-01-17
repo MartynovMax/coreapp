@@ -10,6 +10,11 @@ BumpArena::BumpArena(memory_size capacity, IAllocator& upstream) noexcept
     : _allocator(capacity, upstream)
 {}
 
+BumpArena::BumpArena(memory_size capacity, IAllocator& upstream, const char* name) noexcept
+    : _allocator(capacity, upstream)
+    , _name(name)
+{}
+
 void* BumpArena::Allocate(memory_size size, memory_alignment alignment) noexcept {
     AllocationRequest request;
     request.size = size;
@@ -51,6 +56,10 @@ memory_size BumpArena::Remaining() const noexcept {
 
 bool BumpArena::Owns(const void* ptr) const noexcept {
     return _allocator.Owns(ptr);
+}
+
+const char* BumpArena::Name() const noexcept {
+    return _name;
 }
 
 } // namespace core
