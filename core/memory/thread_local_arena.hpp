@@ -13,13 +13,13 @@
 namespace core {
 
 // Get current thread's arena (lazy initialization)
-CORE_API IArena& GetThreadLocalArena() noexcept;
+IArena& GetThreadLocalArena() noexcept;
 
 // Check if current thread has initialized its arena
-CORE_API bool HasThreadLocalArena() noexcept;
+bool HasThreadLocalArena() noexcept;
 
 // Reset current thread's arena (no-op if not initialized)
-CORE_API void ResetThreadLocalArena() noexcept;
+void ResetThreadLocalArena() noexcept;
 
 } // namespace core
 
