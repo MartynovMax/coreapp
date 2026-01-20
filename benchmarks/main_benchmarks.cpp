@@ -31,6 +31,15 @@ int main(int argc, char** argv) {
     // Create registry
     ExperimentRegistry registry;
 
+    // Register experiments
+    ExperimentDescriptor nullDesc;
+    nullDesc.name = "null";
+    nullDesc.category = "test";
+    nullDesc.allocatorName = "none";
+    nullDesc.description = "No-op experiment for testing runner";
+    nullDesc.factory = &NullExperiment::Create;
+    registry.Register(nullDesc);
+
     // Show list if requested
     if (config.showList) {
         u32 count = 0;
