@@ -20,7 +20,7 @@ using ExperimentFactory = IExperiment* (*)();
 struct ExperimentDescriptor {
     const char* name = nullptr;             // Unique identifier (e.g., "arena/monotonic_fixed_16")
     const char* category = nullptr;         // Category (e.g., "arena", "allocator", "stress")
-    const char* allocator_name = nullptr;   // Allocator under test (e.g., "monotonic_arena")
+    const char* allocatorName = nullptr;    // Allocator under test (e.g., "monotonic_arena")
     const char* description = nullptr;      // Human-readable description
     ExperimentFactory factory = nullptr;    // Factory function to create instance
 };

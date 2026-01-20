@@ -1,0 +1,72 @@
+#include "experiment_registry.hpp"
+
+namespace core {
+namespace bench {
+
+// Helper: compare strings
+static bool StringsEqual(const char* a, const char* b) noexcept {
+    if (a == nullptr || b == nullptr) {
+        return a == b;
+    }
+    while (*a && *b) {
+        if (*a != *b) {
+            return false;
+        }
+        ++a;
+        ++b;
+    }
+    return *a == *b;
+}
+
+// Helper: simple wildcard match (placeholder until pattern_matcher is implemented)
+// Supports: exact match only (no wildcards yet)
+static bool PatternMatch(const char* pattern, const char* str) noexcept {
+    return StringsEqual(pattern, str);
+}
+
+void ExperimentRegistry::Register(const ExperimentDescriptor& descriptor) noexcept {
+    if (_count >= kMaxExperiments) {
+        return; // Registry full
+    }
+    _experiments[_count++] = descriptor;
+}
+
+const ExperimentDescriptor* ExperimentRegistry::Find(const char* name) const noexcept {
+    for (u32 i = 0; i < _count; ++i) {
+        if (StringsEqual(_experiments[i].name, name)) {
+            return &_experiments[i];
+        }
+    }
+    return nullptr;
+}
+
+const ExperimentDescriptor* ExperimentRegistry::GetAll(u32& outCount) const noexcept {
+    outCount = _count;
+    return (_count > 0) ? _experiments : nullptr;
+}
+
+u32 ExperimentRegistry::Filter(const char* pattern, const ExperimentDescriptor** outResults, u32 maxResults) const noexcept {
+    if (pattern == nullptr || outResults == nullptr || maxResults == 0) {
+        return 0;
+    }
+    
+    u32 matchCount = 0;
+    for (u32 i = 0; i < _count && matchCount < maxResults; ++i) {
+        if (PatternMatch(pattern, _experiments[i].name)) {
+            outResults[matchCount++] = &_experiments[i];
+        }
+    }
+    
+    return matchCount;
+}
+
+u32 ExperimentRegistry::Count() const noexcept {
+    return _count;
+}
+
+void ExperimentRegistry::Clear() noexcept {
+    _count = 0;
+}
+
+} // namespace bench
+} // namespace core

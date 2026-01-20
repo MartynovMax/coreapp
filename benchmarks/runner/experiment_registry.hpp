@@ -29,10 +29,10 @@ public:
     const ExperimentDescriptor* Find(const char* name) const noexcept;
 
     // Get all registered experiments
-    const ExperimentDescriptor* GetAll(u32& out_count) const noexcept;
+    const ExperimentDescriptor* GetAll(u32& outCount) const noexcept;
 
     // Filter experiments by pattern (returns count of matches)
-    u32 Filter(const char* pattern, const ExperimentDescriptor** out_results, u32 max_results) const noexcept;
+    u32 Filter(const char* pattern, const ExperimentDescriptor** outResults, u32 maxResults) const noexcept;
 
     // Get total count of registered experiments
     u32 Count() const noexcept;
@@ -43,8 +43,8 @@ public:
 private:
     static constexpr u32 kMaxExperiments = 256;
     
-    ExperimentDescriptor experiments_[kMaxExperiments];
-    u32 count_ = 0;
+    ExperimentDescriptor _experiments[kMaxExperiments];
+    u32 _count = 0;
 };
 
 } // namespace bench

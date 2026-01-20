@@ -16,8 +16,8 @@ namespace bench {
 
 struct ExperimentParams {
     u64 seed = 0;                       // Deterministic seed for RNG
-    u32 warmup_iterations = 0;          // Number of warmup runs (not measured)
-    u32 measured_repetitions = 1;       // Number of measured runs
+    u32 warmupIterations = 0;           // Number of warmup runs (not measured)
+    u32 measuredRepetitions = 1;        // Number of measured runs
 };
 
 } // namespace bench
