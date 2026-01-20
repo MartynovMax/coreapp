@@ -159,3 +159,36 @@ jobs:
             build/Testing/Temporary/
             build/**/*.log
           retention-days: 7
+
+  benchmarks:
+    name: Benchmarks / ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+    
+    steps:
+      - name: Checkout sources
+        uses: actions/checkout@v4
+      
+      - name: Configure CMake
+        run: cmake -S . -B build -DBUILD_BENCHMARKS=ON -DCMAKE_BUILD_TYPE=Release
+      
+      - name: Build benchmarks
+        run: cmake --build build --config Release --target coreapp_benchmarks
+      
+      - name: Test benchmark runner (Unix)
+        if: runner.os != 'Windows'
+        run: |
+          build/benchmarks/Release/coreapp_benchmarks --list
+          build/benchmarks/Release/coreapp_benchmarks --help
+          build/benchmarks/Release/coreapp_benchmarks
+      
+      - name: Test benchmark runner (Windows)
+        if: runner.os == 'Windows'
+        run: |
+          build\benchmarks\Release\coreapp_benchmarks.exe --list
+          build\benchmarks\Release\coreapp_benchmarks.exe --help
+          build\benchmarks\Release\coreapp_benchmarks.exe

@@ -37,6 +37,9 @@ echo   Build completed successfully!
 echo   Executable: build\benchmarks\Debug\coreapp_benchmarks.exe
 echo =========================================
 echo.
+echo Opening Visual Studio solution...
+start build\benchmarks\coreapp.sln
+echo.
 echo Run with: build\benchmarks\Debug\coreapp_benchmarks.exe --help
 echo.
 
