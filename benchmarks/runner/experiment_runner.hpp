@@ -8,12 +8,10 @@
 #include "experiment_registry.hpp"
 #include "run_config.hpp"
 #include "exit_codes.hpp"
+#include "../events/event_sink.hpp"
 
 namespace core {
 namespace bench {
-
-// Forward declaration
-class IEventSink;
 
 // ----------------------------------------------------------------------------
 // ExperimentRunner - Executes registered experiments

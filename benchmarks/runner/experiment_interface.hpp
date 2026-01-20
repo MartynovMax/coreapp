@@ -15,12 +15,10 @@
 // =============================================================================
 
 #include "experiment_params.hpp"
+#include "../events/event_sink.hpp"
 
 namespace core {
 namespace bench {
-
-// Forward declaration
-class IEventSink;
 
 // ----------------------------------------------------------------------------
 // IExperiment - Base interface for all experiments
