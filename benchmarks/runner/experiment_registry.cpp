@@ -1,23 +1,9 @@
 #include "experiment_registry.hpp"
 #include "../common/pattern_matcher.hpp"
+#include "../common/string_utils.hpp"
 
 namespace core {
 namespace bench {
-
-// Helper: compare strings
-static bool StringsEqual(const char* a, const char* b) noexcept {
-    if (a == nullptr || b == nullptr) {
-        return a == b;
-    }
-    while (*a && *b) {
-        if (*a != *b) {
-            return false;
-        }
-        ++a;
-        ++b;
-    }
-    return *a == *b;
-}
 
 void ExperimentRegistry::Register(const ExperimentDescriptor& descriptor) noexcept {
     if (_count >= kMaxExperiments) {
