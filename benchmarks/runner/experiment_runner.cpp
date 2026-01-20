@@ -24,23 +24,48 @@ bool ExperimentRunner::RunExperiment(IExperiment* experiment, const ExperimentPa
         return false;
     }
 
-    // Setup
-    experiment->Setup(params);
+    bool success = true;
 
-    // Warmup loop
-    for (u32 i = 0; i < params.warmupIterations; ++i) {
-        experiment->Warmup();
+    try {
+        // Setup
+        experiment->Setup(params);
+
+        try {
+            // Warmup loop
+            for (u32 i = 0; i < params.warmupIterations; ++i) {
+                experiment->Warmup();
+            }
+
+            // Measured repetitions loop
+            for (u32 i = 0; i < params.measuredRepetitions; ++i) {
+                experiment->RunPhases();
+            }
+        } catch (...) {
+            printf("Error: Exception in warmup/run_phases\n");
+            success = false;
+        }
+
+        // Teardown (always called, even if previous stages failed)
+        try {
+            experiment->Teardown();
+        } catch (...) {
+            printf("Error: Exception in teardown\n");
+            success = false;
+        }
+
+    } catch (...) {
+        printf("Error: Exception in setup\n");
+        success = false;
+
+        // Still try to call teardown
+        try {
+            experiment->Teardown();
+        } catch (...) {
+            printf("Error: Exception in teardown after setup failure\n");
+        }
     }
 
-    // Measured repetitions loop
-    for (u32 i = 0; i < params.measuredRepetitions; ++i) {
-        experiment->RunPhases();
-    }
-
-    // Teardown
-    experiment->Teardown();
-
-    return true;
+    return success;
 }
 
 } // namespace bench
