@@ -148,6 +148,12 @@ bool CLIParser::Parse(int argc, char** argv, RunConfig& outConfig) noexcept {
         return false;
     }
 
+    // Validate configuration
+    if (outConfig.measuredRepetitions == 0) {
+        _errorMessage = "--repetitions must be at least 1";
+        return false;
+    }
+
     return true;
 }
 
