@@ -1,0 +1,24 @@
+#pragma once
+
+// =============================================================================
+// experiment_params.hpp
+// Parameters passed to experiments at setup time.
+// =============================================================================
+
+#include "../../core/base/core_types.hpp"
+
+namespace core {
+namespace bench {
+
+// ----------------------------------------------------------------------------
+// ExperimentParams - Configuration for experiment execution
+// ----------------------------------------------------------------------------
+
+struct ExperimentParams {
+    u64 seed = 0;                       // Deterministic seed for RNG
+    u32 warmup_iterations = 0;          // Number of warmup runs (not measured)
+    u32 measured_repetitions = 1;       // Number of measured runs
+};
+
+} // namespace bench
+} // namespace core

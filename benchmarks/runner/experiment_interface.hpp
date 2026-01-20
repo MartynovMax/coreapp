@@ -14,11 +14,12 @@
 //   - Single-threaded execution (no concurrent lifecycle calls)
 // =============================================================================
 
+#include "experiment_params.hpp"
+
 namespace core {
 namespace bench {
 
-// Forward declarations
-struct ExperimentParams;
+// Forward declaration
 class IEventSink;
 
 // ----------------------------------------------------------------------------
