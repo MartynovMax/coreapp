@@ -131,6 +131,18 @@ bool CLIParser::Parse(int argc, char** argv, RunConfig& outConfig) noexcept {
             continue;
         }
 
+        // --help or -h
+        if (StringsEqual(arg, "--help") || StringsEqual(arg, "-h")) {
+            outConfig.showHelp = true;
+            continue;
+        }
+
+        // --verbose or -v
+        if (StringsEqual(arg, "--verbose") || StringsEqual(arg, "-v")) {
+            outConfig.verbose = true;
+            continue;
+        }
+
         // Unknown flag
         _errorMessage = "Unknown flag";
         return false;
