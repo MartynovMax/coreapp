@@ -32,7 +32,10 @@ bool ExperimentRunner::RunExperiment(IExperiment* experiment, const ExperimentPa
         experiment->Warmup();
     }
 
-
+    // Measured repetitions loop
+    for (u32 i = 0; i < params.measuredRepetitions; ++i) {
+        experiment->RunPhases();
+    }
 
     // Teardown
     experiment->Teardown();
