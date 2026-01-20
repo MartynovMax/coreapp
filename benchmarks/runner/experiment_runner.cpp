@@ -1,4 +1,5 @@
 #include "experiment_runner.hpp"
+#include "../events/event_types.hpp"
 #include <stdio.h>
 
 namespace core {
@@ -55,7 +56,28 @@ ExitCode ExperimentRunner::Run(const RunConfig& config) noexcept {
             experiment->AttachEventSink(_eventSink);
         }
 
+        // Emit ExperimentBegin event
+        if (_eventSink != nullptr) {
+            Event event;
+            event.type = EventType::ExperimentBegin;
+            event.experimentName = desc->name;
+            event.repetitionId = 0;
+            event.timestamp = 0;
+            _eventSink->OnEvent(event);
+        }
+
         bool result = RunExperiment(experiment, params);
+
+        // Emit ExperimentEnd event
+        if (_eventSink != nullptr) {
+            Event event;
+            event.type = EventType::ExperimentEnd;
+            event.experimentName = desc->name;
+            event.repetitionId = 0;
+            event.timestamp = 0;
+            _eventSink->OnEvent(event);
+        }
+
         if (result) {
             ++successCount;
         } else {
@@ -65,7 +87,6 @@ ExitCode ExperimentRunner::Run(const RunConfig& config) noexcept {
         delete experiment;
     }
 
-    // Determine exit code
     if (failureCount == 0) {
         return kSuccess;
     } else if (successCount == 0) {

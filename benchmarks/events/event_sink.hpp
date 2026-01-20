@@ -8,6 +8,8 @@
 // Full event types and bus implementation are in separate task.
 // =============================================================================
 
+#include "event_types.hpp"
+
 namespace core {
 namespace bench {
 
@@ -18,6 +20,9 @@ namespace bench {
 class IEventSink {
 public:
     virtual ~IEventSink() = default;
+
+    // Receive event (stub for integration)
+    virtual void OnEvent(const Event& event) noexcept = 0;
 };
 
 } // namespace bench

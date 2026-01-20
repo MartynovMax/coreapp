@@ -17,7 +17,7 @@ void EventBus::Emit(const Event& event) noexcept {
 
     for (u32 i = 0; i < _count; ++i) {
         if (_sinks[i] != nullptr) {
-            (void)event;
+            _sinks[i]->OnEvent(event);
         }
     }
 }
