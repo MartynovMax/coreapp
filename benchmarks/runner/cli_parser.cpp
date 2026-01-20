@@ -32,6 +32,20 @@ bool CLIParser::Parse(int argc, char** argv, RunConfig& outConfig) noexcept {
             continue;
         }
 
+        // --seed=<u64>
+        if (StartsWith(arg, "--seed")) {
+            const char* value = ExtractValue(arg, "--seed");
+            if (value == nullptr || *value == '\0') {
+                _errorMessage = "--seed requires a numeric value";
+                return false;
+            }
+            if (!ParseU64(value, outConfig.seed)) {
+                _errorMessage = "--seed: invalid numeric value";
+                return false;
+            }
+            continue;
+        }
+
         // Unknown flag
         _errorMessage = "Unknown flag";
         return false;
