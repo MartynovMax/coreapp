@@ -7,16 +7,17 @@ echo ================================
 echo.
 
 REM Clean old build directory (optional)
-if exist build (
-    echo Removing old build directory...
-    rmdir /s /q build
+if exist build\default (
+    echo Removing old build\default directory...
+    rmdir /s /q build\default
 )
 
-echo Creating build directory...
-mkdir build
+echo Creating build\default directory...
+if not exist build mkdir build
+mkdir build\default
 
 echo Running CMake configuration...
-cmake -S . -B build -G "Visual Studio 17 2022" -A x64
+cmake -S . -B build\default -G "Visual Studio 17 2022" -A x64
 
 if %errorlevel% neq 0 (
     echo.
@@ -24,12 +25,12 @@ if %errorlevel% neq 0 (
     exit /b %errorlevel%
 )
 
-cmake --open build
+cmake --open build\default
 
 echo.
 echo =========================================
 echo   Solution generated successfully!
-echo   Open: build\coreapp.sln
+echo   Open: build\default\coreapp.sln
 echo =========================================
 
 pause

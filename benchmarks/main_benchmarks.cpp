@@ -3,12 +3,14 @@
 // Benchmark runner entry point.
 // =============================================================================
 
+#include "core/base/core_types.hpp"
 #include "runner/experiment_registry.hpp"
 #include "runner/experiment_runner.hpp"
 #include "runner/cli_parser.hpp"
 #include "experiments/null_experiment.hpp"
 #include <stdio.h>
 
+using namespace core;
 using namespace core::bench;
 
 int main(int argc, char** argv) {
