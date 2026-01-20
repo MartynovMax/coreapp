@@ -4,6 +4,38 @@
 namespace core {
 namespace bench {
 
+namespace {
+
+// Parse OutputFormat from string
+bool ParseOutputFormat(const char* str, OutputFormat& outFormat) noexcept {
+    if (str == nullptr) {
+        return false;
+    }
+    if (StringsEqual(str, "none")) {
+        outFormat = OutputFormat::None;
+        return true;
+    }
+    if (StringsEqual(str, "text")) {
+        outFormat = OutputFormat::Text;
+        return true;
+    }
+    if (StringsEqual(str, "jsonl")) {
+        outFormat = OutputFormat::Jsonl;
+        return true;
+    }
+    if (StringsEqual(str, "summary")) {
+        outFormat = OutputFormat::Summary;
+        return true;
+    }
+    if (StringsEqual(str, "all")) {
+        outFormat = OutputFormat::All;
+        return true;
+    }
+    return false;
+}
+
+} // anonymous namespace
+
 bool CLIParser::Parse(int argc, char** argv, RunConfig& outConfig) noexcept {
     _errorMessage = nullptr;
 
@@ -69,6 +101,20 @@ bool CLIParser::Parse(int argc, char** argv, RunConfig& outConfig) noexcept {
             }
             if (!ParseU32(value, outConfig.measuredRepetitions)) {
                 _errorMessage = "--repetitions: invalid numeric value";
+                return false;
+            }
+            continue;
+        }
+
+        // --format=<mode>
+        if (StartsWith(arg, "--format")) {
+            const char* value = ExtractValue(arg, "--format");
+            if (value == nullptr || *value == '\0') {
+                _errorMessage = "--format requires a mode value";
+                return false;
+            }
+            if (!ParseOutputFormat(value, outConfig.format)) {
+                _errorMessage = "--format: invalid mode (use: none, text, jsonl, summary, all)";
                 return false;
             }
             continue;
