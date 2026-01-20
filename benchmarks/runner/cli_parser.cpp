@@ -120,6 +120,17 @@ bool CLIParser::Parse(int argc, char** argv, RunConfig& outConfig) noexcept {
             continue;
         }
 
+        // --out=<path>
+        if (StartsWith(arg, "--out")) {
+            const char* value = ExtractValue(arg, "--out");
+            if (value == nullptr || *value == '\0') {
+                _errorMessage = "--out requires a path value";
+                return false;
+            }
+            outConfig.outputPath = value;
+            continue;
+        }
+
         // Unknown flag
         _errorMessage = "Unknown flag";
         return false;
