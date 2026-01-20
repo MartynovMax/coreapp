@@ -21,6 +21,17 @@ bool CLIParser::Parse(int argc, char** argv, RunConfig& outConfig) noexcept {
             continue;
         }
 
+        // --filter=<pattern>
+        if (StartsWith(arg, "--filter")) {
+            const char* value = ExtractValue(arg, "--filter");
+            if (value == nullptr || *value == '\0') {
+                _errorMessage = "--filter requires a pattern value";
+                return false;
+            }
+            outConfig.filter = value;
+            continue;
+        }
+
         // Unknown flag
         _errorMessage = "Unknown flag";
         return false;
