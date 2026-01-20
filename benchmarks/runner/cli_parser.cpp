@@ -60,6 +60,20 @@ bool CLIParser::Parse(int argc, char** argv, RunConfig& outConfig) noexcept {
             continue;
         }
 
+        // --repetitions=<n>
+        if (StartsWith(arg, "--repetitions")) {
+            const char* value = ExtractValue(arg, "--repetitions");
+            if (value == nullptr || *value == '\0') {
+                _errorMessage = "--repetitions requires a numeric value";
+                return false;
+            }
+            if (!ParseU32(value, outConfig.measuredRepetitions)) {
+                _errorMessage = "--repetitions: invalid numeric value";
+                return false;
+            }
+            continue;
+        }
+
         // Unknown flag
         _errorMessage = "Unknown flag";
         return false;
