@@ -20,9 +20,23 @@ ExitCode ExperimentRunner::Run(const RunConfig& config) noexcept {
 }
 
 bool ExperimentRunner::RunExperiment(IExperiment* experiment, const ExperimentParams& params) noexcept {
+    if (experiment == nullptr) {
+        return false;
+    }
 
-    (void)experiment;
-    (void)params;
+    // Setup
+    experiment->Setup(params);
+
+    // Warmup loop
+    for (u32 i = 0; i < params.warmupIterations; ++i) {
+        experiment->Warmup();
+    }
+
+
+
+    // Teardown
+    experiment->Teardown();
+
     return true;
 }
 
