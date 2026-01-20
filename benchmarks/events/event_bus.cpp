@@ -11,6 +11,10 @@ void EventBus::Attach(IEventSink* sink) noexcept {
 }
 
 void EventBus::Emit(const Event& event) noexcept {
+    if (_count == 0) {
+        return;
+    }
+
     for (u32 i = 0; i < _count; ++i) {
         if (_sinks[i] != nullptr) {
             (void)event;
