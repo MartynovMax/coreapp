@@ -1,4 +1,5 @@
 #include "experiment_registry.hpp"
+#include "../common/pattern_matcher.hpp"
 
 namespace core {
 namespace bench {
@@ -16,12 +17,6 @@ static bool StringsEqual(const char* a, const char* b) noexcept {
         ++b;
     }
     return *a == *b;
-}
-
-// Helper: simple wildcard match (placeholder until pattern_matcher is implemented)
-// Supports: exact match only (no wildcards yet)
-static bool PatternMatch(const char* pattern, const char* str) noexcept {
-    return StringsEqual(pattern, str);
 }
 
 void ExperimentRegistry::Register(const ExperimentDescriptor& descriptor) noexcept {
