@@ -46,6 +46,20 @@ bool CLIParser::Parse(int argc, char** argv, RunConfig& outConfig) noexcept {
             continue;
         }
 
+        // --warmup=<n>
+        if (StartsWith(arg, "--warmup")) {
+            const char* value = ExtractValue(arg, "--warmup");
+            if (value == nullptr || *value == '\0') {
+                _errorMessage = "--warmup requires a numeric value";
+                return false;
+            }
+            if (!ParseU32(value, outConfig.warmupIterations)) {
+                _errorMessage = "--warmup: invalid numeric value";
+                return false;
+            }
+            continue;
+        }
+
         // Unknown flag
         _errorMessage = "Unknown flag";
         return false;
