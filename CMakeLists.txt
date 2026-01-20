@@ -38,6 +38,12 @@ add_custom_target(coreapp_headers SOURCES ${COREAPP_HEADERS})
 
 source_group(TREE ${CMAKE_CURRENT_SOURCE_DIR}/core
              FILES ${COREAPP_HEADERS} ${COREAPP_SOURCES})
+
+# ---------------------------------------------------------------------------
+# Benchmarks
+# ---------------------------------------------------------------------------
+
+add_subdirectory(benchmarks)
 		
 # ---------------------------------------------------------------------------
 # GoogleTest
