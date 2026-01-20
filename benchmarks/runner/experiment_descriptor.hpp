@@ -18,11 +18,11 @@ using ExperimentFactory = IExperiment* (*)();
 // ----------------------------------------------------------------------------
 
 struct ExperimentDescriptor {
-    const char* name = nullptr;             // Unique identifier (e.g., "arena/monotonic_fixed_16")
-    const char* category = nullptr;         // Category (e.g., "arena", "allocator", "stress")
-    const char* allocatorName = nullptr;    // Allocator under test (e.g., "monotonic_arena")
+    const char* name = nullptr;             // Unique identifier
+    const char* category = nullptr;         // Category for grouping
+    const char* allocatorName = nullptr;    // Allocator under test
     const char* description = nullptr;      // Human-readable description
-    ExperimentFactory factory = nullptr;    // Factory function to create instance
+    ExperimentFactory factory = nullptr;    // Factory function
 };
 
 } // namespace bench
