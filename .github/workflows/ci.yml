@@ -182,9 +182,9 @@ jobs:
       - name: Test benchmark runner (Unix)
         if: runner.os != 'Windows'
         run: |
-          build/benchmarks/Release/coreapp_benchmarks --list
-          build/benchmarks/Release/coreapp_benchmarks --help
-          build/benchmarks/Release/coreapp_benchmarks
+          build/benchmarks/coreapp_benchmarks --list
+          build/benchmarks/coreapp_benchmarks --help
+          build/benchmarks/coreapp_benchmarks
       
       - name: Test benchmark runner (Windows)
         if: runner.os == 'Windows'
