@@ -1,5 +1,6 @@
 #include "cli_parser.hpp"
 #include "../common/string_utils.hpp"
+#include <stdio.h>
 
 namespace core {
 namespace bench {
@@ -155,6 +156,21 @@ bool CLIParser::Parse(int argc, char** argv, RunConfig& outConfig) noexcept {
     }
 
     return true;
+}
+
+void CLIParser::PrintHelp() noexcept {
+    printf("Usage: coreapp_benchmarks [options]\n");
+    printf("\n");
+    printf("Options:\n");
+    printf("  --list                    List all available experiments\n");
+    printf("  --filter=<pattern>        Run experiments matching pattern (wildcards: *, ?)\n");
+    printf("  --seed=<u64>              Set deterministic seed (default: 0)\n");
+    printf("  --warmup=<n>              Number of warmup iterations (default: 0)\n");
+    printf("  --repetitions=<n>         Number of measured repetitions (default: 1)\n");
+    printf("  --format=<mode>           Output format: none, text, jsonl, summary, all (default: text)\n");
+    printf("  --out=<path>              Output file path\n");
+    printf("  --help, -h                Show this help message\n");
+    printf("  --verbose, -v             Enable verbose output\n");
 }
 
 } // namespace bench

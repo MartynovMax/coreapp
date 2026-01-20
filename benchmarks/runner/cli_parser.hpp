@@ -26,6 +26,9 @@ public:
     // Get last error message (valid after Parse() returns false)
     const char* GetError() const noexcept { return _errorMessage; }
 
+    // Print help message to stdout
+    static void PrintHelp() noexcept;
+
 private:
     const char* _errorMessage = nullptr;
 };
