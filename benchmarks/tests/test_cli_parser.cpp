@@ -153,3 +153,14 @@ TEST(CLIParserTest, ConfigReset) {
     EXPECT_EQ(config.seed, 0ull); // Reset to default
     EXPECT_TRUE(config.showList);
 }
+
+// Test flags without '=' are treated as unknown (not missing value)
+TEST(CLIParserTest, FlagWithoutEquals) {
+    CLIParser parser;
+    RunConfig config;
+    
+    // --filter without = is unknown flag (not missing value)
+    char* argv[] = {(char*)"prog", (char*)"--filter"};
+    EXPECT_FALSE(parser.Parse(2, argv, config));
+    EXPECT_STREQ(parser.GetError(), "Unknown flag");
+}

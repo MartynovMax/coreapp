@@ -46,6 +46,7 @@ ExitCode ExperimentRunner::Run(const RunConfig& config) noexcept {
     for (u32 i = 0; i < experimentCount; ++i) {
         const ExperimentDescriptor* desc = experiments[i];
         if (desc == nullptr || desc->factory == nullptr) {
+            ++failureCount;
             continue;
         }
 
@@ -126,23 +127,13 @@ bool ExperimentRunner::RunExperiment(IExperiment* experiment, const ExperimentPa
         }
 
         // Teardown (always called, even if previous stages failed)
-        try {
-            experiment->Teardown();
-        } catch (...) {
-            printf("Error: Exception in teardown\n");
-            success = false;
-        }
+        experiment->Teardown();
 
     } catch (...) {
         printf("Error: Exception in setup\n");
         success = false;
 
-        // Still try to call teardown
-        try {
-            experiment->Teardown();
-        } catch (...) {
-            printf("Error: Exception in teardown after setup failure\n");
-        }
+        experiment->Teardown();
     }
 
     return success;
