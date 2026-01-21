@@ -3,14 +3,14 @@
 namespace core {
 namespace bench {
 
-void NullExperiment::Setup(const ExperimentParams& params) noexcept {
+void NullExperiment::Setup(const ExperimentParams& params) {
     (void)params;
 }
 
-void NullExperiment::Warmup() noexcept {
+void NullExperiment::Warmup() {
 }
 
-void NullExperiment::RunPhases() noexcept {
+void NullExperiment::RunPhases() {
 }
 
 void NullExperiment::Teardown() noexcept {

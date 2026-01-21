@@ -29,9 +29,9 @@ public:
     virtual ~IExperiment() = default;
     
     // Lifecycle: called in order: Setup → Warmup × N → RunPhases × M → Teardown
-    virtual void Setup(const ExperimentParams& params) noexcept = 0;
-    virtual void Warmup() noexcept = 0;
-    virtual void RunPhases() noexcept = 0;
+    virtual void Setup(const ExperimentParams& params) = 0;
+    virtual void Warmup() = 0;
+    virtual void RunPhases() = 0;
     virtual void Teardown() noexcept = 0;
     
     // Metadata for filtering and reporting

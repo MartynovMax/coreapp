@@ -32,12 +32,12 @@ public:
     // Attach event sink for instrumentation (optional)
     void AttachEventSink(IEventSink* sink) noexcept;
 
+    // Run single experiment (public for testing)
+    bool RunExperiment(IExperiment* experiment, const ExperimentParams& params) noexcept;
+
 private:
     ExperimentRegistry* _registry;
     IEventSink* _eventSink = nullptr;
-
-    // Run single experiment
-    bool RunExperiment(IExperiment* experiment, const ExperimentParams& params) noexcept;
 };
 
 } // namespace bench

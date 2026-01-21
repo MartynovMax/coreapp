@@ -19,9 +19,9 @@ public:
     NullExperiment() noexcept = default;
     ~NullExperiment() noexcept override = default;
 
-    void Setup(const ExperimentParams& params) noexcept override;
-    void Warmup() noexcept override;
-    void RunPhases() noexcept override;
+    void Setup(const ExperimentParams& params) override;
+    void Warmup() override;
+    void RunPhases() override;
     void Teardown() noexcept override;
 
     const char* Name() const noexcept override;
