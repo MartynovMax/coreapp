@@ -40,6 +40,8 @@ bool ParseOutputFormat(const char* str, OutputFormat& outFormat) noexcept {
 bool CLIParser::Parse(int argc, char** argv, RunConfig& outConfig) noexcept {
     _errorMessage = nullptr;
 
+    outConfig = RunConfig();
+
     // Skip program name (argv[0])
     for (int i = 1; i < argc; ++i) {
         const char* arg = argv[i];

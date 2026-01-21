@@ -28,8 +28,9 @@ u32 SeededRNG::NextRange(u32 min, u32 max) noexcept {
     if (min >= max) {
         return min;
     }
-    u32 range = max - min + 1;
-    return min + (NextU32() % range);
+    
+    u64 range = static_cast<u64>(max) - static_cast<u64>(min) + 1;
+    return min + static_cast<u32>(NextU32() % range);
 }
 
 } // namespace bench

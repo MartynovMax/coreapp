@@ -136,3 +136,20 @@ TEST(CLIParserTest, MultipleFlags) {
     EXPECT_EQ(config.warmupIterations, 3u);
     EXPECT_EQ(config.measuredRepetitions, 5u);
 }
+
+// Test config reset between parses
+TEST(CLIParserTest, ConfigReset) {
+    CLIParser parser;
+    RunConfig config;
+    
+    // First parse with seed
+    char* argv1[] = {(char*)"prog", (char*)"--seed=100"};
+    EXPECT_TRUE(parser.Parse(2, argv1, config));
+    EXPECT_EQ(config.seed, 100ull);
+    
+    // Second parse without seed - should reset to 0
+    char* argv2[] = {(char*)"prog", (char*)"--list"};
+    EXPECT_TRUE(parser.Parse(2, argv2, config));
+    EXPECT_EQ(config.seed, 0ull); // Reset to default
+    EXPECT_TRUE(config.showList);
+}
