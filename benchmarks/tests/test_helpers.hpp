@@ -1,0 +1,111 @@
+#pragma once
+
+// =============================================================================
+// test_helpers.hpp
+// Mock experiment classes for testing.
+// =============================================================================
+
+#include "../runner/experiment_interface.hpp"
+#include "core/base/core_types.hpp"
+
+namespace core {
+namespace bench {
+namespace test {
+
+// ----------------------------------------------------------------------------
+// NullExperiment - No-op experiment
+// ----------------------------------------------------------------------------
+
+class NullExperiment : public IExperiment {
+public:
+    void Setup(const ExperimentParams& params) override { (void)params; }
+    void Warmup() override {}
+    void RunPhases() override {}
+    void Teardown() noexcept override {}
+    const char* Name() const noexcept override { return "null"; }
+    const char* Category() const noexcept override { return "test"; }
+    const char* Description() const noexcept override { return "Null experiment"; }
+    const char* AllocatorName() const noexcept override { return "none"; }
+    static IExperiment* Create() noexcept { return new NullExperiment(); }
+};
+
+// ----------------------------------------------------------------------------
+// CounterExperiment - Tracks lifecycle call counts
+// ----------------------------------------------------------------------------
+
+class CounterExperiment : public IExperiment {
+public:
+    int setupCalls = 0;
+    int warmupCalls = 0;
+    int runPhasesCalls = 0;
+    int teardownCalls = 0;
+
+    void Setup(const ExperimentParams& params) override {
+        (void)params;
+        ++setupCalls;
+    }
+
+    void Warmup() override {
+        ++warmupCalls;
+    }
+
+    void RunPhases() override {
+        ++runPhasesCalls;
+    }
+
+    void Teardown() noexcept override {
+        ++teardownCalls;
+    }
+
+    const char* Name() const noexcept override { return "counter"; }
+    const char* Category() const noexcept override { return "test"; }
+    const char* Description() const noexcept override { return "Counter experiment"; }
+    const char* AllocatorName() const noexcept override { return "none"; }
+
+    static IExperiment* Create() noexcept { return new CounterExperiment(); }
+};
+
+// ----------------------------------------------------------------------------
+// FailingExperiment - Throws exception in RunPhases
+// ----------------------------------------------------------------------------
+
+class FailingExperiment : public IExperiment {
+public:
+    void Setup(const ExperimentParams& params) override { (void)params; }
+    void Warmup() override {}
+    
+    void RunPhases() override {
+        throw 1; // Simulate failure
+    }
+    
+    void Teardown() noexcept override {}
+    const char* Name() const noexcept override { return "failing"; }
+    const char* Category() const noexcept override { return "test"; }
+    const char* Description() const noexcept override { return "Failing experiment"; }
+    const char* AllocatorName() const noexcept override { return "none"; }
+    static IExperiment* Create() noexcept { return new FailingExperiment(); }
+};
+
+// ----------------------------------------------------------------------------
+// FailingInSetupExperiment - Throws exception in Setup
+// ----------------------------------------------------------------------------
+
+class FailingInSetupExperiment : public IExperiment {
+public:
+    void Setup(const ExperimentParams& params) override {
+        (void)params;
+        throw 1; // Simulate setup failure
+    }
+    void Warmup() override {}
+    void RunPhases() override {}
+    void Teardown() noexcept override {}
+    const char* Name() const noexcept override { return "failing_setup"; }
+    const char* Category() const noexcept override { return "test"; }
+    const char* Description() const noexcept override { return "Failing in setup"; }
+    const char* AllocatorName() const noexcept override { return "none"; }
+    static IExperiment* Create() noexcept { return new FailingInSetupExperiment(); }
+};
+
+} // namespace test
+} // namespace bench
+} // namespace core

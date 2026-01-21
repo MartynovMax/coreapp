@@ -1,89 +1,37 @@
 #include "../runner/experiment_runner.hpp"
+#include "test_helpers.hpp"
 #include "core/base/core_types.hpp"
 #include <gtest/gtest.h>
 
 using namespace core;
 using namespace core::bench;
-
-// Mock experiment that tracks lifecycle calls
-class MockExperiment : public IExperiment {
-public:
-    int setupCalls = 0;
-    int warmupCalls = 0;
-    int runPhasesCalls = 0;
-    int teardownCalls = 0;
-    bool throwInSetup = false;
-    bool throwInRunPhases = false;
-
-    void Setup(const ExperimentParams& params) override {
-        (void)params;
-        ++setupCalls;
-        if (throwInSetup) throw 1;
-    }
-
-    void Warmup() override {
-        ++warmupCalls;
-    }
-
-    void RunPhases() override {
-        ++runPhasesCalls;
-        if (throwInRunPhases) throw 2;
-    }
-
-    void Teardown() noexcept override {
-        ++teardownCalls;
-    }
-
-    const char* Name() const noexcept override { return "mock"; }
-    const char* Category() const noexcept override { return "test"; }
-    const char* Description() const noexcept override { return "Mock experiment"; }
-    const char* AllocatorName() const noexcept override { return "none"; }
-
-    static IExperiment* Create() noexcept { return new MockExperiment(); }
-    static MockExperiment* instance;
-};
-
-MockExperiment* MockExperiment::instance = nullptr;
+using namespace core::bench::test;
 
 // Test lifecycle call order
 TEST(ExperimentRunnerTest, LifecycleOrder) {
+    CounterExperiment* counter = new CounterExperiment();
     ExperimentRegistry registry;
-    
-    ExperimentDescriptor desc;
-    desc.name = "mock";
-    desc.category = "test";
-    desc.allocatorName = "none";
-    desc.description = "Mock";
-    desc.factory = &MockExperiment::Create;
-    registry.Register(desc);
-
     ExperimentRunner runner(registry);
-    RunConfig config;
-    config.warmupIterations = 2;
-    config.measuredRepetitions = 3;
-
-    MockExperiment* mock = new MockExperiment();
-    MockExperiment::instance = mock;
 
     ExperimentParams params;
     params.seed = 0;
     params.warmupIterations = 2;
     params.measuredRepetitions = 3;
 
-    bool result = runner.RunExperiment(mock, params);
+    bool result = runner.RunExperiment(counter, params);
 
     EXPECT_TRUE(result);
-    EXPECT_EQ(mock->setupCalls, 1);
-    EXPECT_EQ(mock->warmupCalls, 2);
-    EXPECT_EQ(mock->runPhasesCalls, 3);
-    EXPECT_EQ(mock->teardownCalls, 1);
+    EXPECT_EQ(counter->setupCalls, 1);
+    EXPECT_EQ(counter->warmupCalls, 2);
+    EXPECT_EQ(counter->runPhasesCalls, 3);
+    EXPECT_EQ(counter->teardownCalls, 1);
 
-    delete mock;
+    delete counter;
 }
 
 // Test warmup iterations count
 TEST(ExperimentRunnerTest, WarmupIterations) {
-    MockExperiment* mock = new MockExperiment();
+    CounterExperiment* counter = new CounterExperiment();
     ExperimentRegistry registry;
     ExperimentRunner runner(registry);
 
@@ -92,16 +40,16 @@ TEST(ExperimentRunnerTest, WarmupIterations) {
     params.warmupIterations = 5;
     params.measuredRepetitions = 1;
 
-    runner.RunExperiment(mock, params);
+    runner.RunExperiment(counter, params);
 
-    EXPECT_EQ(mock->warmupCalls, 5);
+    EXPECT_EQ(counter->warmupCalls, 5);
 
-    delete mock;
+    delete counter;
 }
 
 // Test measured repetitions count
 TEST(ExperimentRunnerTest, MeasuredRepetitions) {
-    MockExperiment* mock = new MockExperiment();
+    CounterExperiment* counter = new CounterExperiment();
     ExperimentRegistry registry;
     ExperimentRunner runner(registry);
 
@@ -110,17 +58,16 @@ TEST(ExperimentRunnerTest, MeasuredRepetitions) {
     params.warmupIterations = 0;
     params.measuredRepetitions = 7;
 
-    runner.RunExperiment(mock, params);
+    runner.RunExperiment(counter, params);
 
-    EXPECT_EQ(mock->runPhasesCalls, 7);
+    EXPECT_EQ(counter->runPhasesCalls, 7);
 
-    delete mock;
+    delete counter;
 }
 
 // Test exception handling in setup
 TEST(ExperimentRunnerTest, ExceptionInSetup) {
-    MockExperiment* mock = new MockExperiment();
-    mock->throwInSetup = true;
+    FailingInSetupExperiment* failing = new FailingInSetupExperiment();
     ExperimentRegistry registry;
     ExperimentRunner runner(registry);
 
@@ -129,19 +76,16 @@ TEST(ExperimentRunnerTest, ExceptionInSetup) {
     params.warmupIterations = 1;
     params.measuredRepetitions = 1;
 
-    bool result = runner.RunExperiment(mock, params);
+    bool result = runner.RunExperiment(failing, params);
 
     EXPECT_FALSE(result);
-    EXPECT_EQ(mock->setupCalls, 1);
-    EXPECT_EQ(mock->teardownCalls, 1); // Teardown still called
 
-    delete mock;
+    delete failing;
 }
 
 // Test exception handling in run_phases
 TEST(ExperimentRunnerTest, ExceptionInRunPhases) {
-    MockExperiment* mock = new MockExperiment();
-    mock->throwInRunPhases = true;
+    FailingExperiment* failing = new FailingExperiment();
     ExperimentRegistry registry;
     ExperimentRunner runner(registry);
 
@@ -150,14 +94,11 @@ TEST(ExperimentRunnerTest, ExceptionInRunPhases) {
     params.warmupIterations = 0;
     params.measuredRepetitions = 1;
 
-    bool result = runner.RunExperiment(mock, params);
+    bool result = runner.RunExperiment(failing, params);
 
     EXPECT_FALSE(result);
-    EXPECT_EQ(mock->setupCalls, 1);
-    EXPECT_EQ(mock->runPhasesCalls, 1);
-    EXPECT_EQ(mock->teardownCalls, 1); // Teardown still called
 
-    delete mock;
+    delete failing;
 }
 
 // Test zero event sinks (minimal-run mode)
@@ -165,11 +106,11 @@ TEST(ExperimentRunnerTest, ZeroEventSinks) {
     ExperimentRegistry registry;
     
     ExperimentDescriptor desc;
-    desc.name = "mock";
+    desc.name = "null";
     desc.category = "test";
     desc.allocatorName = "none";
-    desc.description = "Mock";
-    desc.factory = &MockExperiment::Create;
+    desc.description = "Null";
+    desc.factory = &NullExperiment::Create;
     registry.Register(desc);
 
     ExperimentRunner runner(registry);

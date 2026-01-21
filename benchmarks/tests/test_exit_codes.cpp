@@ -1,48 +1,23 @@
 #include "../runner/experiment_runner.hpp"
 #include "../runner/cli_parser.hpp"
+#include "test_helpers.hpp"
 #include "core/base/core_types.hpp"
 #include <gtest/gtest.h>
 
 using namespace core;
 using namespace core::bench;
-
-// Mock experiments for testing
-class SuccessExperiment : public IExperiment {
-public:
-    void Setup(const ExperimentParams& params) override { (void)params; }
-    void Warmup() override {}
-    void RunPhases() override {}
-    void Teardown() noexcept override {}
-    const char* Name() const noexcept override { return "success"; }
-    const char* Category() const noexcept override { return "test"; }
-    const char* Description() const noexcept override { return "Success"; }
-    const char* AllocatorName() const noexcept override { return "none"; }
-    static IExperiment* Create() noexcept { return new SuccessExperiment(); }
-};
-
-class FailingExperiment : public IExperiment {
-public:
-    void Setup(const ExperimentParams& params) override { (void)params; throw 1; }
-    void Warmup() override {}
-    void RunPhases() override {}
-    void Teardown() noexcept override {}
-    const char* Name() const noexcept override { return "failing"; }
-    const char* Category() const noexcept override { return "test"; }
-    const char* Description() const noexcept override { return "Failing"; }
-    const char* AllocatorName() const noexcept override { return "none"; }
-    static IExperiment* Create() noexcept { return new FailingExperiment(); }
-};
+using namespace core::bench::test;
 
 // Test SUCCESS exit code
 TEST(ExitCodeTest, Success) {
     ExperimentRegistry registry;
     
     ExperimentDescriptor desc;
-    desc.name = "success";
+    desc.name = "null";
     desc.category = "test";
     desc.allocatorName = "none";
-    desc.description = "Success";
-    desc.factory = &SuccessExperiment::Create;
+    desc.description = "Null";
+    desc.factory = &NullExperiment::Create;
     registry.Register(desc);
 
     ExperimentRunner runner(registry);
@@ -78,11 +53,11 @@ TEST(ExitCodeTest, NoExperiments) {
     ExperimentRegistry registry;
     
     ExperimentDescriptor desc;
-    desc.name = "test";
+    desc.name = "null";
     desc.category = "test";
     desc.allocatorName = "none";
-    desc.description = "Test";
-    desc.factory = &SuccessExperiment::Create;
+    desc.description = "Null";
+    desc.factory = &NullExperiment::Create;
     registry.Register(desc);
 
     ExperimentRunner runner(registry);
@@ -110,11 +85,11 @@ TEST(ExitCodeTest, PartialFailure) {
     ExperimentRegistry registry;
     
     ExperimentDescriptor desc1;
-    desc1.name = "success";
+    desc1.name = "null";
     desc1.category = "test";
     desc1.allocatorName = "none";
-    desc1.description = "Success";
-    desc1.factory = &SuccessExperiment::Create;
+    desc1.description = "Null";
+    desc1.factory = &NullExperiment::Create;
     registry.Register(desc1);
 
     ExperimentDescriptor desc2;
