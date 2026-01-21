@@ -97,3 +97,50 @@ TEST(IntegrationTest, MinimalRun) {
 
     EXPECT_EQ(exitCode, kSuccess);
 }
+
+// Test multiple experiments execution
+TEST(IntegrationTest, MultipleExperiments) {
+    ExperimentRegistry registry;
+
+    // Use CounterExperiment to track execution
+    static int createCount = 0;
+    
+    class TrackingCounter : public CounterExperiment {
+    public:
+        void Setup(const ExperimentParams& params) override {
+            CounterExperiment::Setup(params);
+            ++createCount;
+        }
+        static IExperiment* Create() noexcept {
+            return new TrackingCounter();
+        }
+    };
+
+    ExperimentDescriptor desc1;
+    desc1.name = "exp1";
+    desc1.category = "test";
+    desc1.allocatorName = "none";
+    desc1.description = "Exp 1";
+    desc1.factory = &TrackingCounter::Create;
+    registry.Register(desc1);
+
+    ExperimentDescriptor desc2;
+    desc2.name = "exp2";
+    desc2.category = "test";
+    desc2.allocatorName = "none";
+    desc2.description = "Exp 2";
+    desc2.factory = &TrackingCounter::Create;
+    registry.Register(desc2);
+
+    createCount = 0;
+
+    ExperimentRunner runner(registry);
+    RunConfig config;
+    config.warmupIterations = 1;
+    config.measuredRepetitions = 2;
+
+    ExitCode exitCode = runner.Run(config);
+
+    EXPECT_EQ(exitCode, kSuccess);
+    EXPECT_EQ(createCount, 2); // Both experiments executed
+}

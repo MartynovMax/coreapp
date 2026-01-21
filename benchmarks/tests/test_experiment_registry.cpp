@@ -95,3 +95,47 @@ TEST_F(ExperimentRegistryTest, DuplicateRegistration) {
 
     EXPECT_EQ(registry.Count(), 2u);
 }
+
+// Test filter with wildcards
+TEST_F(ExperimentRegistryTest, FilterWithWildcards) {
+    ExperimentDescriptor desc1;
+    desc1.name = "arena/test1";
+    desc1.category = "arena";
+    desc1.allocatorName = "alloc";
+    desc1.description = "Arena test 1";
+    desc1.factory = nullptr;
+
+    ExperimentDescriptor desc2;
+    desc2.name = "arena/test2";
+    desc2.category = "arena";
+    desc2.allocatorName = "alloc";
+    desc2.description = "Arena test 2";
+    desc2.factory = nullptr;
+
+    ExperimentDescriptor desc3;
+    desc3.name = "allocator/test1";
+    desc3.category = "allocator";
+    desc3.allocatorName = "alloc";
+    desc3.description = "Allocator test";
+    desc3.factory = nullptr;
+
+    registry.Register(desc1);
+    registry.Register(desc2);
+    registry.Register(desc3);
+
+    const ExperimentDescriptor* results[10];
+
+    // Filter by prefix wildcard
+    u32 count = registry.Filter("arena/*", results, 10);
+    ASSERT_EQ(count, 2u);
+    EXPECT_STREQ(results[0]->name, "arena/test1");
+    EXPECT_STREQ(results[1]->name, "arena/test2");
+
+    // Filter by contains wildcard
+    count = registry.Filter("*test1", results, 10);
+    ASSERT_EQ(count, 2u);
+
+    // Filter no match
+    count = registry.Filter("nonexistent*", results, 10);
+    EXPECT_EQ(count, 0u);
+}

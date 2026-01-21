@@ -124,3 +124,40 @@ TEST(ExperimentRunnerTest, ZeroEventSinks) {
 
     EXPECT_EQ(exitCode, kSuccess);
 }
+
+// Test event sink receives events
+TEST(ExperimentRunnerTest, EventSinkReceivesEvents) {
+    ExperimentRegistry registry;
+    
+    ExperimentDescriptor desc;
+    desc.name = "null";
+    desc.category = "test";
+    desc.allocatorName = "none";
+    desc.description = "Null";
+    desc.factory = &NullExperiment::Create;
+    registry.Register(desc);
+
+    ExperimentRunner runner(registry);
+    
+    // Create mock event sink (need to include event_bus test helper)
+    class TestEventSink : public IEventSink {
+    public:
+        int eventCount = 0;
+        void OnEvent(const Event& event) noexcept override {
+            (void)event;
+            ++eventCount;
+        }
+    };
+
+    TestEventSink sink;
+    runner.AttachEventSink(&sink);
+
+    RunConfig config;
+    config.warmupIterations = 1;
+    config.measuredRepetitions = 1;
+
+    ExitCode exitCode = runner.Run(config);
+
+    EXPECT_EQ(exitCode, kSuccess);
+    EXPECT_GT(sink.eventCount, 0); // Should receive events
+}
