@@ -55,24 +55,24 @@ bool CLIParser::Parse(int argc, char** argv, RunConfig& outConfig) noexcept {
         }
 
         // --filter=<pattern>
-        if (StartsWith(arg, "--filter")) {
-            const char* value = ExtractValue(arg, "--filter");
-            if (value == nullptr || *value == '\0') {
+        const char* filterValue = ExtractValue(arg, "--filter");
+        if (filterValue != nullptr) {
+            if (*filterValue == '\0') {
                 _errorMessage = "--filter requires a pattern value";
                 return false;
             }
-            outConfig.filter = value;
+            outConfig.filter = filterValue;
             continue;
         }
 
         // --seed=<u64>
-        if (StartsWith(arg, "--seed")) {
-            const char* value = ExtractValue(arg, "--seed");
-            if (value == nullptr || *value == '\0') {
+        const char* seedValue = ExtractValue(arg, "--seed");
+        if (seedValue != nullptr) {
+            if (*seedValue == '\0') {
                 _errorMessage = "--seed requires a numeric value";
                 return false;
             }
-            if (!ParseU64(value, outConfig.seed)) {
+            if (!ParseU64(seedValue, outConfig.seed)) {
                 _errorMessage = "--seed: invalid numeric value";
                 return false;
             }
@@ -80,13 +80,13 @@ bool CLIParser::Parse(int argc, char** argv, RunConfig& outConfig) noexcept {
         }
 
         // --warmup=<n>
-        if (StartsWith(arg, "--warmup")) {
-            const char* value = ExtractValue(arg, "--warmup");
-            if (value == nullptr || *value == '\0') {
+        const char* warmupValue = ExtractValue(arg, "--warmup");
+        if (warmupValue != nullptr) {
+            if (*warmupValue == '\0') {
                 _errorMessage = "--warmup requires a numeric value";
                 return false;
             }
-            if (!ParseU32(value, outConfig.warmupIterations)) {
+            if (!ParseU32(warmupValue, outConfig.warmupIterations)) {
                 _errorMessage = "--warmup: invalid numeric value";
                 return false;
             }
@@ -94,13 +94,13 @@ bool CLIParser::Parse(int argc, char** argv, RunConfig& outConfig) noexcept {
         }
 
         // --repetitions=<n>
-        if (StartsWith(arg, "--repetitions")) {
-            const char* value = ExtractValue(arg, "--repetitions");
-            if (value == nullptr || *value == '\0') {
+        const char* repetitionsValue = ExtractValue(arg, "--repetitions");
+        if (repetitionsValue != nullptr) {
+            if (*repetitionsValue == '\0') {
                 _errorMessage = "--repetitions requires a numeric value";
                 return false;
             }
-            if (!ParseU32(value, outConfig.measuredRepetitions)) {
+            if (!ParseU32(repetitionsValue, outConfig.measuredRepetitions)) {
                 _errorMessage = "--repetitions: invalid numeric value";
                 return false;
             }
@@ -108,13 +108,13 @@ bool CLIParser::Parse(int argc, char** argv, RunConfig& outConfig) noexcept {
         }
 
         // --format=<mode>
-        if (StartsWith(arg, "--format")) {
-            const char* value = ExtractValue(arg, "--format");
-            if (value == nullptr || *value == '\0') {
+        const char* formatValue = ExtractValue(arg, "--format");
+        if (formatValue != nullptr) {
+            if (*formatValue == '\0') {
                 _errorMessage = "--format requires a mode value";
                 return false;
             }
-            if (!ParseOutputFormat(value, outConfig.format)) {
+            if (!ParseOutputFormat(formatValue, outConfig.format)) {
                 _errorMessage = "--format: invalid mode (use: none, text, jsonl, summary, all)";
                 return false;
             }
@@ -122,13 +122,13 @@ bool CLIParser::Parse(int argc, char** argv, RunConfig& outConfig) noexcept {
         }
 
         // --out=<path>
-        if (StartsWith(arg, "--out")) {
-            const char* value = ExtractValue(arg, "--out");
-            if (value == nullptr || *value == '\0') {
+        const char* outValue = ExtractValue(arg, "--out");
+        if (outValue != nullptr) {
+            if (*outValue == '\0') {
                 _errorMessage = "--out requires a path value";
                 return false;
             }
-            outConfig.outputPath = value;
+            outConfig.outputPath = outValue;
             continue;
         }
 

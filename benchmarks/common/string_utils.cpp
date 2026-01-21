@@ -40,16 +40,24 @@ bool StartsWith(const char* str, const char* prefix) noexcept {
 }
 
 const char* ExtractValue(const char* arg, const char* flagPrefix) noexcept {
-    if (!StartsWith(arg, flagPrefix)) {
+    if (arg == nullptr || flagPrefix == nullptr) {
         return nullptr;
     }
-    const char* pos = arg;
-    while (*pos && *pos != '=') {
-        ++pos;
+
+    const char* a = arg;
+    const char* p = flagPrefix;
+    while (*p) {
+        if (*a != *p) {
+            return nullptr;
+        }
+        ++a;
+        ++p;
     }
-    if (*pos == '=') {
-        return pos + 1;
+
+    if (*a == '=') {
+        return a + 1;
     }
+
     return nullptr;
 }
 

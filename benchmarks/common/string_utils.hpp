@@ -18,7 +18,7 @@ bool StringsEqual(const char* a, const char* b) noexcept;
 bool StartsWith(const char* str, const char* prefix) noexcept;
 
 // Extract value after '=' in "--flag=value" format
-// Returns nullptr if no '=' found or if prefix doesn't match
+// Returns nullptr if no '=' found, prefix doesn't match, or flag doesn't end with '='
 const char* ExtractValue(const char* arg, const char* flagPrefix) noexcept;
 
 // Parse unsigned 64-bit integer from string

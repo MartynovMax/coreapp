@@ -23,7 +23,10 @@ ExitCode ExperimentRunner::Run(const RunConfig& config) noexcept {
         experimentCount = _registry->Filter(config.filter, experiments, kMaxFilteredExperiments);
     } else {
         const ExperimentDescriptor* allExperiments = _registry->GetAll(experimentCount);
-        for (u32 i = 0; i < experimentCount && i < kMaxFilteredExperiments; ++i) {
+        if (experimentCount > kMaxFilteredExperiments) {
+            experimentCount = kMaxFilteredExperiments;
+        }
+        for (u32 i = 0; i < experimentCount; ++i) {
             experiments[i] = &allExperiments[i];
         }
     }

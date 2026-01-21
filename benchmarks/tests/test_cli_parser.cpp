@@ -93,6 +93,16 @@ TEST(CLIParserTest, InvalidFlag) {
     EXPECT_NE(parser.GetError(), nullptr);
 }
 
+// Test invalid flag with prefix similarity (--filterX should be unknown, not --filter)
+TEST(CLIParserTest, InvalidFlagSimilarPrefix) {
+    CLIParser parser;
+    RunConfig config;
+    char* argv[] = {(char*)"prog", (char*)"--filterX=value"};
+    
+    EXPECT_FALSE(parser.Parse(2, argv, config));
+    EXPECT_STREQ(parser.GetError(), "Unknown flag");
+}
+
 // Test missing value detection
 TEST(CLIParserTest, MissingValue) {
     CLIParser parser;

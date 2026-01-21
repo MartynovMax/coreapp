@@ -3,6 +3,9 @@
 // =============================================================================
 // event_types.hpp
 // Basic event type definitions for runner integration.
+//
+// Note: PhaseBegin/PhaseEnd are emitted by experiments (workload level),
+//       ExperimentBegin/End are emitted by runner.
 // =============================================================================
 
 #include "../../core/base/core_types.hpp"
