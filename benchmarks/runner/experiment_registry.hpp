@@ -23,7 +23,8 @@ public:
     ExperimentRegistry& operator=(const ExperimentRegistry&) = delete;
 
     // Register new experiment
-    void Register(const ExperimentDescriptor& descriptor) noexcept;
+    // Returns true on success, false if registry is full
+    bool Register(const ExperimentDescriptor& descriptor) noexcept;
 
     // Find experiment by exact name (returns nullptr if not found)
     const ExperimentDescriptor* Find(const char* name) const noexcept;

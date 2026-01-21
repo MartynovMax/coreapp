@@ -65,7 +65,7 @@ ExitCode ExperimentRunner::Run(const RunConfig& config) noexcept {
             Event event;
             event.type = EventType::ExperimentBegin;
             event.experimentName = desc->name;
-            event.repetitionId = 0;
+            event.repetitionId = i;
             event.timestamp = 0;
             _eventSink->OnEvent(event);
         }
@@ -77,7 +77,7 @@ ExitCode ExperimentRunner::Run(const RunConfig& config) noexcept {
             Event event;
             event.type = EventType::ExperimentEnd;
             event.experimentName = desc->name;
-            event.repetitionId = 0;
+            event.repetitionId = i;
             event.timestamp = 0;
             _eventSink->OnEvent(event);
         }

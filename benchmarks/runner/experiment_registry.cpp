@@ -5,11 +5,12 @@
 namespace core {
 namespace bench {
 
-void ExperimentRegistry::Register(const ExperimentDescriptor& descriptor) noexcept {
+bool ExperimentRegistry::Register(const ExperimentDescriptor& descriptor) noexcept {
     if (_count >= kMaxExperiments) {
-        return; // Registry full
+        return false; // Registry full
     }
     _experiments[_count++] = descriptor;
+    return true;
 }
 
 const ExperimentDescriptor* ExperimentRegistry::Find(const char* name) const noexcept {
