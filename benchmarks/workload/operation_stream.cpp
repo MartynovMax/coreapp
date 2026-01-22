@@ -113,6 +113,22 @@ u32 OperationStream::GenerateSize() noexcept {
             return static_cast<u32>(value);
         }
         
+        case DistributionType::Pareto: {
+            // Pareto: X = x_min * (1/U)^(1/α)
+            float u = _rng.NextU32() / static_cast<float>(0xFFFFFFFFu);
+            if (u == 0.0f) u = 1e-8f;
+            float alpha = (dist.shape > 0.0f) ? dist.shape : 1.5f;  // Default α=1.5 for 80/20
+            float value = static_cast<float>(dist.minSize) * powf(1.0f / u, 1.0f / alpha);
+            
+            if (value < static_cast<float>(dist.minSize)) {
+                return dist.minSize;
+            }
+            if (value > static_cast<float>(dist.maxSize)) {
+                return dist.maxSize;
+            }
+            return static_cast<u32>(value);
+        }
+        
         default:
             return _rng.NextRange(dist.minSize, dist.maxSize);
     }
