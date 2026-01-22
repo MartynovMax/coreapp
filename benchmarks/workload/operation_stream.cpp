@@ -27,5 +27,9 @@ Operation OperationStream::Next() noexcept {
     return op;
 }
 
+bool OperationStream::HasNext() const noexcept {
+    return _currentOp < _params.operationCount;
+}
+
 } // namespace bench
 } // namespace core
