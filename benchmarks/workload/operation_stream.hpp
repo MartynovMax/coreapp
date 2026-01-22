@@ -26,5 +26,15 @@ enum class OpType {
     Free,               // Free operation
 };
 
+// ----------------------------------------------------------------------------
+// Operation - Single operation in the workload
+// ----------------------------------------------------------------------------
+
+struct Operation {
+    OpType type;
+    u32 size;           // For Alloc: size to allocate
+    void* ptr;          // For Free: pointer to free (filled by LifetimeTracker)
+};
+
 } // namespace bench
 } // namespace core
