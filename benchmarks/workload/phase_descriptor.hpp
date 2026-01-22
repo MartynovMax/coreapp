@@ -31,5 +31,15 @@ enum class PhaseType {
     Custom,             // Custom phase with user-defined behavior
 };
 
+// ----------------------------------------------------------------------------
+// ReclaimMode - Memory reclaim strategies
+// ----------------------------------------------------------------------------
+
+enum class ReclaimMode {
+    None,               // No reclaim operation
+    FreeAll,            // Free all tracked objects via LifetimeTracker
+    Custom,             // Custom reclaim via callback
+};
+
 } // namespace bench
 } // namespace core
