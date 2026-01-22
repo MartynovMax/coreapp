@@ -141,6 +141,18 @@ u32 OperationStream::GenerateSize() noexcept {
             }
         }
         
+        case DistributionType::LargeBiased: {
+            // 90% large, 10% small
+            float r = _rng.NextU32() / static_cast<float>(0xFFFFFFFFu);
+            if (r < 0.9f) {
+                u32 largeMin = (dist.minSize + 64 < dist.maxSize) ? (dist.minSize + 64) : dist.minSize;
+                return _rng.NextRange(largeMin, dist.maxSize);
+            } else {
+                u32 smallMax = (dist.minSize + 56 < dist.maxSize) ? (dist.minSize + 56) : dist.maxSize;
+                return _rng.NextRange(dist.minSize, smallMax);
+            }
+        }
+        
         default:
             return _rng.NextRange(dist.minSize, dist.maxSize);
     }
