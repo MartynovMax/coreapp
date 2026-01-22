@@ -42,5 +42,34 @@ enum class DistributionType {
     CustomBuckets,      // User-defined buckets with weights
 };
 
+// ----------------------------------------------------------------------------
+// SizeDistribution - Parameters for allocation size generation
+// ----------------------------------------------------------------------------
+
+struct SizeDistribution {
+    DistributionType type;
+    u32 minSize;
+    u32 maxSize;
+    
+    // For statistical distributions (Normal, LogNormal):
+    float mean = 0.0f;
+    float stddev = 0.0f;
+    
+    // For shape-based distributions (Pareto, Exponential):
+    float shape = 0.0f;
+    
+    // For Bimodal distribution:
+    u32 peak1Min = 0;
+    u32 peak1Max = 0;
+    u32 peak2Min = 0;
+    u32 peak2Max = 0;
+    float peak1Weight = 0.5f;       // Probability of first peak (0.0 to 1.0)
+    
+    // For CustomBuckets distribution:
+    const u32* buckets = nullptr;   // Array of size buckets
+    const float* weights = nullptr; // Array of weights (must sum to 1.0)
+    u32 bucketCount = 0;
+};
+
 } // namespace bench
 } // namespace core
