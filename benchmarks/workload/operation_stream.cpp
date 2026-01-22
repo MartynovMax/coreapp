@@ -192,6 +192,27 @@ u32 OperationStream::GenerateSize() noexcept {
             }
         }
         
+        case DistributionType::DatabaseCache: {
+            // Database cache pattern: PowerOfTwo pages (4K, 8K, 16K)
+            u32 minPower = 0;
+            u32 maxPower = 0;
+            
+            u32 temp = dist.minSize;
+            while (temp > 1) {
+                temp >>= 1;
+                minPower++;
+            }
+            
+            temp = dist.maxSize;
+            while (temp > 1) {
+                temp >>= 1;
+                maxPower++;
+            }
+            
+            u32 power = _rng.NextRange(minPower, maxPower);
+            return 1u << power;
+        }
+        
         default:
             return _rng.NextRange(dist.minSize, dist.maxSize);
     }
