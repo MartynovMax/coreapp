@@ -213,6 +213,26 @@ u32 OperationStream::GenerateSize() noexcept {
             return 1u << power;
         }
         
+        case DistributionType::CustomBuckets: {
+            // Weighted sampling from custom buckets
+            if (dist.buckets == nullptr || dist.weights == nullptr || dist.bucketCount == 0) {
+                return _rng.NextRange(dist.minSize, dist.maxSize);
+            }
+            
+            float r = _rng.NextU32() / static_cast<float>(0xFFFFFFFFu);
+            float cumulative = 0.0f;
+            
+            for (u32 i = 0; i < dist.bucketCount; i++) {
+                cumulative += dist.weights[i];
+                if (r < cumulative) {
+                    return dist.buckets[i];
+                }
+            }
+            
+            // Fallback: return last bucket
+            return dist.buckets[dist.bucketCount - 1];
+        }
+        
         default:
             return _rng.NextRange(dist.minSize, dist.maxSize);
     }
