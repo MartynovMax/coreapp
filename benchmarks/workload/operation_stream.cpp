@@ -182,6 +182,16 @@ u32 OperationStream::GenerateSize() noexcept {
             return static_cast<u32>(value);
         }
         
+        case DistributionType::GameEngine: {
+            // Game engine pattern: Bimodal (components vs assets)
+            float r = _rng.NextU32() / static_cast<float>(0xFFFFFFFFu);
+            if (r < dist.peak1Weight) {
+                return _rng.NextRange(dist.peak1Min, dist.peak1Max);
+            } else {
+                return _rng.NextRange(dist.peak2Min, dist.peak2Max);
+            }
+        }
+        
         default:
             return _rng.NextRange(dist.minSize, dist.maxSize);
     }
