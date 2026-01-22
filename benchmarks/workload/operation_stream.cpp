@@ -153,6 +153,16 @@ u32 OperationStream::GenerateSize() noexcept {
             }
         }
         
+        case DistributionType::Bimodal: {
+            // Two distinct peaks
+            float r = _rng.NextU32() / static_cast<float>(0xFFFFFFFFu);
+            if (r < dist.peak1Weight) {
+                return _rng.NextRange(dist.peak1Min, dist.peak1Max);
+            } else {
+                return _rng.NextRange(dist.peak2Min, dist.peak2Max);
+            }
+        }
+        
         default:
             return _rng.NextRange(dist.minSize, dist.maxSize);
     }
