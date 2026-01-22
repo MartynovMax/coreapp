@@ -18,5 +18,18 @@ namespace bench {
 struct PhaseContext;
 class PhaseExecutor;
 
+// ----------------------------------------------------------------------------
+// PhaseType - Types of workload phases
+// ----------------------------------------------------------------------------
+
+enum class PhaseType {
+    RampUp,             // Accumulation phase (typically alloc-only)
+    Steady,             // Steady-state phase (bounded live-set, continuous churn)
+    Drain,              // Gradual release phase
+    BulkReclaim,        // Mass reclaim phase (reset/free-all)
+    Evolution,          // Long-running evolution with periodic ticks
+    Custom,             // Custom phase with user-defined behavior
+};
+
 } // namespace bench
 } // namespace core
