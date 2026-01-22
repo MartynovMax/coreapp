@@ -31,5 +31,17 @@ bool OperationStream::HasNext() const noexcept {
     return _currentOp < _params.operationCount;
 }
 
+u32 OperationStream::GenerateSize() noexcept {
+    const SizeDistribution& dist = _params.sizeDistribution;
+    
+    switch (dist.type) {
+        case DistributionType::Uniform:
+            return _rng.NextRange(dist.minSize, dist.maxSize);
+        
+        default:
+            return _rng.NextRange(dist.minSize, dist.maxSize);
+    }
+}
+
 } // namespace bench
 } // namespace core
