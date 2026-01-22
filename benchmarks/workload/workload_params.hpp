@@ -83,5 +83,28 @@ enum class LifetimeModel {
     LongLived,          // Objects live until bulk reclaim
 };
 
+// ----------------------------------------------------------------------------
+// WorkloadParams - Complete workload parameterization
+// ----------------------------------------------------------------------------
+
+struct WorkloadParams {
+    // Core parameters:
+    u64 seed = 0;                       // Deterministic seed for RNG
+    u64 operationCount = 0;             // Number of operations to execute
+    
+    // Size distribution:
+    SizeDistribution sizeDistribution = {};
+    
+    // Operation mix:
+    float allocFreeRatio = 1.0f;        // 1.0 = alloc only, 0.5 = 50/50, 0.0 = free only
+    
+    // Lifetime behavior:
+    LifetimeModel lifetimeModel = LifetimeModel::Fifo;
+    u32 maxLiveObjects = 0;             // For Bounded model (0 = unlimited)
+    
+    // Tick configuration:
+    u64 tickInterval = 0;               // Emit tick event every N operations (0 = disabled)
+};
+
 } // namespace bench
 } // namespace core
