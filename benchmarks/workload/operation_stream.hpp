@@ -36,5 +36,29 @@ struct Operation {
     void* ptr;          // For Free: pointer to free (filled by LifetimeTracker)
 };
 
+// ----------------------------------------------------------------------------
+// OperationStream - Deterministic operation generator
+// ----------------------------------------------------------------------------
+
+class OperationStream {
+public:
+    OperationStream(const WorkloadParams& params, SeededRNG& rng) noexcept;
+    ~OperationStream() noexcept = default;
+
+    // Generate next operation
+    Operation Next() noexcept;
+
+    // Check if more operations available
+    bool HasNext() const noexcept;
+
+private:
+    const WorkloadParams& _params;
+    SeededRNG& _rng;
+    u64 _currentOp = 0;
+
+    u32 GenerateSize() noexcept;
+    OpType DecideOperation() noexcept;
+};
+
 } // namespace bench
 } // namespace core
