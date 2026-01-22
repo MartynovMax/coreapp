@@ -10,12 +10,12 @@
 
 #include "../../core/base/core_types.hpp"
 #include "workload_params.hpp"
+#include "phase_context.hpp"
 
 namespace core {
 namespace bench {
 
 // Forward declarations
-struct PhaseContext;
 class PhaseExecutor;
 
 // ----------------------------------------------------------------------------
@@ -53,6 +53,31 @@ using PhaseOperationCallback = void(*)(PhaseContext& ctx, u64 opIndex) noexcept;
 
 // Callback for checking phase completion (returns true when phase should end)
 using PhaseCompletionCallback = bool(*)(const PhaseContext& ctx) noexcept;
+
+// ----------------------------------------------------------------------------
+// PhaseDescriptor - Complete phase description
+// ----------------------------------------------------------------------------
+
+struct PhaseDescriptor {
+    const char* name;
+    PhaseType type;
+    WorkloadParams params;
+    
+    // Reclaim configuration:
+    ReclaimMode reclaimMode = ReclaimMode::None;
+    ReclaimCallback reclaimCallback = nullptr;
+    
+    // Optional callbacks for customization:
+    PhaseOperationCallback customOperation = nullptr;  // Called each iteration
+    PhaseCompletionCallback completionCheck = nullptr; // Check for phase completion
+    
+    // User data for callbacks:
+    void* userData = nullptr;
+    
+    // Metadata:
+    const char* description = nullptr;
+    bool measureMetrics = true;
+};
 
 } // namespace bench
 } // namespace core
