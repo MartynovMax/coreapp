@@ -238,5 +238,10 @@ u32 OperationStream::GenerateSize() noexcept {
     }
 }
 
+OpType OperationStream::DecideOperation() noexcept {
+    float r = _rng.NextU32() / static_cast<float>(0xFFFFFFFFu);
+    return (r < _params.allocFreeRatio) ? OpType::Alloc : OpType::Free;
+}
+
 } // namespace bench
 } // namespace core
