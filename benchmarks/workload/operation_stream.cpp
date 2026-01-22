@@ -163,6 +163,25 @@ u32 OperationStream::GenerateSize() noexcept {
             }
         }
         
+        case DistributionType::WebServerAlloc: {
+            // Web server pattern: LogNormal (many small, rare large)
+            float sum = 0.0f;
+            for (int i = 0; i < 12; i++) {
+                sum += _rng.NextU32() / static_cast<float>(0xFFFFFFFFu);
+            }
+            float z = sum - 6.0f;
+            float logValue = dist.mean + z * dist.stddev;
+            float value = expf(logValue);
+            
+            if (value < static_cast<float>(dist.minSize)) {
+                return dist.minSize;
+            }
+            if (value > static_cast<float>(dist.maxSize)) {
+                return dist.maxSize;
+            }
+            return static_cast<u32>(value);
+        }
+        
         default:
             return _rng.NextRange(dist.minSize, dist.maxSize);
     }
