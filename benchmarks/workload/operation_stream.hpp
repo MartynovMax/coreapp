@@ -17,5 +17,14 @@ namespace bench {
 // Forward declarations
 class SeededRNG;
 
+// ----------------------------------------------------------------------------
+// OpType - Operation type
+// ----------------------------------------------------------------------------
+
+enum class OpType {
+    Alloc,              // Allocation operation
+    Free,               // Free operation
+};
+
 } // namespace bench
 } // namespace core
