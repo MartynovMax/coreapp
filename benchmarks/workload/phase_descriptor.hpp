@@ -41,5 +41,18 @@ enum class ReclaimMode {
     Custom,             // Custom reclaim via callback
 };
 
+// ----------------------------------------------------------------------------
+// Callback signatures
+// ----------------------------------------------------------------------------
+
+// Callback for reclaim operations
+using ReclaimCallback = void(*)(PhaseContext& ctx) noexcept;
+
+// Callback for custom operations in phase (called each iteration)
+using PhaseOperationCallback = void(*)(PhaseContext& ctx, u64 opIndex) noexcept;
+
+// Callback for checking phase completion (returns true when phase should end)
+using PhaseCompletionCallback = bool(*)(const PhaseContext& ctx) noexcept;
+
 } // namespace bench
 } // namespace core
