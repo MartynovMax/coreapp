@@ -11,5 +11,21 @@ OperationStream::OperationStream(const WorkloadParams& params, SeededRNG& rng) n
 {
 }
 
+Operation OperationStream::Next() noexcept {
+    Operation op = {};
+    op.type = DecideOperation();
+    
+    if (op.type == OpType::Alloc) {
+        op.size = GenerateSize();
+        op.ptr = nullptr;
+    } else {
+        op.size = 0;
+        op.ptr = nullptr;
+    }
+    
+    _currentOp++;
+    return op;
+}
+
 } // namespace bench
 } // namespace core
