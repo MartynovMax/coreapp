@@ -58,6 +58,25 @@ u32 OperationStream::GenerateSize() noexcept {
             return 1u << power;
         }
         
+        case DistributionType::Normal: {
+            // Use sum of uniform random variables (Central Limit Theorem)
+            // Sum of 12 uniform [0,1] gives mean=6, stddev≈1
+            float sum = 0.0f;
+            for (int i = 0; i < 12; i++) {
+                sum += _rng.NextU32() / static_cast<float>(0xFFFFFFFFu);
+            }
+            float z = sum - 6.0f;
+            float value = dist.mean + z * dist.stddev;
+            
+            if (value < static_cast<float>(dist.minSize)) {
+                return dist.minSize;
+            }
+            if (value > static_cast<float>(dist.maxSize)) {
+                return dist.maxSize;
+            }
+            return static_cast<u32>(value);
+        }
+        
         default:
             return _rng.NextRange(dist.minSize, dist.maxSize);
     }
