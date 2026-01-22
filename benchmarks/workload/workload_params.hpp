@@ -71,5 +71,17 @@ struct SizeDistribution {
     u32 bucketCount = 0;
 };
 
+// ----------------------------------------------------------------------------
+// LifetimeModel - Object lifetime patterns
+// ----------------------------------------------------------------------------
+
+enum class LifetimeModel {
+    Fifo,               // First-in first-out (queue pattern)
+    Lifo,               // Last-in first-out (stack pattern)
+    Random,             // Random lifetime selection
+    Bounded,            // Bounded live-set (steady-state behavior)
+    LongLived,          // Objects live until bulk reclaim
+};
+
 } // namespace bench
 } // namespace core
