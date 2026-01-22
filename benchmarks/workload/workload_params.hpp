@@ -106,5 +106,68 @@ struct WorkloadParams {
     u64 tickInterval = 0;               // Emit tick event every N operations (0 = disabled)
 };
 
+// ----------------------------------------------------------------------------
+// SizePresets - Factory functions for common size distributions
+// ----------------------------------------------------------------------------
+
+namespace SizePresets {
+
+inline SizeDistribution SmallObjects() noexcept {
+    return SizeDistribution{
+        .type = DistributionType::Uniform,
+        .minSize = 8,
+        .maxSize = 64,
+    };
+}
+
+inline SizeDistribution MediumObjects() noexcept {
+    return SizeDistribution{
+        .type = DistributionType::Uniform,
+        .minSize = 64,
+        .maxSize = 512,
+    };
+}
+
+inline SizeDistribution LargeObjects() noexcept {
+    return SizeDistribution{
+        .type = DistributionType::Uniform,
+        .minSize = 512,
+        .maxSize = 4096,
+    };
+}
+
+inline SizeDistribution WebServer() noexcept {
+    return SizeDistribution{
+        .type = DistributionType::LogNormal,
+        .minSize = 16,
+        .maxSize = 4096,
+        .mean = 256.0f,
+        .stddev = 512.0f,
+    };
+}
+
+inline SizeDistribution GameEntityPool() noexcept {
+    return SizeDistribution{
+        .type = DistributionType::Bimodal,
+        .minSize = 8,
+        .maxSize = 8192,
+        .peak1Min = 16,
+        .peak1Max = 64,
+        .peak2Min = 1024,
+        .peak2Max = 2048,
+        .peak1Weight = 0.85f,
+    };
+}
+
+inline SizeDistribution DatabasePages() noexcept {
+    return SizeDistribution{
+        .type = DistributionType::PowerOfTwo,
+        .minSize = 4096,
+        .maxSize = 16384,
+    };
+}
+
+} // namespace SizePresets
+
 } // namespace bench
 } // namespace core
