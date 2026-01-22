@@ -97,6 +97,22 @@ u32 OperationStream::GenerateSize() noexcept {
             return static_cast<u32>(value);
         }
         
+        case DistributionType::Exponential: {
+            // Exponential: X = -ln(U) / λ
+            float u = _rng.NextU32() / static_cast<float>(0xFFFFFFFFu);
+            if (u == 0.0f) u = 1e-8f;
+            float lambda = (dist.shape > 0.0f) ? dist.shape : 1.0f;
+            float value = -logf(u) / lambda;
+            
+            if (value < static_cast<float>(dist.minSize)) {
+                return dist.minSize;
+            }
+            if (value > static_cast<float>(dist.maxSize)) {
+                return dist.maxSize;
+            }
+            return static_cast<u32>(value);
+        }
+        
         default:
             return _rng.NextRange(dist.minSize, dist.maxSize);
     }
