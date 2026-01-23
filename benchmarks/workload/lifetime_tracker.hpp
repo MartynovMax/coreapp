@@ -11,5 +11,11 @@
 namespace core {
 namespace bench {
 
+struct AllocInfo {
+    void* ptr;
+    u32 size;
+    u64 allocTime; // Operation index when allocated
+};
+
 } // namespace bench
 } // namespace core
