@@ -11,7 +11,21 @@ namespace bench {
 // Constructor
 LifetimeTracker::LifetimeTracker(LifetimeModel model, u32 maxLiveObjects, SeededRNG& rng, IAllocator* allocator) noexcept
     : _model(model), _maxLiveObjects(maxLiveObjects), _rng(rng), _allocator(allocator),
-      _buffer(nullptr), _capacity(0), _count(0), _totalLiveBytes(0), _peakLiveBytes(0) {}
+      _buffer(nullptr), _capacity(0), _count(0), _totalLiveBytes(0), _peakLiveBytes(0)
+{
+    if (_allocator && _maxLiveObjects > 0) {
+        core::AllocationRequest req;
+        req.size = sizeof(AllocInfo) * _maxLiveObjects;
+        req.alignment = alignof(AllocInfo);
+        if (void* mem = _allocator->Allocate(req)) {
+            _buffer = static_cast<AllocInfo*>(mem);
+            _capacity = _maxLiveObjects;
+        } else {
+            _buffer = nullptr;
+            _capacity = 0;
+        }
+    }
+}
 
 // Destructor
 LifetimeTracker::~LifetimeTracker() noexcept {}
