@@ -57,12 +57,10 @@ void PhaseExecutor::Execute() {
     while (_opStream->HasNext()) {
         const Operation op = _opStream->Next();
         _ctx.currentOpIndex = opIndex;
-        bool opHandled = false;
         if (_desc.customOperation) {
+            // If a custom operation callback is set, call it and skip standard logic
             _desc.customOperation(_ctx, opIndex);
-            opHandled = true;
-        }
-        if (!opHandled) {
+        } else {
             if (op.type == OpType::Alloc) {
                 core::AllocationRequest req;
                 req.size = op.size;
