@@ -10,6 +10,7 @@
 
 #include "workload_params.hpp"
 #include "phase_context.hpp"
+#include "phase_types.hpp"
 #include <functional>
 
 namespace core {
@@ -17,19 +18,6 @@ namespace bench {
 
 // Forward declarations
 class PhaseExecutor;
-
-// ----------------------------------------------------------------------------
-// PhaseType - Types of workload phases
-// ----------------------------------------------------------------------------
-
-enum class PhaseType {
-    RampUp,             // Accumulation phase (typically alloc-only)
-    Steady,             // Steady-state phase (bounded live-set, continuous churn)
-    Drain,              // Gradual release phase
-    BulkReclaim,        // Mass reclaim phase (reset/free-all)
-    Evolution,          // Long-running evolution with periodic ticks
-    Custom,             // Custom phase with user-defined behavior
-};
 
 // ----------------------------------------------------------------------------
 // ReclaimMode - Memory reclaim strategies
@@ -60,7 +48,9 @@ using PhaseCompletionCallback = bool(*)(const PhaseContext& ctx) noexcept;
 
 struct PhaseDescriptor {
     const char* name = nullptr;
+    const char* experimentName = nullptr;
     PhaseType type = PhaseType::Steady;
+    u32 repetitionId = 0;
     WorkloadParams params;
     ReclaimMode reclaimMode = ReclaimMode::None;
     ReclaimCallback reclaimCallback = nullptr;

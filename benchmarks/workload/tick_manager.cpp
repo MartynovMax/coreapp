@@ -29,6 +29,13 @@ void TickManager::EmitTickEvent(const TickContext& ctx, const PhaseContext& phas
         core::memory_zero(&evt, sizeof(evt));
         evt.type = EventType::Tick;
         evt.phaseName = phaseCtx.phaseName;
+        evt.data.tick.opIndex = ctx.opIndex;
+        evt.data.tick.allocCount = ctx.allocCount;
+        evt.data.tick.freeCount = ctx.freeCount;
+        evt.data.tick.bytesAllocated = ctx.bytesAllocated;
+        evt.data.tick.bytesFreed = ctx.bytesFreed;
+        evt.data.tick.peakLiveCount = ctx.peakLiveCount;
+        evt.data.tick.peakLiveBytes = ctx.peakLiveBytes;
         sink->OnEvent(evt);
     }
 }

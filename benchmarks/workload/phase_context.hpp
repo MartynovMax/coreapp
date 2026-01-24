@@ -10,13 +10,13 @@
 
 #include "../../core/base/core_types.hpp"
 #include "core/memory/core_allocator.hpp"
+#include "phase_types.hpp"
 
 namespace core {
 namespace bench {
-
-class LifetimeTracker;
-class SeededRNG;
-class IEventSink;
+    class LifetimeTracker;
+    class SeededRNG;
+    class IEventSink;
 
 // ----------------------------------------------------------------------------
 // PhaseContext - Execution context for phase operations
@@ -29,6 +29,9 @@ struct PhaseContext {
     SeededRNG* rng = nullptr;
     IEventSink* eventSink = nullptr;
     const char* phaseName = nullptr;
+    const char* experimentName = nullptr;
+    core::bench::PhaseType phaseType = core::bench::PhaseType::Steady;
+    u32 repetitionId = 0;
 
     // Runtime metrics:
     u64 currentOpIndex = 0;

@@ -9,6 +9,7 @@
 
 #include "events/event_sink.hpp"
 #include "events/event_types.hpp"
+#include "../common/high_res_timer.hpp"
 
 namespace core {
 namespace bench {
@@ -32,6 +33,9 @@ PhaseExecutor::~PhaseExecutor() noexcept {
 }
 
 void PhaseExecutor::Execute() {
+    HighResTimer timer;
+    u64 startTimestamp = timer.Now();
+
     // Create OperationStream and LifetimeTracker for this phase
     if (_opStream) { delete _opStream; _opStream = nullptr; }
     if (_tracker) { delete _tracker; _tracker = nullptr; }
@@ -42,6 +46,10 @@ void PhaseExecutor::Execute() {
     _ctx.lifetimeTracker = _tracker;
     _ctx.eventSink = _eventSink;
     _ctx.userData = _desc.userData;
+    _ctx.phaseName = _desc.name;
+    _ctx.experimentName = _desc.experimentName;
+    _ctx.phaseType = _desc.type;
+    _ctx.repetitionId = _desc.repetitionId;
     _ctx.currentOpIndex = 0;
     _ctx.allocCount = 0;
     _ctx.freeCount = 0;
@@ -75,6 +83,8 @@ void PhaseExecutor::Execute() {
             break;
         }
     }
+    u64 endTimestamp = timer.Now();
+    u64 durationNs = endTimestamp - startTimestamp;
 
     // Reclaim phase if needed
     ExecuteReclaim();
@@ -87,15 +97,33 @@ void PhaseExecutor::Execute() {
     _stats.peakLiveCount = _tracker->GetPeakCount();
     _stats.peakLiveBytes = _tracker->GetPeakBytes();
 
-    // PhaseComplete event with payload
+    // PhaseComplete event with full payload
     if (_eventSink) {
-        Event evt;
-        core::memory_zero(&evt, sizeof(evt));
+        Event evt{};
         evt.type = EventType::PhaseComplete;
-        evt.phaseName = _desc.name;
-        evt.data.phaseComplete.stats = _stats;
+        evt.experimentName = _ctx.experimentName;
+        evt.phaseName = _ctx.phaseName;
+        evt.repetitionId = _ctx.repetitionId;
+        evt.data.phaseComplete.experimentName = _ctx.experimentName;
+        evt.data.phaseComplete.phaseName = _ctx.phaseName;
+        evt.data.phaseComplete.phaseType = _ctx.phaseType;
+        evt.data.phaseComplete.repetitionId = _ctx.repetitionId;
+        evt.data.phaseComplete.startTimestamp = startTimestamp;
+        evt.data.phaseComplete.endTimestamp = endTimestamp;
+        evt.data.phaseComplete.durationNs = durationNs;
+        evt.data.phaseComplete.allocCount = _ctx.allocCount;
+        evt.data.phaseComplete.freeCount = _ctx.freeCount;
+        evt.data.phaseComplete.totalOperations = _ctx.allocCount + _ctx.freeCount;
+        evt.data.phaseComplete.bytesAllocated = _ctx.bytesAllocated;
+        evt.data.phaseComplete.bytesFreed = _ctx.bytesFreed;
+        evt.data.phaseComplete.peakLiveCount = _tracker->GetPeakCount();
+        evt.data.phaseComplete.peakLiveBytes = _tracker->GetPeakBytes();
         evt.data.phaseComplete.finalLiveCount = _tracker->GetLiveCount();
         evt.data.phaseComplete.finalLiveBytes = _tracker->GetLiveBytes();
+        evt.data.phaseComplete.opsPerSec = (durationNs > 0) ?
+            static_cast<double>(evt.data.phaseComplete.totalOperations) * 1e9 / static_cast<double>(durationNs) : 0.0;
+        evt.data.phaseComplete.throughput = (durationNs > 0) ?
+            static_cast<double>(evt.data.phaseComplete.bytesAllocated) * 1e9 / static_cast<double>(durationNs) : 0.0;
         _eventSink->OnEvent(evt);
     }
 
