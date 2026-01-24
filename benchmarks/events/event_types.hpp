@@ -32,6 +32,7 @@ struct Event {
     u64 timestamp = 0;
     union {
         PhaseCompletePayload phaseComplete;
+        TickPayload tick;
     } data;
 };
 

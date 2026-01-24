@@ -21,7 +21,7 @@ class IEventSink {
 public:
     virtual ~IEventSink() = default;
 
-    // Receive event (stub for integration)
+    // Receive event (main integration point)
     virtual void OnEvent(const Event& event) noexcept = 0;
 };
 
