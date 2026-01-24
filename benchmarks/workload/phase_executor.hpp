@@ -10,19 +10,11 @@
 #include "phase_context.hpp"
 #include "operation_stream.hpp"
 #include "lifetime_tracker.hpp"
-#include "../events/event_sink.hpp"
+#include "../events/event_payloads.hpp"
 
 namespace core {
 namespace bench {
 
-struct PhaseStats {
-    u64 allocCount = 0;
-    u64 freeCount = 0;
-    u64 bytesAllocated = 0;
-    u64 bytesFreed = 0;
-    u64 peakLiveCount = 0;
-    u64 peakLiveBytes = 0;
-};
 
 class PhaseExecutor {
 public:

@@ -5,6 +5,11 @@
 
 #include "phase_executor.hpp"
 
+#include "core/memory/memory_ops.hpp"
+
+#include "events/event_sink.hpp"
+#include "events/event_types.hpp"
+
 namespace core {
 namespace bench {
 
@@ -82,7 +87,19 @@ void PhaseExecutor::Execute() {
     _stats.peakLiveCount = _tracker->GetPeakCount();
     _stats.peakLiveBytes = _tracker->GetPeakBytes();
 
-    // Emit OnPhaseComplete event if event sink exists
+    // PhaseComplete event with payload
+    if (_eventSink) {
+        Event evt;
+        core::memory_zero(&evt, sizeof(evt));
+        evt.type = EventType::PhaseComplete;
+        evt.phaseName = _desc.name;
+        evt.data.phaseComplete.stats = _stats;
+        evt.data.phaseComplete.finalLiveCount = _tracker->GetLiveCount();
+        evt.data.phaseComplete.finalLiveBytes = _tracker->GetLiveBytes();
+        _eventSink->OnEvent(evt);
+    }
+
+    // PhaseEnd marker
     if (_eventSink) {
         Event evt{};
         evt.type = EventType::PhaseEnd;

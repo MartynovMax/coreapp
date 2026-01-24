@@ -9,15 +9,18 @@
 // =============================================================================
 
 #include "../../core/base/core_types.hpp"
+#include "workload/phase_descriptor.hpp"
+#include "event_payloads.hpp"
 
 namespace core {
 namespace bench {
 
-enum class EventType : u8 {
+enum class EventType : u32 {
     ExperimentBegin,
     ExperimentEnd,
     PhaseBegin,
     PhaseEnd,
+    PhaseComplete,
 };
 
 struct Event {
@@ -26,6 +29,9 @@ struct Event {
     const char* phaseName = nullptr;
     u32 repetitionId = 0;
     u64 timestamp = 0;
+    union {
+        PhaseCompletePayload phaseComplete;
+    } data;
 };
 
 } // namespace bench
