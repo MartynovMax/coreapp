@@ -63,6 +63,11 @@ void* LifetimeTracker::SelectForFree() noexcept {
     } else if (_model == LifetimeModel::Random) {
         const u32 idx = _rng.NextU32() % _count;
         return _buffer[idx].ptr;
+    } else if (_model == LifetimeModel::Bounded) {
+        if (_count >= _maxLiveObjects && _count > 0) {
+            return _buffer[0].ptr;
+        }
+        return nullptr; // nothing to free if not over limit
     }
     return nullptr;
 }
