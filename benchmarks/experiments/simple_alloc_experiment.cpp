@@ -17,7 +17,7 @@
 namespace core {
 namespace bench {
 
-SimpleAllocExperiment* SimpleAllocExperiment::Create() noexcept {
+IExperiment* SimpleAllocExperiment::Create() noexcept {
     return new SimpleAllocExperiment();
 }
 
@@ -44,7 +44,46 @@ void SimpleAllocExperiment::Setup(const ExperimentParams& params) {
 }
 
 void SimpleAllocExperiment::Warmup() {
+    // Optional warmup phase: run a short phase with minimal operations to prime allocator and caches
+    _params.seed = _seed + 1; // Use a different seed for warmup to avoid affecting measured run
+    _params.operationCount = 128; // Small number of operations for warmup
+    _params.sizeDistribution = core::bench::SizePresets::SmallObjects();
+    _params.alignmentDistribution = core::bench::AlignmentPresets::Default();
+    _params.lifetimeModel = core::bench::LifetimeModel::Fifo;
+    _params.maxLiveObjects = 16;
+    _params.allocFreeRatio = 1.0f;
+    _params.tickInterval = 0;
 
+    _phaseDesc = {};
+    _phaseDesc.name = "Warmup";
+    _phaseDesc.experimentName = Name();
+    _phaseDesc.type = PhaseType::RampUp;
+    _phaseDesc.repetitionId = 0;
+    _phaseDesc.params = _params;
+    _phaseDesc.reclaimMode = ReclaimMode::FreeAll;
+    _phaseDesc.reclaimCallback = nullptr;
+    _phaseDesc.customOperation = nullptr;
+    _phaseDesc.completionCheck = nullptr;
+    _phaseDesc.userData = nullptr;
+
+    _phaseCtx = {};
+    _phaseCtx.allocator = _allocator;
+    _phaseCtx.rng = nullptr;
+    _phaseCtx.eventSink = _eventSink;
+    _phaseCtx.phaseName = _phaseDesc.name;
+    _phaseCtx.experimentName = _phaseDesc.experimentName;
+    _phaseCtx.phaseType = _phaseDesc.type;
+    _phaseCtx.repetitionId = _phaseDesc.repetitionId;
+    _phaseCtx.userData = nullptr;
+
+    if (_phaseExecutor) {
+        delete _phaseExecutor;
+        _phaseExecutor = nullptr;
+    }
+    _phaseExecutor = new PhaseExecutor(_phaseDesc, _phaseCtx, _eventSink);
+    _phaseExecutor->Execute();
+    delete _phaseExecutor;
+    _phaseExecutor = nullptr;
 }
 
 void SimpleAllocExperiment::RunPhases() {
