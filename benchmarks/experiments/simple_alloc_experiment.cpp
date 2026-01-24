@@ -11,6 +11,7 @@
 #include "../workload/phase_context.hpp"
 #include "../events/event_sink.hpp"
 #include "../events/event_types.hpp"
+#include "core/memory/core_allocator.hpp"
 #include <cstring>
 
 namespace core {
@@ -37,6 +38,8 @@ const char* SimpleAllocExperiment::AllocatorName() const noexcept {
 }
 
 void SimpleAllocExperiment::Setup(const ExperimentParams& params) {
+    _allocator = &core::GetDefaultAllocator();
+    _seed = params.seed;
 
 }
 

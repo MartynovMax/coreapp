@@ -37,6 +37,15 @@ public:
     void AttachEventSink(IEventSink* sink) noexcept override { (void)sink; }
 
     static IExperiment* Create() noexcept;
+
+private:
+    IAllocator* _allocator = nullptr;
+    WorkloadParams _params{};
+    u64 _seed = 0;
+    PhaseContext _phaseCtx{};
+    PhaseDescriptor _phaseDesc{};
+    PhaseExecutor* _phaseExecutor = nullptr;
+    IEventSink* _eventSink = nullptr;
 };
 
 } // namespace bench
