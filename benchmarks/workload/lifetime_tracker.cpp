@@ -56,7 +56,12 @@ void LifetimeTracker::Track(void* ptr, u32 size, u64 opIndex) noexcept {
 void* LifetimeTracker::SelectForFree() noexcept {
     if (!_buffer || _count == 0)
         return nullptr;
-    return _buffer[0].ptr;
+    if (_model == LifetimeModel::Lifo) {
+        return _buffer[_count - 1].ptr;
+    } else if (_model == LifetimeModel::Fifo) {
+        return _buffer[0].ptr;
+    }
+    return nullptr;
 }
 
 void LifetimeTracker::GetAllLive(AllocInfo** /*outArray*/, u32* /*outCount*/) noexcept {}
