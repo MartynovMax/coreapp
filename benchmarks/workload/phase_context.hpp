@@ -9,12 +9,12 @@
 // =============================================================================
 
 #include "../../core/base/core_types.hpp"
+#include "core/memory/core_allocator.hpp"
 
 namespace core {
 namespace bench {
 
 // Forward declarations
-class IAllocator;
 class LifetimeTracker;
 class SeededRNG;
 class IEventSink;
