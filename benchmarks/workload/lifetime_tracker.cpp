@@ -67,7 +67,9 @@ void* LifetimeTracker::SelectForFree() noexcept {
         if (_count >= _maxLiveObjects && _count > 0) {
             return _buffer[0].ptr;
         }
-        return nullptr; // nothing to free if not over limit
+        return nullptr;
+    } else if (_model == LifetimeModel::LongLived) {
+        return nullptr;
     }
     return nullptr;
 }
