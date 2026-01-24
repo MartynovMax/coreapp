@@ -57,9 +57,12 @@ void PhaseExecutor::Execute() {
     while (_opStream->HasNext()) {
         const Operation op = _opStream->Next();
         _ctx.currentOpIndex = opIndex;
+        bool opHandled = false;
         if (_desc.customOperation) {
             _desc.customOperation(_ctx, opIndex);
-        } else {
+            opHandled = true;
+        }
+        if (!opHandled) {
             if (op.type == OpType::Alloc) {
                 core::AllocationRequest req;
                 req.size = op.size;
@@ -71,18 +74,30 @@ void PhaseExecutor::Execute() {
                 }
             } else if (op.type == OpType::Free) {
                 if (void* ptr = _tracker->SelectForFree()) {
+                    u32 freedSize = 0;
+                    AllocInfo* live = nullptr;
+                    u32 liveCount = 0;
+                    _tracker->GetAllLive(&live, &liveCount);
+                    for (u32 i = 0; i < liveCount; ++i) {
+                        if (live[i].ptr == ptr) {
+                            freedSize = live[i].size;
+                            break;
+                        }
+                    }
                     core::AllocationInfo info;
                     info.ptr = ptr;
-                    info.size = 0;
+                    info.size = freedSize;
                     info.alignment = 8;
                     info.tag = 0;
                     _ctx.allocator->Deallocate(info);
                     _tracker->Remove(ptr);
                     _ctx.freeCount++;
+                    _ctx.bytesFreed += freedSize;
                 }
             }
         }
         opIndex++;
+        // Check for phase completion
         if (_desc.completionCheck && _desc.completionCheck(_ctx)) {
             break;
         }
