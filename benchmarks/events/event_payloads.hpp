@@ -16,35 +16,35 @@ struct PhaseStats {
 
 // PhaseCompletePayload - full phase completion metrics for event sink
 struct PhaseCompletePayload {
-    const char* experimentName = nullptr;
-    const char* phaseName = nullptr;
-    PhaseType phaseType = PhaseType::Steady;
-    u32 repetitionId = 0;
-    u64 startTimestamp = 0;
-    u64 endTimestamp = 0;
-    u64 durationNs = 0;
-    u64 allocCount = 0;
-    u64 freeCount = 0;
-    u64 totalOperations = 0;
-    u64 bytesAllocated = 0;
-    u64 bytesFreed = 0;
-    u64 peakLiveCount = 0;
-    u64 peakLiveBytes = 0;
-    u64 finalLiveCount = 0;
-    u64 finalLiveBytes = 0;
-    double opsPerSec = 0.0;
-    double throughput = 0.0;
+    const char* experimentName;
+    const char* phaseName;
+    PhaseType phaseType;
+    u32 repetitionId;
+    u64 startTimestamp;
+    u64 endTimestamp;
+    u64 durationNs;
+    u64 allocCount;
+    u64 freeCount;
+    u64 totalOperations;
+    u64 bytesAllocated;
+    u64 bytesFreed;
+    u64 peakLiveCount;
+    u64 peakLiveBytes;
+    u64 finalLiveCount;
+    u64 finalLiveBytes;
+    double opsPerSec;
+    double throughput;
 };
 
 // TickPayload - metrics for tick events
 struct TickPayload {
-    u64 opIndex = 0;
-    u64 allocCount = 0;
-    u64 freeCount = 0;
-    u64 bytesAllocated = 0;
-    u64 bytesFreed = 0;
-    u64 peakLiveCount = 0;
-    u64 peakLiveBytes = 0;
+    u64 opIndex;
+    u64 allocCount;
+    u64 freeCount;
+    u64 bytesAllocated;
+    u64 bytesFreed;
+    u64 peakLiveCount;
+    u64 peakLiveBytes;
 };
 
 } // namespace bench
