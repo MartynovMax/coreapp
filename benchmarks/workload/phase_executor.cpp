@@ -37,7 +37,6 @@ void PhaseExecutor::Execute() {
     _ctx.lifetimeTracker = _tracker;
     _ctx.eventSink = _eventSink;
     _ctx.userData = _desc.userData;
-
     _ctx.currentOpIndex = 0;
     _ctx.allocCount = 0;
     _ctx.freeCount = 0;
@@ -58,55 +57,22 @@ void PhaseExecutor::Execute() {
         const Operation op = _opStream->Next();
         _ctx.currentOpIndex = opIndex;
         if (_desc.customOperation) {
-            // If a custom operation callback is set, call it and skip standard logic
             _desc.customOperation(_ctx, opIndex);
         } else {
             if (op.type == OpType::Alloc) {
-                core::AllocationRequest req;
-                req.size = op.size;
-                req.alignment = 8;
-                if (void* ptr = _ctx.allocator->Allocate(req)) {
-                    _tracker->Track(ptr, op.size, opIndex);
-                    _ctx.allocCount++;
-                    _ctx.bytesAllocated += op.size;
-                }
+                ExecuteOperationAlloc(op, opIndex);
             } else if (op.type == OpType::Free) {
-                if (void* ptr = _tracker->SelectForFree()) {
-                    u32 freedSize = 0;
-                    AllocInfo* live = nullptr;
-                    u32 liveCount = 0;
-                    _tracker->GetAllLive(&live, &liveCount);
-                    for (u32 i = 0; i < liveCount; ++i) {
-                        if (live[i].ptr == ptr) {
-                            freedSize = live[i].size;
-                            break;
-                        }
-                    }
-                    core::AllocationInfo info;
-                    info.ptr = ptr;
-                    info.size = freedSize;
-                    info.alignment = 8;
-                    info.tag = 0;
-                    _ctx.allocator->Deallocate(info);
-                    _tracker->Remove(ptr);
-                    _ctx.freeCount++;
-                    _ctx.bytesFreed += freedSize;
-                }
+                ExecuteOperationFree(opIndex);
             }
         }
         opIndex++;
-        // Check for phase completion
-        if (_desc.completionCheck && _desc.completionCheck(_ctx)) {
+        if (IsPhaseComplete()) {
             break;
         }
     }
 
     // Reclaim phase if needed
-    if (_desc.reclaimMode == ReclaimMode::FreeAll) {
-        _tracker->Clear();
-    } else if (_desc.reclaimMode == ReclaimMode::Custom && _desc.reclaimCallback) {
-        _desc.reclaimCallback(_ctx);
-    }
+    ExecuteReclaim();
 
     // Update stats
     _stats.allocCount = _ctx.allocCount;
@@ -123,6 +89,52 @@ void PhaseExecutor::Execute() {
         evt.phaseName = _desc.name;
         _eventSink->OnEvent(evt);
     }
+}
+
+void PhaseExecutor::ExecuteOperationAlloc(const Operation& op, u64 opIndex) const {
+    core::AllocationRequest req{};
+    req.size = op.size;
+    req.alignment = op.alignment;
+    req.tag = op.tag;
+    req.flags = op.flags;
+
+    if (void* ptr = _ctx.allocator->Allocate(req)) {
+        _tracker->Track(ptr, op.size, op.alignment, op.tag, opIndex);
+        _ctx.allocCount++;
+        _ctx.bytesAllocated += op.size;
+    }
+}
+
+void PhaseExecutor::ExecuteOperationFree(u64 opIndex) const {
+    AllocInfo a{};
+    if (!_tracker->PopForFree(a)) {
+        return;
+    }
+    core::AllocationInfo info{};
+    info.ptr = a.ptr;
+    info.size = a.size;
+    info.alignment = a.alignment;
+    info.tag = a.tag;
+    _ctx.allocator->Deallocate(info);
+    _ctx.freeCount++;
+    _ctx.bytesFreed += a.size;
+}
+
+void PhaseExecutor::ExecuteReclaim() const {
+    if (_desc.reclaimMode == ReclaimMode::None) {
+        return;
+    } else if (_desc.reclaimMode == ReclaimMode::FreeAll) {
+        _tracker->Clear();
+    } else if (_desc.reclaimMode == ReclaimMode::Custom && _desc.reclaimCallback) {
+        _desc.reclaimCallback(_ctx);
+    }
+}
+
+bool PhaseExecutor::IsPhaseComplete() const {
+    if (_desc.completionCheck) {
+        return _desc.completionCheck(_ctx);
+    }
+    return false;
 }
 
 const PhaseStats& PhaseExecutor::GetStats() const noexcept {

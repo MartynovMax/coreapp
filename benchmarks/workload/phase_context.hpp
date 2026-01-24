@@ -14,7 +14,6 @@
 namespace core {
 namespace bench {
 
-// Forward declarations
 class LifetimeTracker;
 class SeededRNG;
 class IEventSink;
@@ -29,14 +28,14 @@ struct PhaseContext {
     LifetimeTracker* lifetimeTracker = nullptr;
     SeededRNG* rng = nullptr;
     IEventSink* eventSink = nullptr;
-    
+
     // Runtime metrics:
     u64 currentOpIndex = 0;
     u64 allocCount = 0;
     u64 freeCount = 0;
     u64 bytesAllocated = 0;
     u64 bytesFreed = 0;
-    
+
     // User data for callbacks:
     void* userData = nullptr;
 };

@@ -9,6 +9,7 @@
 // =============================================================================
 
 #include "../../core/base/core_types.hpp"
+#include "core/memory/core_allocator.hpp" // AllocationFlags + memory types/macros
 
 namespace core {
 namespace bench {
@@ -72,6 +73,34 @@ struct SizeDistribution {
 };
 
 // ----------------------------------------------------------------------------
+// AlignmentDistribution - Parameters for alignment generation
+// ----------------------------------------------------------------------------
+
+enum class AlignmentDistributionType {
+    Fixed,              // Always use fixedAlignment (0 = allocator default)
+    PowerOfTwoRange,    // Choose power-of-two in [minAlignment, maxAlignment]
+    MatchSizePow2,      // alignment = clamp(next_pow2(size), minAlignment..maxAlignment)
+    Typical64,          // Weighted {8,16,32,64} (weights)
+    CustomBuckets,      // User-defined buckets with weights
+};
+
+struct AlignmentDistribution {
+    AlignmentDistributionType type = AlignmentDistributionType::Fixed;
+
+    // Fixed alignment (0 means: rely on allocator default CORE_DEFAULT_ALIGNMENT)
+    core::memory_alignment fixedAlignment = 0;
+
+    // Range-based / MatchSizePow2:
+    core::memory_alignment minAlignment = 8;
+    core::memory_alignment maxAlignment = 64;
+
+    // Typical64 or CustomBuckets:
+    const core::memory_alignment* buckets = nullptr;
+    const float* weights = nullptr;
+    u32 bucketCount = 0;
+};
+
+// ----------------------------------------------------------------------------
 // LifetimeModel - Object lifetime patterns
 // ----------------------------------------------------------------------------
 
@@ -95,6 +124,13 @@ struct WorkloadParams {
     // Size distribution:
     SizeDistribution sizeDistribution = {};
     
+
+    // Alignment distribution:
+    AlignmentDistribution alignmentDistribution = {};
+
+    // Allocation metadata:
+    core::memory_tag tag = 0;
+    core::AllocationFlags flags = core::AllocationFlags::None;
     // Operation mix:
     float allocFreeRatio = 1.0f;        // 1.0 = alloc only, 0.5 = 50/50, 0.0 = free only
     
@@ -168,6 +204,53 @@ inline SizeDistribution DatabasePages() noexcept {
 }
 
 } // namespace SizePresets
+
+// ----------------------------------------------------------------------------
+// AlignmentPresets - Common alignment distributions
+// ----------------------------------------------------------------------------
+
+namespace AlignmentPresets {
+
+inline AlignmentDistribution Default() noexcept {
+    // FixedAlignment=0 => allocator will normalize to CORE_DEFAULT_ALIGNMENT.
+    return AlignmentDistribution{
+        .type = AlignmentDistributionType::Fixed,
+        .fixedAlignment = 0,
+    };
+}
+
+inline AlignmentDistribution CacheLine() noexcept {
+    return AlignmentDistribution{
+        .type = AlignmentDistributionType::Fixed,
+        .fixedAlignment = CORE_CACHE_LINE_SIZE,
+    };
+}
+
+inline AlignmentDistribution MatchSizePow2(
+    core::memory_alignment minA = 8,
+    core::memory_alignment maxA = 64) noexcept
+{
+    return AlignmentDistribution{
+        .type = AlignmentDistributionType::MatchSizePow2,
+        .fixedAlignment = 0,
+        .minAlignment = minA,
+        .maxAlignment = maxA,
+    };
+}
+
+inline AlignmentDistribution PowerOfTwoRange(
+    core::memory_alignment minA = 8,
+    core::memory_alignment maxA = 64) noexcept
+{
+    return AlignmentDistribution{
+        .type = AlignmentDistributionType::PowerOfTwoRange,
+        .fixedAlignment = 0,
+        .minAlignment = minA,
+        .maxAlignment = maxA,
+    };
+}
+
+} // namespace AlignmentPresets
 
 } // namespace bench
 } // namespace core

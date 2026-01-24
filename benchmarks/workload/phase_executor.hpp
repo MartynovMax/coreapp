@@ -34,10 +34,16 @@ public:
     // Execute the phase (main entry point)
     void Execute();
 
+
     // Get stats after execution
     const PhaseStats& GetStats() const noexcept;
 
 private:
+    void ExecuteOperationAlloc(const Operation& op, u64 opIndex) const;
+    void ExecuteOperationFree(u64 opIndex) const;
+    void ExecuteReclaim() const;
+    bool IsPhaseComplete() const;
+
     const PhaseDescriptor& _desc;
     PhaseContext& _ctx;
     IEventSink* _eventSink;

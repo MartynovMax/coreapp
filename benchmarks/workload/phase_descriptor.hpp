@@ -8,9 +8,9 @@
 // support for flexible allocator-specific operations.
 // =============================================================================
 
-#include "../../core/base/core_types.hpp"
 #include "workload_params.hpp"
 #include "phase_context.hpp"
+#include <functional>
 
 namespace core {
 namespace bench {
@@ -59,24 +59,14 @@ using PhaseCompletionCallback = bool(*)(const PhaseContext& ctx) noexcept;
 // ----------------------------------------------------------------------------
 
 struct PhaseDescriptor {
-    const char* name;
-    PhaseType type;
+    const char* name = nullptr;
+    PhaseType type = PhaseType::Steady;
     WorkloadParams params;
-    
-    // Reclaim configuration:
     ReclaimMode reclaimMode = ReclaimMode::None;
     ReclaimCallback reclaimCallback = nullptr;
-    
-    // Optional callbacks for customization:
-    PhaseOperationCallback customOperation = nullptr;  // Called each iteration
-    PhaseCompletionCallback completionCheck = nullptr; // Check for phase completion
-    
-    // User data for callbacks:
+    PhaseOperationCallback customOperation = nullptr;
+    PhaseCompletionCallback completionCheck = nullptr;
     void* userData = nullptr;
-    
-    // Metadata:
-    const char* description = nullptr;
-    bool measureMetrics = true;
 };
 
 } // namespace bench
