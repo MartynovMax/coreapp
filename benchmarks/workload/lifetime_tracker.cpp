@@ -60,6 +60,9 @@ void* LifetimeTracker::SelectForFree() noexcept {
         return _buffer[_count - 1].ptr;
     } else if (_model == LifetimeModel::Fifo) {
         return _buffer[0].ptr;
+    } else if (_model == LifetimeModel::Random) {
+        const u32 idx = _rng.NextU32() % _count;
+        return _buffer[idx].ptr;
     }
     return nullptr;
 }
