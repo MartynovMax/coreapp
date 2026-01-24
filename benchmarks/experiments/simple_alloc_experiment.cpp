@@ -190,3 +190,7 @@ void SimpleAllocExperiment::Teardown() noexcept {
 
 } // namespace bench
 } // namespace core
+
+extern "C" core::bench::IExperiment* CreateSimpleAllocExperiment() {
+    return new core::bench::SimpleAllocExperiment();
+}
