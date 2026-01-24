@@ -41,7 +41,17 @@ LifetimeTracker::~LifetimeTracker() noexcept {
     }
 }
 
-void LifetimeTracker::Track(void* /*ptr*/, u32 /*size*/, u64 /*opIndex*/) noexcept {}
+void LifetimeTracker::Track(void* ptr, u32 size, u64 opIndex) noexcept {
+    if (!_buffer || _count >= _capacity || !ptr || size == 0)
+        return;
+    AllocInfo& info = _buffer[_count++];
+    info.ptr = ptr;
+    info.size = size;
+    info.allocTime = opIndex;
+    _totalLiveBytes += size;
+    if (_totalLiveBytes > _peakLiveBytes)
+        _peakLiveBytes = _totalLiveBytes;
+}
 
 void* LifetimeTracker::SelectForFree() noexcept { return nullptr; }
 
