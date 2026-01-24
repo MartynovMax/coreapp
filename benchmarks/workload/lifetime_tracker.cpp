@@ -94,7 +94,10 @@ void LifetimeTracker::GetAllLive(AllocInfo** outArray, u32* outCount) const noex
     if (outCount) *outCount = _count;
 }
 
-void LifetimeTracker::Clear() noexcept {}
+void LifetimeTracker::Clear() noexcept {
+    _count = 0;
+    _totalLiveBytes = 0;
+}
 
 u32 LifetimeTracker::GetLiveCount() const noexcept { return 0; }
 u64 LifetimeTracker::GetLiveBytes() const noexcept { return 0; }
