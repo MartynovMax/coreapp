@@ -51,6 +51,8 @@ void LifetimeTracker::Track(void* ptr, u32 size, u64 opIndex) noexcept {
     _totalLiveBytes += size;
     if (_totalLiveBytes > _peakLiveBytes)
         _peakLiveBytes = _totalLiveBytes;
+    if (_count > _peakLiveCount)
+        _peakLiveCount = _count;
 }
 
 void* LifetimeTracker::SelectForFree() noexcept {
@@ -102,6 +104,7 @@ void LifetimeTracker::Clear() noexcept {
 u32 LifetimeTracker::GetLiveCount() const noexcept { return _count; }
 u64 LifetimeTracker::GetLiveBytes() const noexcept { return _totalLiveBytes; }
 u64 LifetimeTracker::GetPeakBytes() const noexcept { return _peakLiveBytes; }
+u32 LifetimeTracker::GetPeakCount() const noexcept { return _peakLiveCount; }
 
 } // namespace bench
 } // namespace core
