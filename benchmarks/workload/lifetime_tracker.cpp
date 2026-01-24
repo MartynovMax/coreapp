@@ -89,7 +89,10 @@ void LifetimeTracker::Remove(const void* ptr) noexcept {
     }
 }
 
-void LifetimeTracker::GetAllLive(AllocInfo** /*outArray*/, u32* /*outCount*/) noexcept {}
+void LifetimeTracker::GetAllLive(AllocInfo** outArray, u32* outCount) const noexcept {
+    if (outArray) *outArray = _buffer;
+    if (outCount) *outCount = _count;
+}
 
 void LifetimeTracker::Clear() noexcept {}
 

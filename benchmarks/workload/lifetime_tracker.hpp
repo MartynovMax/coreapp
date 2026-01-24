@@ -32,7 +32,7 @@ public:
     void* SelectForFree() noexcept;
 
     // Get all live objects
-    void GetAllLive(AllocInfo** outArray, u32* outCount) noexcept;
+    void GetAllLive(AllocInfo** outArray, u32* outCount) const noexcept;
 
     // Clear all tracks (bulk reclaim)
     void Clear() noexcept;
