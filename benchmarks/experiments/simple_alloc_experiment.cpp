@@ -87,7 +87,46 @@ void SimpleAllocExperiment::Warmup() {
 }
 
 void SimpleAllocExperiment::RunPhases() {
+    // Phase 1: RampUp with alloc-only operations
+    _params.seed = _seed;
+    _params.operationCount = 10000; // Example: 10k allocations
+    _params.sizeDistribution = core::bench::SizePresets::SmallObjects();
+    _params.alignmentDistribution = core::bench::AlignmentPresets::Default();
+    _params.lifetimeModel = core::bench::LifetimeModel::Fifo;
+    _params.maxLiveObjects = 10000; // All allocations live until end
+    _params.allocFreeRatio = 1.0f; // Alloc-only
+    _params.tickInterval = 0;
 
+    _phaseDesc = {};
+    _phaseDesc.name = "RampUp";
+    _phaseDesc.experimentName = Name();
+    _phaseDesc.type = PhaseType::RampUp;
+    _phaseDesc.repetitionId = 0;
+    _phaseDesc.params = _params;
+    _phaseDesc.reclaimMode = ReclaimMode::None;
+    _phaseDesc.reclaimCallback = nullptr;
+    _phaseDesc.customOperation = nullptr;
+    _phaseDesc.completionCheck = nullptr;
+    _phaseDesc.userData = nullptr;
+
+    _phaseCtx = {};
+    _phaseCtx.allocator = _allocator;
+    _phaseCtx.rng = nullptr;
+    _phaseCtx.eventSink = _eventSink;
+    _phaseCtx.phaseName = _phaseDesc.name;
+    _phaseCtx.experimentName = _phaseDesc.experimentName;
+    _phaseCtx.phaseType = _phaseDesc.type;
+    _phaseCtx.repetitionId = _phaseDesc.repetitionId;
+    _phaseCtx.userData = nullptr;
+
+    if (_phaseExecutor) {
+        delete _phaseExecutor;
+        _phaseExecutor = nullptr;
+    }
+    _phaseExecutor = new PhaseExecutor(_phaseDesc, _phaseCtx, _eventSink);
+    _phaseExecutor->Execute();
+    delete _phaseExecutor;
+    _phaseExecutor = nullptr;
 }
 
 void SimpleAllocExperiment::Teardown() noexcept {
