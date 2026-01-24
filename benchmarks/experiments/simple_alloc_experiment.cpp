@@ -174,7 +174,18 @@ void SimpleAllocExperiment::RunPhases() {
 }
 
 void SimpleAllocExperiment::Teardown() noexcept {
-
+    // Clean up phase executor if still allocated
+    if (_phaseExecutor) {
+        delete _phaseExecutor;
+        _phaseExecutor = nullptr;
+    }
+    // Reset pointers and state
+    _allocator = nullptr;
+    _eventSink = nullptr;
+    _seed = 0;
+    _params = {};
+    _phaseCtx = {};
+    _phaseDesc = {};
 }
 
 } // namespace bench
