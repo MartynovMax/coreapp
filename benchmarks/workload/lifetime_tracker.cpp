@@ -99,9 +99,9 @@ void LifetimeTracker::Clear() noexcept {
     _totalLiveBytes = 0;
 }
 
-u32 LifetimeTracker::GetLiveCount() const noexcept { return 0; }
-u64 LifetimeTracker::GetLiveBytes() const noexcept { return 0; }
-u64 LifetimeTracker::GetPeakBytes() const noexcept { return 0; }
+u32 LifetimeTracker::GetLiveCount() const noexcept { return _count; }
+u64 LifetimeTracker::GetLiveBytes() const noexcept { return _totalLiveBytes; }
+u64 LifetimeTracker::GetPeakBytes() const noexcept { return _peakLiveBytes; }
 
 } // namespace bench
 } // namespace core
