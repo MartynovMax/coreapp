@@ -41,6 +41,7 @@ public:
     u32 GetLiveCount() const noexcept;
     u64 GetLiveBytes() const noexcept;
     u64 GetPeakBytes() const noexcept;
+    u32 GetPeakCount() const noexcept;
 
     void Remove(const void* ptr) noexcept;
 
@@ -56,6 +57,7 @@ private:
 
     u64 _totalLiveBytes = 0;
     u64 _peakLiveBytes = 0;
+    u32 _peakLiveCount = 0;
 };
 
 } // namespace bench
