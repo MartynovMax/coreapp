@@ -86,129 +86,91 @@ void SimpleAllocExperiment::Warmup() {
     _phaseExecutor = nullptr;
 }
 
+namespace {
+    void RunPhase(
+        PhaseExecutor*& phaseExecutor,
+        IAllocator* allocator,
+        IEventSink* eventSink,
+        const char* phaseName,
+        const char* experimentName,
+        PhaseType phaseType,
+        u32 repetitionId,
+        const WorkloadParams& params,
+        ReclaimMode reclaimMode,
+        ReclaimCallback reclaimCallback = nullptr,
+        PhaseOperationCallback customOperation = nullptr,
+        PhaseCompletionCallback completionCheck = nullptr,
+        void* userData = nullptr)
+    {
+        PhaseDescriptor desc{};
+        desc.name = phaseName;
+        desc.experimentName = experimentName;
+        desc.type = phaseType;
+        desc.repetitionId = repetitionId;
+        desc.params = params;
+        desc.reclaimMode = reclaimMode;
+        desc.reclaimCallback = reclaimCallback;
+        desc.customOperation = customOperation;
+        desc.completionCheck = completionCheck;
+        desc.userData = userData;
+
+        PhaseContext ctx{};
+        ctx.allocator = allocator;
+        ctx.rng = nullptr;
+        ctx.eventSink = eventSink;
+        ctx.phaseName = phaseName;
+        ctx.experimentName = experimentName;
+        ctx.phaseType = phaseType;
+        ctx.repetitionId = repetitionId;
+        ctx.userData = userData;
+
+        if (phaseExecutor) {
+            delete phaseExecutor;
+            phaseExecutor = nullptr;
+        }
+        phaseExecutor = new PhaseExecutor(desc, ctx, eventSink);
+        phaseExecutor->Execute();
+        delete phaseExecutor;
+        phaseExecutor = nullptr;
+    }
+}
+
 void SimpleAllocExperiment::RunPhases() {
-    // Phase 1: RampUp with alloc-only operations
-    _params.seed = _seed;
-    _params.operationCount = 10000; // Example: 10k allocations
-    _params.sizeDistribution = core::bench::SizePresets::SmallObjects();
-    _params.alignmentDistribution = core::bench::AlignmentPresets::Default();
-    _params.lifetimeModel = core::bench::LifetimeModel::Fifo;
-    _params.maxLiveObjects = 10000; // All allocations live until end
-    _params.allocFreeRatio = 1.0f; // Alloc-only
-    _params.tickInterval = 0;
+    // Phase 1: RampUp (alloc-only)
+    WorkloadParams rampUpParams = _params;
+    rampUpParams.seed = _seed;
+    rampUpParams.operationCount = 10000;
+    rampUpParams.sizeDistribution = core::bench::SizePresets::SmallObjects();
+    rampUpParams.alignmentDistribution = core::bench::AlignmentPresets::Default();
+    rampUpParams.lifetimeModel = core::bench::LifetimeModel::Fifo;
+    rampUpParams.maxLiveObjects = 10000;
+    rampUpParams.allocFreeRatio = 1.0f;
+    rampUpParams.tickInterval = 0;
+    RunPhase(_phaseExecutor, _allocator, _eventSink, "RampUp", Name(), PhaseType::RampUp, 0, rampUpParams, ReclaimMode::None);
 
-    _phaseDesc = {};
-    _phaseDesc.name = "RampUp";
-    _phaseDesc.experimentName = Name();
-    _phaseDesc.type = PhaseType::RampUp;
-    _phaseDesc.repetitionId = 0;
-    _phaseDesc.params = _params;
-    _phaseDesc.reclaimMode = ReclaimMode::None;
-    _phaseDesc.reclaimCallback = nullptr;
-    _phaseDesc.customOperation = nullptr;
-    _phaseDesc.completionCheck = nullptr;
-    _phaseDesc.userData = nullptr;
+    // Phase 2: Steady (mixed alloc/free, bounded live-set)
+    WorkloadParams steadyParams = _params;
+    steadyParams.seed = _seed + 100;
+    steadyParams.operationCount = 20000;
+    steadyParams.sizeDistribution = core::bench::SizePresets::SmallObjects();
+    steadyParams.alignmentDistribution = core::bench::AlignmentPresets::Default();
+    steadyParams.lifetimeModel = core::bench::LifetimeModel::Bounded;
+    steadyParams.maxLiveObjects = 1000;
+    steadyParams.allocFreeRatio = 0.5f;
+    steadyParams.tickInterval = 1000;
+    RunPhase(_phaseExecutor, _allocator, _eventSink, "Steady", Name(), PhaseType::Steady, 0, steadyParams, ReclaimMode::None);
 
-    _phaseCtx = {};
-    _phaseCtx.allocator = _allocator;
-    _phaseCtx.rng = nullptr;
-    _phaseCtx.eventSink = _eventSink;
-    _phaseCtx.phaseName = _phaseDesc.name;
-    _phaseCtx.experimentName = _phaseDesc.experimentName;
-    _phaseCtx.phaseType = _phaseDesc.type;
-    _phaseCtx.repetitionId = _phaseDesc.repetitionId;
-    _phaseCtx.userData = nullptr;
-
-    if (_phaseExecutor) {
-        delete _phaseExecutor;
-        _phaseExecutor = nullptr;
-    }
-    _phaseExecutor = new PhaseExecutor(_phaseDesc, _phaseCtx, _eventSink);
-    _phaseExecutor->Execute();
-    delete _phaseExecutor;
-    _phaseExecutor = nullptr;
-
-    // Phase 2: Steady with mixed alloc/free and bounded live-set
-    _params.seed = _seed + 100;
-    _params.operationCount = 20000; // Example: 20k operations
-    _params.sizeDistribution = core::bench::SizePresets::SmallObjects();
-    _params.alignmentDistribution = core::bench::AlignmentPresets::Default();
-    _params.lifetimeModel = core::bench::LifetimeModel::Bounded;
-    _params.maxLiveObjects = 1000; // Bounded live-set
-    _params.allocFreeRatio = 0.5f; // 50% alloc, 50% free
-    _params.tickInterval = 1000; // Emit tick every 1000 ops (optional)
-
-    _phaseDesc = {};
-    _phaseDesc.name = "Steady";
-    _phaseDesc.experimentName = Name();
-    _phaseDesc.type = PhaseType::Steady;
-    _phaseDesc.repetitionId = 0;
-    _phaseDesc.params = _params;
-    _phaseDesc.reclaimMode = ReclaimMode::None;
-    _phaseDesc.reclaimCallback = nullptr;
-    _phaseDesc.customOperation = nullptr;
-    _phaseDesc.completionCheck = nullptr;
-    _phaseDesc.userData = nullptr;
-
-    _phaseCtx = {};
-    _phaseCtx.allocator = _allocator;
-    _phaseCtx.rng = nullptr;
-    _phaseCtx.eventSink = _eventSink;
-    _phaseCtx.phaseName = _phaseDesc.name;
-    _phaseCtx.experimentName = _phaseDesc.experimentName;
-    _phaseCtx.phaseType = _phaseDesc.type;
-    _phaseCtx.repetitionId = _phaseDesc.repetitionId;
-    _phaseCtx.userData = nullptr;
-
-    if (_phaseExecutor) {
-        delete _phaseExecutor;
-        _phaseExecutor = nullptr;
-    }
-    _phaseExecutor = new PhaseExecutor(_phaseDesc, _phaseCtx, _eventSink);
-    _phaseExecutor->Execute();
-    delete _phaseExecutor;
-    _phaseExecutor = nullptr;
-
-    // Phase 3: BulkReclaim with FreeAll
-    _params.seed = _seed + 200;
-    _params.operationCount = 0; // No new operations, just reclaim
-    _params.sizeDistribution = core::bench::SizePresets::SmallObjects();
-    _params.alignmentDistribution = core::bench::AlignmentPresets::Default();
-    _params.lifetimeModel = core::bench::LifetimeModel::Fifo;
-    _params.maxLiveObjects = 0;
-    _params.allocFreeRatio = 0.0f;
-    _params.tickInterval = 0;
-
-    _phaseDesc = {};
-    _phaseDesc.name = "BulkReclaim";
-    _phaseDesc.experimentName = Name();
-    _phaseDesc.type = PhaseType::BulkReclaim;
-    _phaseDesc.repetitionId = 0;
-    _phaseDesc.params = _params;
-    _phaseDesc.reclaimMode = ReclaimMode::FreeAll;
-    _phaseDesc.reclaimCallback = nullptr; // Можно задать custom callback при необходимости
-    _phaseDesc.customOperation = nullptr;
-    _phaseDesc.completionCheck = nullptr;
-    _phaseDesc.userData = nullptr;
-
-    _phaseCtx = {};
-    _phaseCtx.allocator = _allocator;
-    _phaseCtx.rng = nullptr;
-    _phaseCtx.eventSink = _eventSink;
-    _phaseCtx.phaseName = _phaseDesc.name;
-    _phaseCtx.experimentName = _phaseDesc.experimentName;
-    _phaseCtx.phaseType = _phaseDesc.type;
-    _phaseCtx.repetitionId = _phaseDesc.repetitionId;
-    _phaseCtx.userData = nullptr;
-
-    if (_phaseExecutor) {
-        delete _phaseExecutor;
-        _phaseExecutor = nullptr;
-    }
-    _phaseExecutor = new PhaseExecutor(_phaseDesc, _phaseCtx, _eventSink);
-    _phaseExecutor->Execute();
-    delete _phaseExecutor;
-    _phaseExecutor = nullptr;
+    // Phase 3: BulkReclaim (FreeAll)
+    WorkloadParams reclaimParams = _params;
+    reclaimParams.seed = _seed + 200;
+    reclaimParams.operationCount = 0;
+    reclaimParams.sizeDistribution = core::bench::SizePresets::SmallObjects();
+    reclaimParams.alignmentDistribution = core::bench::AlignmentPresets::Default();
+    reclaimParams.lifetimeModel = core::bench::LifetimeModel::Fifo;
+    reclaimParams.maxLiveObjects = 0;
+    reclaimParams.allocFreeRatio = 0.0f;
+    reclaimParams.tickInterval = 0;
+    RunPhase(_phaseExecutor, _allocator, _eventSink, "BulkReclaim", Name(), PhaseType::BulkReclaim, 0, reclaimParams, ReclaimMode::FreeAll);
 }
 
 void SimpleAllocExperiment::Teardown() noexcept {
