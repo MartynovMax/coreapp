@@ -27,20 +27,22 @@ PhaseExecutor::~PhaseExecutor() noexcept {
 }
 
 void PhaseExecutor::Execute() {
-    // Setup context pointers
-    _ctx.lifetimeTracker = nullptr;
-    _ctx.currentOpIndex = 0;
-    _ctx.allocCount = 0;
-    _ctx.freeCount = 0;
-    _ctx.bytesAllocated = 0;
-    _ctx.bytesFreed = 0;
-
     // Create OperationStream and LifetimeTracker for this phase
     if (_opStream) { delete _opStream; _opStream = nullptr; }
     if (_tracker) { delete _tracker; _tracker = nullptr; }
     _opStream = new OperationStream(_desc.params, *_ctx.rng);
     _tracker = new LifetimeTracker(_desc.params.lifetimeModel, _desc.params.maxLiveObjects, *_ctx.rng, _ctx.allocator);
+
+    // Setup context pointers
     _ctx.lifetimeTracker = _tracker;
+    _ctx.eventSink = _eventSink;
+    _ctx.userData = _desc.userData;
+
+    _ctx.currentOpIndex = 0;
+    _ctx.allocCount = 0;
+    _ctx.freeCount = 0;
+    _ctx.bytesAllocated = 0;
+    _ctx.bytesFreed = 0;
 
     // Emit OnPhaseBegin event if event sink exists
     if (_eventSink) {
