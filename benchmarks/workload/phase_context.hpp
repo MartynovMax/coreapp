@@ -28,6 +28,7 @@ struct PhaseContext {
     LifetimeTracker* lifetimeTracker = nullptr;
     SeededRNG* rng = nullptr;
     IEventSink* eventSink = nullptr;
+    const char* phaseName = nullptr;
 
     // Runtime metrics:
     u64 currentOpIndex = 0;

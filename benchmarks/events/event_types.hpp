@@ -21,6 +21,7 @@ enum class EventType : u32 {
     PhaseBegin,
     PhaseEnd,
     PhaseComplete,
+    Tick,
 };
 
 struct Event {
