@@ -11,6 +11,7 @@
 #include "../workload/workload_params.hpp"
 #include "../events/event_sink.hpp"
 #include "../events/event_types.hpp"
+#include "../runner/experiment_interface.hpp"
 
 namespace core {
 namespace bench {
@@ -18,29 +19,25 @@ namespace bench {
 // ----------------------------------------------------------------------------
 // SimpleAllocExperiment - Example experiment for allocation benchmarks
 // ----------------------------------------------------------------------------
-class SimpleAllocExperiment {
+class SimpleAllocExperiment final : public IExperiment {
 public:
     SimpleAllocExperiment() noexcept = default;
-    ~SimpleAllocExperiment() noexcept = default;
+    ~SimpleAllocExperiment() noexcept override = default;
 
-    // Metadata
-    const char* Name() const noexcept;
-    const char* Category() const noexcept;
-    const char* Description() const noexcept;
-    const char* AllocatorName() const noexcept;
+    void Setup(const ExperimentParams& params) override;
+    void Warmup() override;
+    void RunPhases() override;
+    void Teardown() noexcept override;
 
-    // Lifecycle
-    void Setup();
-    void Warmup();
-    void RunPhases();
-    void Teardown();
+    const char* Name() const noexcept override;
+    const char* Category() const noexcept override;
+    const char* Description() const noexcept override;
+    const char* AllocatorName() const noexcept override;
 
-private:
+    void AttachEventSink(IEventSink* sink) noexcept override { (void)sink; }
 
+    static IExperiment* Create() noexcept;
 };
-
-// Factory function for registration
-SimpleAllocExperiment* CreateSimpleAllocExperiment();
 
 } // namespace bench
 } // namespace core
