@@ -74,6 +74,21 @@ void* LifetimeTracker::SelectForFree() noexcept {
     return nullptr;
 }
 
+void LifetimeTracker::Remove(const void* ptr) noexcept {
+    if (!_buffer || _count == 0 || !ptr)
+        return;
+    for (u32 i = 0; i < _count; ++i) {
+        if (_buffer[i].ptr == ptr) {
+            _totalLiveBytes -= _buffer[i].size;
+            if (i != _count - 1) {
+                _buffer[i] = _buffer[_count - 1];
+            }
+            --_count;
+            return;
+        }
+    }
+}
+
 void LifetimeTracker::GetAllLive(AllocInfo** /*outArray*/, u32* /*outCount*/) noexcept {}
 
 void LifetimeTracker::Clear() noexcept {}

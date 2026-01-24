@@ -42,6 +42,8 @@ public:
     u64 GetLiveBytes() const noexcept;
     u64 GetPeakBytes() const noexcept;
 
+    void Remove(const void* ptr) noexcept;
+
 private:
     LifetimeModel _model;
     u32 _maxLiveObjects;
