@@ -168,6 +168,47 @@ void SimpleAllocExperiment::RunPhases() {
     _phaseExecutor->Execute();
     delete _phaseExecutor;
     _phaseExecutor = nullptr;
+
+    // Phase 3: BulkReclaim with FreeAll
+    _params.seed = _seed + 200;
+    _params.operationCount = 0; // No new operations, just reclaim
+    _params.sizeDistribution = core::bench::SizePresets::SmallObjects();
+    _params.alignmentDistribution = core::bench::AlignmentPresets::Default();
+    _params.lifetimeModel = core::bench::LifetimeModel::Fifo;
+    _params.maxLiveObjects = 0;
+    _params.allocFreeRatio = 0.0f;
+    _params.tickInterval = 0;
+
+    _phaseDesc = {};
+    _phaseDesc.name = "BulkReclaim";
+    _phaseDesc.experimentName = Name();
+    _phaseDesc.type = PhaseType::BulkReclaim;
+    _phaseDesc.repetitionId = 0;
+    _phaseDesc.params = _params;
+    _phaseDesc.reclaimMode = ReclaimMode::FreeAll;
+    _phaseDesc.reclaimCallback = nullptr; // Можно задать custom callback при необходимости
+    _phaseDesc.customOperation = nullptr;
+    _phaseDesc.completionCheck = nullptr;
+    _phaseDesc.userData = nullptr;
+
+    _phaseCtx = {};
+    _phaseCtx.allocator = _allocator;
+    _phaseCtx.rng = nullptr;
+    _phaseCtx.eventSink = _eventSink;
+    _phaseCtx.phaseName = _phaseDesc.name;
+    _phaseCtx.experimentName = _phaseDesc.experimentName;
+    _phaseCtx.phaseType = _phaseDesc.type;
+    _phaseCtx.repetitionId = _phaseDesc.repetitionId;
+    _phaseCtx.userData = nullptr;
+
+    if (_phaseExecutor) {
+        delete _phaseExecutor;
+        _phaseExecutor = nullptr;
+    }
+    _phaseExecutor = new PhaseExecutor(_phaseDesc, _phaseCtx, _eventSink);
+    _phaseExecutor->Execute();
+    delete _phaseExecutor;
+    _phaseExecutor = nullptr;
 }
 
 void SimpleAllocExperiment::Teardown() noexcept {
