@@ -15,7 +15,11 @@ TickManager::TickManager(u64 tickInterval) noexcept
     : _tickInterval(tickInterval), _lastTickOpIndex(0) {}
 
 void TickManager::OnOperation(const TickContext& ctx) noexcept {
-
+    if (_tickInterval == 0) return;
+    if (ctx.opIndex >= _lastTickOpIndex + _tickInterval) {
+        EmitTickEvent(ctx);
+        _lastTickOpIndex = ctx.opIndex;
+    }
 }
 
 void TickManager::EmitTickEvent(const TickContext& ctx) noexcept {
