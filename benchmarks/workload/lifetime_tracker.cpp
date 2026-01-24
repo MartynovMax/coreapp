@@ -28,7 +28,18 @@ LifetimeTracker::LifetimeTracker(LifetimeModel model, u32 maxLiveObjects, Seeded
 }
 
 // Destructor
-LifetimeTracker::~LifetimeTracker() noexcept {}
+LifetimeTracker::~LifetimeTracker() noexcept {
+    if (_allocator && _buffer) {
+        core::AllocationInfo info;
+        info.ptr = _buffer;
+        info.size = sizeof(AllocInfo) * _capacity;
+        info.alignment = alignof(AllocInfo);
+        info.tag = 0;
+        _allocator->Deallocate(info);
+        _buffer = nullptr;
+        _capacity = 0;
+    }
+}
 
 void LifetimeTracker::Track(void* /*ptr*/, u32 /*size*/, u64 /*opIndex*/) noexcept {}
 
