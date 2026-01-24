@@ -127,6 +127,47 @@ void SimpleAllocExperiment::RunPhases() {
     _phaseExecutor->Execute();
     delete _phaseExecutor;
     _phaseExecutor = nullptr;
+
+    // Phase 2: Steady with mixed alloc/free and bounded live-set
+    _params.seed = _seed + 100;
+    _params.operationCount = 20000; // Example: 20k operations
+    _params.sizeDistribution = core::bench::SizePresets::SmallObjects();
+    _params.alignmentDistribution = core::bench::AlignmentPresets::Default();
+    _params.lifetimeModel = core::bench::LifetimeModel::Bounded;
+    _params.maxLiveObjects = 1000; // Bounded live-set
+    _params.allocFreeRatio = 0.5f; // 50% alloc, 50% free
+    _params.tickInterval = 1000; // Emit tick every 1000 ops (optional)
+
+    _phaseDesc = {};
+    _phaseDesc.name = "Steady";
+    _phaseDesc.experimentName = Name();
+    _phaseDesc.type = PhaseType::Steady;
+    _phaseDesc.repetitionId = 0;
+    _phaseDesc.params = _params;
+    _phaseDesc.reclaimMode = ReclaimMode::None;
+    _phaseDesc.reclaimCallback = nullptr;
+    _phaseDesc.customOperation = nullptr;
+    _phaseDesc.completionCheck = nullptr;
+    _phaseDesc.userData = nullptr;
+
+    _phaseCtx = {};
+    _phaseCtx.allocator = _allocator;
+    _phaseCtx.rng = nullptr;
+    _phaseCtx.eventSink = _eventSink;
+    _phaseCtx.phaseName = _phaseDesc.name;
+    _phaseCtx.experimentName = _phaseDesc.experimentName;
+    _phaseCtx.phaseType = _phaseDesc.type;
+    _phaseCtx.repetitionId = _phaseDesc.repetitionId;
+    _phaseCtx.userData = nullptr;
+
+    if (_phaseExecutor) {
+        delete _phaseExecutor;
+        _phaseExecutor = nullptr;
+    }
+    _phaseExecutor = new PhaseExecutor(_phaseDesc, _phaseCtx, _eventSink);
+    _phaseExecutor->Execute();
+    delete _phaseExecutor;
+    _phaseExecutor = nullptr;
 }
 
 void SimpleAllocExperiment::Teardown() noexcept {
