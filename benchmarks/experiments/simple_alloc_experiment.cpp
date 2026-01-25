@@ -152,6 +152,7 @@ namespace {
 void SimpleAllocExperiment::RunPhases() {
     // --- Shared tracker for Steady and BulkReclaim ---
     LifetimeTracker* sharedTracker = nullptr;
+    SeededRNG sharedRng(_seed + 100);
 
     // Phase 1: RampUp (alloc-only)
     WorkloadParams rampUpParams = _params;
@@ -175,7 +176,7 @@ void SimpleAllocExperiment::RunPhases() {
     steadyParams.maxLiveObjects = 1000;
     steadyParams.allocFreeRatio = 0.5f;
     steadyParams.tickInterval = 1000;
-    sharedTracker = new LifetimeTracker(steadyParams.lifetimeModel, steadyParams.maxLiveObjects, *_phaseCtx.rng, _allocator);
+    sharedTracker = new LifetimeTracker(steadyParams.lifetimeModel, steadyParams.maxLiveObjects, sharedRng, _allocator);
     PhaseContext steadyCtx = _phaseCtx;
     steadyCtx.externalLifetimeTracker = sharedTracker;
     RunPhase(_phaseExecutor, _allocator, _eventSink, "Steady", Name(), PhaseType::Steady, 0, steadyParams, ReclaimMode::None, nullptr, nullptr, nullptr, nullptr, &steadyCtx);
