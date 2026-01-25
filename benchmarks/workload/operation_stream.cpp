@@ -11,7 +11,6 @@ OperationStream::OperationStream(const WorkloadParams& params, SeededRNG& rng) n
     , _rng(rng)
     , _currentOp(0)
 {
-    ASSERT(&_params != nullptr);
 }
 
 Operation OperationStream::Next() noexcept {

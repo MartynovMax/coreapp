@@ -24,20 +24,20 @@ void TickManager::OnOperation(const TickContext& ctx, const PhaseContext& phaseC
 }
 
 void TickManager::EmitTickEvent(const TickContext& ctx, const PhaseContext& phaseCtx) noexcept {
-    if (IEventSink* sink = phaseCtx.eventSink) {
-        Event evt;
-        core::memory_zero(&evt, sizeof(evt));
-        evt.type = EventType::Tick;
-        evt.phaseName = phaseCtx.phaseName;
-        evt.data.tick.opIndex = ctx.opIndex;
-        evt.data.tick.allocCount = ctx.allocCount;
-        evt.data.tick.freeCount = ctx.freeCount;
-        evt.data.tick.bytesAllocated = ctx.bytesAllocated;
-        evt.data.tick.bytesFreed = ctx.bytesFreed;
-        evt.data.tick.peakLiveCount = ctx.peakLiveCount;
-        evt.data.tick.peakLiveBytes = ctx.peakLiveBytes;
-        sink->OnEvent(evt);
-    }
+    if (!phaseCtx.eventSink) return;
+    Event evt{};
+    evt.type = EventType::Tick;
+    evt.experimentName = phaseCtx.experimentName;
+    evt.phaseName = phaseCtx.phaseName;
+    evt.repetitionId = phaseCtx.repetitionId;
+    evt.data.tick.opIndex = ctx.opIndex;
+    evt.data.tick.allocCount = ctx.allocCount;
+    evt.data.tick.freeCount = ctx.freeCount;
+    evt.data.tick.bytesAllocated = ctx.bytesAllocated;
+    evt.data.tick.bytesFreed = ctx.bytesFreed;
+    evt.data.tick.peakLiveCount = ctx.peakLiveCount;
+    evt.data.tick.peakLiveBytes = ctx.peakLiveBytes;
+    phaseCtx.eventSink->OnEvent(evt);
 }
 
 u64 TickManager::GetTickInterval() const noexcept {

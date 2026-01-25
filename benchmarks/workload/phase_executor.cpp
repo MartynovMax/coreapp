@@ -34,6 +34,8 @@ PhaseExecutor::~PhaseExecutor() noexcept {
         delete _tracker;
         _tracker = nullptr;
         _ownsTracker = false;
+    } else {
+        _tracker = nullptr;
     }
 }
 
@@ -81,7 +83,10 @@ void PhaseExecutor::Execute() {
     if (_eventSink) {
         Event evt{};
         evt.type = EventType::PhaseBegin;
-        evt.phaseName = _desc.name;
+        evt.experimentName = _ctx.experimentName;
+        evt.phaseName = _ctx.phaseName;
+        evt.repetitionId = _ctx.repetitionId;
+        evt.data.phaseComplete.startTimestamp = startTimestamp;
         _eventSink->OnEvent(evt);
     }
 
@@ -169,7 +174,10 @@ void PhaseExecutor::Execute() {
     if (_eventSink) {
         Event evt{};
         evt.type = EventType::PhaseEnd;
-        evt.phaseName = _desc.name;
+        evt.experimentName = _ctx.experimentName;
+        evt.phaseName = _ctx.phaseName;
+        evt.repetitionId = _ctx.repetitionId;
+        evt.data.phaseComplete.endTimestamp = endTimestamp;
         _eventSink->OnEvent(evt);
     }
 }
