@@ -25,8 +25,7 @@ struct AllocInfo {
 
 class LifetimeTracker {
 public:
-    LifetimeTracker(LifetimeModel model, u32 maxLiveObjects,
-                    SeededRNG& rng, IAllocator* allocator) noexcept;
+    LifetimeTracker(u32 capacity, LifetimeModel model, SeededRNG& rng, IAllocator* allocator) noexcept;
     ~LifetimeTracker() noexcept;
 
     // Register a new allocation
@@ -53,12 +52,11 @@ public:
 
 private:
     LifetimeModel _model;
-    u32 _maxLiveObjects;
+    u32 _capacity;
     SeededRNG& _rng;
     IAllocator* _allocator;
 
     AllocInfo* _buffer = nullptr;
-    u32 _capacity = 0;
     u32 _count = 0;
 
     u64 _totalLiveBytes = 0;

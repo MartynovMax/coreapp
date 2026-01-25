@@ -9,34 +9,25 @@
 namespace core {
 namespace bench {
 
-LifetimeTracker::LifetimeTracker(LifetimeModel model, u32 maxLiveObjects, SeededRNG& rng, IAllocator* allocator) noexcept
+LifetimeTracker::LifetimeTracker(u32 capacity, LifetimeModel model, SeededRNG& rng, IAllocator* allocator) noexcept
     : _model(model)
-    , _maxLiveObjects(maxLiveObjects)
     , _rng(rng)
     , _allocator(allocator)
     , _buffer(nullptr)
-    , _capacity(0)
+    , _capacity(capacity)
     , _count(0)
     , _totalLiveBytes(0)
     , _peakLiveBytes(0)
     , _peakLiveCount(0)
 {
     ASSERT(_allocator != nullptr);
-    // If maxLiveObjects == 0, treat as unlimited: allocate for operationCount (or large default)
-    u32 capacity = _maxLiveObjects;
-    if (capacity == 0) {
-        capacity = 0;
-        // Try to get operationCount from params if possible
-        // (We can't access WorkloadParams here, so fallback to a large default)
-        capacity = 1000000; // 1 million live objects by default if unlimited
-    }
-    if (_allocator && capacity > 0) {
+    ASSERT(_capacity > 0);
+    if (_allocator && _capacity > 0) {
         core::AllocationRequest req{};
-        req.size = sizeof(AllocInfo) * capacity;
+        req.size = sizeof(AllocInfo) * _capacity;
         req.alignment = static_cast<core::memory_alignment>(alignof(AllocInfo));
         if (void* mem = _allocator->Allocate(req)) {
             _buffer = static_cast<AllocInfo*>(mem);
-            _capacity = capacity;
         }
     }
 }
@@ -114,7 +105,7 @@ bool LifetimeTracker::PopForFree(AllocInfo& out_info) noexcept {
 
         case LifetimeModel::Bounded:
             // When bounded and we hit/exceed the bound, free something (FIFO semantics by default).
-            if (_maxLiveObjects > 0 && _count >= _maxLiveObjects) {
+            if (_capacity > 0 && _count >= _capacity) {
                 idx = 0;
             } else {
                 return false;

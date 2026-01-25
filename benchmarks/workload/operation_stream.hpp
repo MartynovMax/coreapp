@@ -57,9 +57,9 @@ private:
     const WorkloadParams& _params;
     SeededRNG& _rng;
     u64 _currentOp = 0;
-    u32 GenerateSize() noexcept;
-    core::memory_alignment GenerateAlignment(u32 size) noexcept;
-    OpType DecideOperation() noexcept;
+    u32 GenerateSize() const noexcept;
+    core::memory_alignment GenerateAlignment(u32 size) const noexcept;
+    OpType DecideOperation() const noexcept;
 
     static core::memory_alignment NextPow2(core::memory_alignment v) noexcept;
 };

@@ -176,7 +176,10 @@ void SimpleAllocExperiment::RunPhases() {
     steadyParams.maxLiveObjects = 1000;
     steadyParams.allocFreeRatio = 0.5f;
     steadyParams.tickInterval = 1000;
-    sharedTracker = new LifetimeTracker(steadyParams.lifetimeModel, steadyParams.maxLiveObjects, sharedRng, _allocator);
+
+    u32 trackerCapacity = steadyParams.maxLiveObjects;
+    sharedTracker = new LifetimeTracker(trackerCapacity, steadyParams.lifetimeModel, sharedRng, _allocator);
+
     PhaseContext steadyCtx = _phaseCtx;
     steadyCtx.externalLifetimeTracker = sharedTracker;
     RunPhase(_phaseExecutor, _allocator, _eventSink, "Steady", Name(), PhaseType::Steady, 0, steadyParams, ReclaimMode::None, nullptr, nullptr, nullptr, nullptr, &steadyCtx);

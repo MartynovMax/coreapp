@@ -52,7 +52,7 @@ core::memory_alignment OperationStream::NextPow2(core::memory_alignment v) noexc
     return v;
 }
 
-core::memory_alignment OperationStream::GenerateAlignment(u32 size) noexcept {
+core::memory_alignment OperationStream::GenerateAlignment(u32 size) const noexcept {
     const AlignmentDistribution& ad = _params.alignmentDistribution;
 
     switch (ad.type) {
@@ -60,21 +60,19 @@ core::memory_alignment OperationStream::GenerateAlignment(u32 size) noexcept {
             return ad.fixedAlignment; // 0 allowed => allocator default
 
         case AlignmentDistributionType::PowerOfTwoRange: {
-            // Convert range into [minPower, maxPower]
-            core::memory_alignment minA = ad.minAlignment;
+            core::memory_alignment minA = NextPow2(ad.minAlignment);
             core::memory_alignment maxA = ad.maxAlignment;
-            if (minA == 0) minA = 1;
-            if (maxA < minA) maxA = minA;
+            if (maxA == 0) maxA = minA;
+            u32 maxPower = 0;
+            core::memory_alignment t = maxA;
+            while (t > 1) { t >>= 1; maxPower++; }
+            maxA = 1u << maxPower;
+            if (maxA > ad.maxAlignment) maxA >>= 1;
+            if (minA > maxA) minA = maxA;
 
             u32 minPower = 0;
-            u32 maxPower = 0;
-
-            core::memory_alignment t = minA;
+            t = minA;
             while (t > 1) { t >>= 1; minPower++; }
-
-            t = maxA;
-            while (t > 1) { t >>= 1; maxPower++; }
-
             const u32 power = _rng.NextRange(minPower, maxPower);
             return static_cast<core::memory_alignment>(1u << power);
         }
@@ -111,7 +109,7 @@ core::memory_alignment OperationStream::GenerateAlignment(u32 size) noexcept {
     }
 }
 
-u32 OperationStream::GenerateSize() noexcept {
+u32 OperationStream::GenerateSize() const noexcept {
     const SizeDistribution& dist = _params.sizeDistribution;
 
     switch (dist.type) {
@@ -264,7 +262,7 @@ u32 OperationStream::GenerateSize() noexcept {
     }
 }
 
-OpType OperationStream::DecideOperation() noexcept {
+OpType OperationStream::DecideOperation() const noexcept {
     float r = _rng.NextU32() / static_cast<float>(0xFFFFFFFFu);
     return (r < _params.allocFreeRatio) ? OpType::Alloc : OpType::Free;
 }

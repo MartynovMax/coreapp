@@ -36,6 +36,7 @@ PhaseExecutor::~PhaseExecutor() noexcept {
         _ownsTracker = false;
     } else {
         _tracker = nullptr;
+        _ownsTracker = false;
     }
 }
 
@@ -52,13 +53,23 @@ void PhaseExecutor::Execute() {
     _opStream = new OperationStream(_desc.params, *_ctx.rng);
     ASSERT(_opStream != nullptr);
 
+    // Compute capacity for LifetimeTracker
+    u32 trackerCapacity = 0;
+    if (_desc.params.maxLiveObjects > 0) {
+        trackerCapacity = _desc.params.maxLiveObjects;
+    } else if (_desc.params.operationCount > 0 && _desc.params.operationCount < 1000000) {
+        trackerCapacity = static_cast<u32>(_desc.params.operationCount);
+    } else {
+        trackerCapacity = 1000000; // Default: 1 million live objects if unlimited
+    }
+
     // Use external tracker if provided in context (for cross-phase live-set)
     bool ownsTracker = false;
     if (_ctx.externalLifetimeTracker) {
         _tracker = _ctx.externalLifetimeTracker;
         ownsTracker = false;
     } else {
-        _tracker = new LifetimeTracker(_desc.params.lifetimeModel, _desc.params.maxLiveObjects, *_ctx.rng, _ctx.allocator);
+        _tracker = new LifetimeTracker(trackerCapacity, _desc.params.lifetimeModel, *_ctx.rng, _ctx.allocator);
         ownsTracker = true;
     }
     ASSERT(_tracker != nullptr);
@@ -96,6 +107,7 @@ void PhaseExecutor::Execute() {
         tickManager = new TickManager(_desc.params.tickInterval);
     }
     // Main operation loop
+    u64 totalIssuedOperations = 0;
     u64 opIndex = 0;
     while (_opStream->HasNext()) {
         const Operation op = _opStream->Next();
@@ -121,6 +133,7 @@ void PhaseExecutor::Execute() {
             tickManager->OnOperation(tickCtx, _ctx);
         }
         opIndex++;
+        totalIssuedOperations++;
         if (IsPhaseComplete()) {
             break;
         }
@@ -164,7 +177,7 @@ void PhaseExecutor::Execute() {
         evt.data.phaseComplete.finalLiveCount = _tracker->GetLiveCount();
         evt.data.phaseComplete.finalLiveBytes = _tracker->GetLiveBytes();
         evt.data.phaseComplete.opsPerSec = (durationNs > 0) ?
-            static_cast<double>(evt.data.phaseComplete.totalOperations) * 1e9 / static_cast<double>(durationNs) : 0.0;
+            static_cast<double>(totalIssuedOperations) * 1e9 / static_cast<double>(durationNs) : 0.0;
         evt.data.phaseComplete.throughput = (durationNs > 0) ?
             static_cast<double>(evt.data.phaseComplete.bytesAllocated) * 1e9 / static_cast<double>(durationNs) : 0.0;
         _eventSink->OnEvent(evt);
