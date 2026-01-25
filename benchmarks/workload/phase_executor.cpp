@@ -45,7 +45,11 @@ void PhaseExecutor::Execute() {
 
     // Create OperationStream and LifetimeTracker for this phase
     if (_opStream) { delete _opStream; _opStream = nullptr; }
-    if (_tracker) { delete _tracker; _tracker = nullptr; }
+    if (_tracker && _ownsTracker) {
+        delete _tracker;
+        _tracker = nullptr;
+        _ownsTracker = false;
+    }
     _opStream = new OperationStream(_desc.params, *_ctx.rng);
     ASSERT(_opStream != nullptr);
 

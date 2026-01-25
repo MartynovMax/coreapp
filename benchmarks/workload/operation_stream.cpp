@@ -86,12 +86,27 @@ core::memory_alignment OperationStream::GenerateAlignment(u32 size) const noexce
             return a;
         }
 
-        case AlignmentDistributionType::Typical64:
+        case AlignmentDistributionType::Typical64: {
+            // Provide default buckets/weights if not set
+            static const core::memory_alignment defaultBuckets[4] = {8, 16, 32, 64};
+            static const float defaultWeights[4] = {0.2f, 0.6f, 0.15f, 0.05f};
+            const core::memory_alignment* buckets = ad.buckets ? ad.buckets : defaultBuckets;
+            const float* weights = ad.weights ? ad.weights : defaultWeights;
+            u32 bucketCount = ad.bucketCount ? ad.bucketCount : 4;
+            float r = static_cast<float>(_rng.NextU32()) / static_cast<float>(0xFFFFFFFFu);
+            float cumulative = 0.0f;
+            for (u32 i = 0; i < bucketCount; i++) {
+                cumulative += weights[i];
+                if (r < cumulative) {
+                    return buckets[i];
+                }
+            }
+            return buckets[bucketCount - 1];
+        }
         case AlignmentDistributionType::CustomBuckets: {
             if (ad.buckets == nullptr || ad.weights == nullptr || ad.bucketCount == 0) {
                 return ad.fixedAlignment; // fallback, can be 0
             }
-
             float r = static_cast<float>(_rng.NextU32()) / static_cast<float>(0xFFFFFFFFu);
             float cumulative = 0.0f;
             for (u32 i = 0; i < ad.bucketCount; i++) {
