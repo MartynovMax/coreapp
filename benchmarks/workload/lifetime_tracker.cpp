@@ -51,10 +51,25 @@ LifetimeTracker::~LifetimeTracker() noexcept {
 
 void LifetimeTracker::Track(void* ptr, u32 size, core::memory_alignment alignment, core::memory_tag tag, u64 opIndex) noexcept {
     ASSERT(_buffer != nullptr);
-    if (!_buffer || _count >= _capacity || !ptr || size == 0) {
+    if (!_buffer || !ptr || size == 0) {
         return;
     }
-
+    if (_count >= _capacity) {
+        if (_model == LifetimeModel::Bounded) {
+            const AllocInfo& toFree = _buffer[0];
+            if (_allocator && toFree.ptr) {
+                core::AllocationInfo info{};
+                info.ptr = toFree.ptr;
+                info.size = toFree.size;
+                info.alignment = toFree.alignment;
+                info.tag = toFree.tag;
+                _allocator->Deallocate(info);
+            }
+            RemoveIndex(0);
+        } else {
+            return;
+        }
+    }
     AllocInfo& info = _buffer[_count++];
     info.ptr = ptr;
     info.size = size;

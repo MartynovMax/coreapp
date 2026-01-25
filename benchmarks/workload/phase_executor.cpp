@@ -198,7 +198,9 @@ void PhaseExecutor::Execute() {
 void PhaseExecutor::ExecuteOperationAlloc(const Operation& op, u64 opIndex) const {
     ASSERT(_ctx.allocator != nullptr);
     ASSERT(_tracker != nullptr);
-
+    if (_tracker->GetLiveCount() >= _tracker->GetCapacity() && _desc.params.lifetimeModel != LifetimeModel::Bounded) {
+        return;
+    }
     core::AllocationRequest req{};
     req.size = op.size;
     req.alignment = op.alignment;

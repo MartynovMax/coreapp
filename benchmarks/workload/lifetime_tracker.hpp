@@ -49,6 +49,7 @@ public:
     u64 GetLiveBytes() const noexcept;
     u64 GetPeakBytes() const noexcept;
     u32 GetPeakCount() const noexcept;
+    u32 GetCapacity() const noexcept { return _capacity; }
 
 private:
     LifetimeModel _model;

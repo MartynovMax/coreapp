@@ -8,6 +8,7 @@
 #include "../../core/base/core_types.hpp"
 #include "core/memory/core_allocator.hpp"
 #include "../events/event_sink.hpp"
+#include "phase_context.hpp"
 
 namespace core {
 namespace bench {
