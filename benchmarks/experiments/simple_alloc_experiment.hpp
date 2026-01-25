@@ -34,7 +34,7 @@ public:
     const char* Description() const noexcept override;
     const char* AllocatorName() const noexcept override;
 
-    void AttachEventSink(IEventSink* sink) noexcept override { (void)sink; }
+    void AttachEventSink(IEventSink* sink) noexcept override { _eventSink = sink; }
 
     static IExperiment* Create() noexcept;
 

@@ -1,4 +1,5 @@
 #include "operation_stream.hpp"
+#include "core/base/core_assert.hpp"
 #include "../common/seeded_rng.hpp"
 #include <cmath>
 
@@ -10,9 +11,11 @@ OperationStream::OperationStream(const WorkloadParams& params, SeededRNG& rng) n
     , _rng(rng)
     , _currentOp(0)
 {
+    ASSERT(&_params != nullptr);
 }
 
 Operation OperationStream::Next() noexcept {
+    ASSERT(_currentOp <= _params.operationCount);
     Operation op{};
     op.type = DecideOperation();
 

@@ -5,6 +5,7 @@
 
 #include "simple_alloc_experiment.hpp"
 #include "../runner/experiment_params.hpp"
+#include "../runner/experiment_registry.hpp"
 #include "../workload/phase_executor.hpp"
 #include "../workload/phase_descriptor.hpp"
 #include "../workload/workload_params.hpp"
@@ -12,7 +13,8 @@
 #include "../events/event_sink.hpp"
 #include "../events/event_types.hpp"
 #include "core/memory/core_allocator.hpp"
-#include <cstring>
+#include "../common/seeded_rng.hpp"
+#include "core/base/core_assert.hpp"
 
 namespace core {
 namespace bench {
@@ -38,15 +40,16 @@ const char* SimpleAllocExperiment::AllocatorName() const noexcept {
 }
 
 void SimpleAllocExperiment::Setup(const ExperimentParams& params) {
+    ASSERT(&core::GetDefaultAllocator() != nullptr);
     _allocator = &core::GetDefaultAllocator();
+    ASSERT(_allocator != nullptr);
     _seed = params.seed;
-
 }
 
 void SimpleAllocExperiment::Warmup() {
-    // Optional warmup phase: run a short phase with minimal operations to prime allocator and caches
-    _params.seed = _seed + 1; // Use a different seed for warmup to avoid affecting measured run
-    _params.operationCount = 128; // Small number of operations for warmup
+    ASSERT(_allocator != nullptr);
+    _params.seed = _seed + 1;
+    _params.operationCount = 128;
     _params.sizeDistribution = core::bench::SizePresets::SmallObjects();
     _params.alignmentDistribution = core::bench::AlignmentPresets::Default();
     _params.lifetimeModel = core::bench::LifetimeModel::Fifo;
@@ -66,9 +69,11 @@ void SimpleAllocExperiment::Warmup() {
     _phaseDesc.completionCheck = nullptr;
     _phaseDesc.userData = nullptr;
 
+    SeededRNG rng(_params.seed);
     _phaseCtx = {};
     _phaseCtx.allocator = _allocator;
-    _phaseCtx.rng = nullptr;
+    _phaseCtx.rng = &rng;
+    ASSERT(_phaseCtx.rng != nullptr);
     _phaseCtx.eventSink = _eventSink;
     _phaseCtx.phaseName = _phaseDesc.name;
     _phaseCtx.experimentName = _phaseDesc.experimentName;
@@ -81,6 +86,7 @@ void SimpleAllocExperiment::Warmup() {
         _phaseExecutor = nullptr;
     }
     _phaseExecutor = new PhaseExecutor(_phaseDesc, _phaseCtx, _eventSink);
+    ASSERT(_phaseExecutor != nullptr);
     _phaseExecutor->Execute();
     delete _phaseExecutor;
     _phaseExecutor = nullptr;
@@ -102,6 +108,7 @@ namespace {
         PhaseCompletionCallback completionCheck = nullptr,
         void* userData = nullptr)
     {
+        ASSERT(allocator != nullptr);
         PhaseDescriptor desc{};
         desc.name = phaseName;
         desc.experimentName = experimentName;
@@ -114,9 +121,11 @@ namespace {
         desc.completionCheck = completionCheck;
         desc.userData = userData;
 
+        SeededRNG rng(params.seed);
         PhaseContext ctx{};
         ctx.allocator = allocator;
-        ctx.rng = nullptr;
+        ctx.rng = &rng;
+        ASSERT(ctx.rng != nullptr);
         ctx.eventSink = eventSink;
         ctx.phaseName = phaseName;
         ctx.experimentName = experimentName;
@@ -129,10 +138,12 @@ namespace {
             phaseExecutor = nullptr;
         }
         phaseExecutor = new PhaseExecutor(desc, ctx, eventSink);
+        ASSERT(phaseExecutor != nullptr);
         phaseExecutor->Execute();
         delete phaseExecutor;
         phaseExecutor = nullptr;
     }
+
 }
 
 void SimpleAllocExperiment::RunPhases() {

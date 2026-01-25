@@ -8,16 +8,21 @@
 #include "runner/experiment_runner.hpp"
 #include "runner/cli_parser.hpp"
 #include "experiments/null_experiment.hpp"
+#include "experiments/simple_alloc_experiment.hpp"
 #include <stdio.h>
 
 using namespace core;
 using namespace core::bench;
 
+extern "C" core::bench::IExperiment* CreateSimpleAllocExperiment();
+
 int main(int argc, char** argv) {
+    printf("[main] Starting up...\n");
+
     // Parse CLI arguments
     CLIParser parser;
     RunConfig config;
-    
+
     if (!parser.Parse(argc, argv, config)) {
         printf("Error: %s\n", parser.GetError());
         CLIParser::PrintHelp();
@@ -42,22 +47,33 @@ int main(int argc, char** argv) {
     nullDesc.factory = &NullExperiment::Create;
     registry.Register(nullDesc);
 
+    // Register SimpleAllocExperiment
+    ExperimentDescriptor simpleAllocDesc;
+    simpleAllocDesc.name = "simple_alloc";
+    simpleAllocDesc.category = "allocation";
+    simpleAllocDesc.allocatorName = "DefaultAllocator";
+    simpleAllocDesc.description = "A simple allocation/free experiment with phase-based workload model.";
+    simpleAllocDesc.factory = &CreateSimpleAllocExperiment;
+    registry.Register(simpleAllocDesc);
+
     // Show list if requested
     if (config.showList) {
         u32 count = 0;
         const ExperimentDescriptor* experiments = registry.GetAll(count);
-        
+
         printf("Available experiments: %u\n", count);
         for (u32 i = 0; i < count; ++i) {
             printf("  %s - %s\n", experiments[i].name, experiments[i].description);
         }
-        
         return kSuccess;
     }
+
+    printf("[main] Creating and running experiments...\n");
 
     // Create and run experiments
     ExperimentRunner runner(registry);
     ExitCode exitCode = runner.Run(config);
 
+    printf("[main] Done. Exit code: %d\n", exitCode);
     return exitCode;
 }

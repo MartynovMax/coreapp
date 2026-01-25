@@ -4,6 +4,7 @@
 // =============================================================================
 
 #include "lifetime_tracker.hpp"
+#include "core/base/core_assert.hpp"
 
 namespace core {
 namespace bench {
@@ -20,6 +21,7 @@ LifetimeTracker::LifetimeTracker(LifetimeModel model, u32 maxLiveObjects, Seeded
     , _peakLiveBytes(0)
     , _peakLiveCount(0)
 {
+    ASSERT(_allocator != nullptr);
     if (_allocator && _maxLiveObjects > 0) {
         core::AllocationRequest req{};
         req.size = sizeof(AllocInfo) * _maxLiveObjects;
@@ -49,6 +51,7 @@ LifetimeTracker::~LifetimeTracker() noexcept {
 }
 
 void LifetimeTracker::Track(void* ptr, u32 size, core::memory_alignment alignment, core::memory_tag tag, u64 opIndex) noexcept {
+    ASSERT(_buffer != nullptr);
     if (!_buffer || _count >= _capacity || !ptr || size == 0) {
         return;
     }
@@ -66,6 +69,7 @@ void LifetimeTracker::Track(void* ptr, u32 size, core::memory_alignment alignmen
 }
 
 void LifetimeTracker::RemoveIndex(u32 idx) noexcept {
+    ASSERT(idx < _count);
     if (idx >= _count) return;
 
     _totalLiveBytes -= _buffer[idx].size;
@@ -78,6 +82,7 @@ void LifetimeTracker::RemoveIndex(u32 idx) noexcept {
 }
 
 bool LifetimeTracker::PopForFree(AllocInfo& out_info) noexcept {
+    ASSERT(_buffer != nullptr);
     if (!_buffer || _count == 0) {
         return false;
     }
@@ -117,6 +122,7 @@ bool LifetimeTracker::PopForFree(AllocInfo& out_info) noexcept {
 }
 
 void LifetimeTracker::FreeAll() noexcept {
+    ASSERT(_buffer != nullptr);
     if (!_buffer) {
         return;
     }

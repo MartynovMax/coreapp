@@ -6,6 +6,7 @@
 #include "phase_executor.hpp"
 
 #include "core/memory/memory_ops.hpp"
+#include "core/base/core_assert.hpp"
 
 #include "events/event_sink.hpp"
 #include "events/event_types.hpp"
@@ -19,6 +20,8 @@ PhaseExecutor::PhaseExecutor(const PhaseDescriptor& desc,
                              IEventSink* eventSink) noexcept
     : _desc(desc), _ctx(ctx), _eventSink(eventSink), _stats{}, _opStream(nullptr), _tracker(nullptr)
 {
+    ASSERT(_ctx.rng != nullptr);
+    ASSERT(_ctx.allocator != nullptr);
 }
 
 PhaseExecutor::~PhaseExecutor() noexcept {
@@ -33,6 +36,9 @@ PhaseExecutor::~PhaseExecutor() noexcept {
 }
 
 void PhaseExecutor::Execute() {
+    ASSERT(_ctx.rng != nullptr);
+    ASSERT(_ctx.allocator != nullptr);
+
     HighResTimer timer;
     u64 startTimestamp = timer.Now();
 
@@ -40,7 +46,9 @@ void PhaseExecutor::Execute() {
     if (_opStream) { delete _opStream; _opStream = nullptr; }
     if (_tracker) { delete _tracker; _tracker = nullptr; }
     _opStream = new OperationStream(_desc.params, *_ctx.rng);
+    ASSERT(_opStream != nullptr);
     _tracker = new LifetimeTracker(_desc.params.lifetimeModel, _desc.params.maxLiveObjects, *_ctx.rng, _ctx.allocator);
+    ASSERT(_tracker != nullptr);
 
     // Setup context pointers
     _ctx.lifetimeTracker = _tracker;
@@ -137,6 +145,9 @@ void PhaseExecutor::Execute() {
 }
 
 void PhaseExecutor::ExecuteOperationAlloc(const Operation& op, u64 opIndex) const {
+    ASSERT(_ctx.allocator != nullptr);
+    ASSERT(_tracker != nullptr);
+
     core::AllocationRequest req{};
     req.size = op.size;
     req.alignment = op.alignment;
@@ -151,6 +162,9 @@ void PhaseExecutor::ExecuteOperationAlloc(const Operation& op, u64 opIndex) cons
 }
 
 void PhaseExecutor::ExecuteOperationFree(u64 opIndex) const {
+    ASSERT(_ctx.allocator != nullptr);
+    ASSERT(_tracker != nullptr);
+
     AllocInfo a{};
     if (!_tracker->PopForFree(a)) {
         return;
