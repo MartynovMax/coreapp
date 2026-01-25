@@ -80,19 +80,12 @@ void PhaseExecutor::Execute() {
     _ownsTracker = ownsTracker;
     _ctx.lifetimeTracker = _tracker;
 
-    if (_tracker) _tracker->Clear();
-
-    if (_desc.params.operationCount == 0) {
-        if (_desc.completionCheck) {
-            _desc.completionCheck(_ctx);
-        }
-        if (_desc.customOperation) {
-            _desc.customOperation(_ctx);
-        }
-        return;
+    // Do not clear external tracker for BulkReclaim (preserve live-set)
+    if (_tracker && (!_ctx.externalLifetimeTracker || _desc.reclaimMode != ReclaimMode::FreeAll)) {
+        _tracker->Clear();
     }
 
-    // Setup context pointers
+    // Setup context pointers (always, even for operationCount==0)
     _ctx.eventSink = _eventSink;
     _ctx.userData = _desc.userData;
     _ctx.phaseName = _desc.name;
@@ -124,40 +117,50 @@ void PhaseExecutor::Execute() {
     // Main operation loop
     u64 totalIssuedOperations = 0;
     u64 opIndex = 0;
-    while (_opStream->HasNext()) {
-        const Operation op = _opStream->Next();
-        _ctx.currentOpIndex = opIndex;
-        if (_desc.customOperation) {
-            _desc.customOperation(_ctx);
-        } else {
-            if (op.type == OpType::Alloc) {
-                ExecuteOperationAlloc(op, opIndex);
-            } else if (op.type == OpType::Free) {
-                ExecuteOperationFree(opIndex);
+    if (bool hasOperations = (_desc.params.operationCount > 0)) {
+        while (_opStream->HasNext()) {
+            Operation op = _opStream->Next();
+            _ctx.currentOpIndex = opIndex;
+            if (_desc.customOperation) {
+                _desc.customOperation(_ctx);
+            } else {
+                if (op.type == OpType::Alloc) {
+                    ExecuteOperationAlloc(op, opIndex);
+                } else if (op.type == OpType::Free) {
+                    ExecuteOperationFree(opIndex);
+                }
+            }
+            if (tickManager) {
+                TickContext tickCtx{};
+                tickCtx.opIndex = opIndex;
+                tickCtx.allocCount = _ctx.allocCount;
+                tickCtx.freeCount = _ctx.freeCount;
+                tickCtx.bytesAllocated = _ctx.bytesAllocated;
+                tickCtx.bytesFreed = _ctx.bytesFreed;
+                tickCtx.peakLiveCount = _tracker ? _tracker->GetPeakCount() : 0;
+                tickCtx.peakLiveBytes = _tracker ? _tracker->GetPeakBytes() : 0;
+                tickManager->OnOperation(tickCtx, _ctx);
+            }
+            opIndex++;
+            totalIssuedOperations++;
+            if (IsPhaseComplete()) {
+                break;
             }
         }
-        if (tickManager) {
-            TickContext tickCtx{};
-            tickCtx.opIndex = opIndex;
-            tickCtx.allocCount = _ctx.allocCount;
-            tickCtx.freeCount = _ctx.freeCount;
-            tickCtx.bytesAllocated = _ctx.bytesAllocated;
-            tickCtx.bytesFreed = _ctx.bytesFreed;
-            tickCtx.peakLiveCount = _tracker->GetPeakCount();
-            tickCtx.peakLiveBytes = _tracker->GetPeakBytes();
-            tickManager->OnOperation(tickCtx, _ctx);
+    } else {
+        // Even if no operations, allow completionCheck/customOperation
+        if (_desc.completionCheck) {
+            _desc.completionCheck(_ctx);
         }
-        opIndex++;
-        totalIssuedOperations++;
-        if (IsPhaseComplete()) {
-            break;
+        if (_desc.customOperation) {
+            _desc.customOperation(_ctx);
         }
     }
     delete tickManager;
     u64 endTimestamp = timer.Now();
     u64 durationNs = endTimestamp - startTimestamp;
 
-    // Reclaim phase if needed
+    // Reclaim phase if needed (always, even if no operations)
     ExecuteReclaim();
 
     // Update stats
@@ -165,8 +168,8 @@ void PhaseExecutor::Execute() {
     _stats.freeCount = _ctx.freeCount;
     _stats.bytesAllocated = _ctx.bytesAllocated;
     _stats.bytesFreed = _ctx.bytesFreed;
-    _stats.peakLiveCount = _tracker->GetPeakCount();
-    _stats.peakLiveBytes = _tracker->GetPeakBytes();
+    _stats.peakLiveCount = _tracker ? _tracker->GetPeakCount() : 0;
+    _stats.peakLiveBytes = _tracker ? _tracker->GetPeakBytes() : 0;
 
     // PhaseComplete event with full payload
     if (_eventSink) {
@@ -188,10 +191,10 @@ void PhaseExecutor::Execute() {
         evt.data.phaseComplete.totalOperations = _ctx.allocCount + _ctx.freeCount;
         evt.data.phaseComplete.bytesAllocated = _ctx.bytesAllocated;
         evt.data.phaseComplete.bytesFreed = _ctx.bytesFreed;
-        evt.data.phaseComplete.peakLiveCount = _tracker->GetPeakCount();
-        evt.data.phaseComplete.peakLiveBytes = _tracker->GetPeakBytes();
-        evt.data.phaseComplete.finalLiveCount = _tracker->GetLiveCount();
-        evt.data.phaseComplete.finalLiveBytes = _tracker->GetLiveBytes();
+        evt.data.phaseComplete.peakLiveCount = _tracker ? _tracker->GetPeakCount() : 0;
+        evt.data.phaseComplete.peakLiveBytes = _tracker ? _tracker->GetPeakBytes() : 0;
+        evt.data.phaseComplete.finalLiveCount = _tracker ? _tracker->GetLiveCount() : 0;
+        evt.data.phaseComplete.finalLiveBytes = _tracker ? _tracker->GetLiveBytes() : 0;
         evt.data.phaseComplete.opsPerSec = durationNs > 0 ? static_cast<f64>(totalIssuedOperations) * 1e9 / static_cast<f64>(durationNs) : 0.0;
         evt.data.phaseComplete.throughput = durationNs > 0 ? static_cast<f64>(evt.data.phaseComplete.bytesAllocated) * 1e9 / static_cast<f64>(durationNs) : 0.0;
         _eventSink->OnEvent(evt);
@@ -211,51 +214,71 @@ void PhaseExecutor::Execute() {
 
 void PhaseExecutor::ExecuteOperationAlloc(const Operation& op, u64 opIndex) const {
     if (!_tracker || !_tracker->isValid()) return;
-    auto result = _tracker->Track(op.ptr, op.size, op.alignment, op.tag, opIndex);
-    if (!result.tracked && op.ptr) {
-        // Free untracked allocation
-        core::AllocationInfo info{};
-        info.ptr = op.ptr;
-        info.size = op.size;
-        info.alignment = op.alignment;
-        info.tag = op.tag;
-        _ctx.allocator->Deallocate(info);
+    // Real allocation (fix: call allocator)
+    if (!op.ptr) {
+        core::AllocationRequest req{};
+        req.size = op.size;
+        req.alignment = op.alignment;
+        req.tag = op.tag;
+        req.flags = op.flags;
+        void* ptr = _ctx.allocator->Allocate(req);
+        if (!ptr) return; // Allocation failed
+        // Compose new operation with ptr
+        Operation realOp = op;
+        realOp.ptr = ptr;
+        auto result = _tracker->Track(ptr, op.size, op.alignment, op.tag, opIndex);
+        if (!result.tracked && ptr) {
+            // Free untracked allocation
+            core::AllocationInfo info{};
+            info.ptr = ptr;
+            info.size = op.size;
+            info.alignment = op.alignment;
+            info.tag = op.tag;
+            _ctx.allocator->Deallocate(info);
+        }
+        _ctx.allocCount++;
+        _ctx.bytesAllocated += op.size;
+        if (result.forcedFree) {
+            _ctx.freeCount++;
+            _ctx.bytesFreed += op.size; // Можно уточнить freed size, если нужно
+        }
     }
 }
 
-void PhaseExecutor::ExecuteOperationFree(u64 opIndex) const {
-    ASSERT(_ctx.allocator != nullptr);
-    ASSERT(_tracker != nullptr);
-
-    AllocInfo a{};
-    if (!_tracker->PopForFree(a)) {
-        return;
-    }
-    core::AllocationInfo info{};
-    info.ptr = a.ptr;
-    info.size = a.size;
-    info.alignment = a.alignment;
-    info.tag = a.tag;
-    _ctx.allocator->Deallocate(info);
+void PhaseExecutor::ExecuteOperationFree(u64 /*opIndex*/) const {
+    if (!_tracker || !_tracker->isValid()) return;
+    AllocInfo info{};
+    if (!_tracker->PopForFree(info)) return;
+    core::AllocationInfo deallocInfo{};
+    deallocInfo.ptr = info.ptr;
+    deallocInfo.size = info.size;
+    deallocInfo.alignment = info.alignment;
+    deallocInfo.tag = info.tag;
+    _ctx.allocator->Deallocate(deallocInfo);
     _ctx.freeCount++;
-    _ctx.bytesFreed += a.size;
+    _ctx.bytesFreed += info.size;
 }
 
-void PhaseExecutor::ExecuteReclaim() const {
-    if (_desc.reclaimMode == ReclaimMode::None) {
-        return;
-    } else if (_desc.reclaimMode == ReclaimMode::FreeAll) {
-        // Before FreeAll, count all live objects and bytes for stats
+void PhaseExecutor::ExecuteReclaim() {
+    if (!_tracker || !_tracker->isValid()) return;
+    if (_desc.reclaimMode == ReclaimMode::FreeAll) {
+        // Корректно итерируемся по live-объектам с учётом ring-буфера
         AllocInfo* liveArray = nullptr;
         u32 liveCount = 0;
         _tracker->GetAllLive(&liveArray, &liveCount);
         u64 freedBytes = 0;
         for (u32 i = 0; i < liveCount; ++i) {
-            freedBytes += liveArray[i].size;
+            core::AllocationInfo info{};
+            info.ptr = liveArray[i].ptr;
+            info.size = liveArray[i].size;
+            info.alignment = liveArray[i].alignment;
+            info.tag = liveArray[i].tag;
+            _ctx.allocator->Deallocate(info);
+            freedBytes += info.size;
         }
         _ctx.freeCount += liveCount;
         _ctx.bytesFreed += freedBytes;
-        _tracker->FreeAll();
+        _tracker->Clear();
     } else if (_desc.reclaimMode == ReclaimMode::Custom && _desc.reclaimCallback) {
         _desc.reclaimCallback(_ctx);
     }
@@ -268,8 +291,5 @@ bool PhaseExecutor::IsPhaseComplete() const {
     return false;
 }
 
-const PhaseStats& PhaseExecutor::GetStats() const noexcept {
-    return _stats;
-}
-
 } // namespace core::bench
+

@@ -32,7 +32,7 @@ public:
 private:
     void ExecuteOperationAlloc(const Operation& op, u64 opIndex) const;
     void ExecuteOperationFree(u64 opIndex) const;
-    void ExecuteReclaim() const;
+    void ExecuteReclaim();
     bool IsPhaseComplete() const;
 
     const PhaseDescriptor& _desc;
