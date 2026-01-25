@@ -136,3 +136,49 @@ Manages periodic tick events for progress reporting and metrics collection durin
 - Use PhaseExecutor to run each phase, collecting events and metrics.
 
 See the code in `workload/` for detailed API and implementation.
+
+## Preset Distributions
+
+The workload model provides a set of ready-to-use preset distributions for both allocation size and alignment. These can be used directly in your experiments via the `SizePresets` and `AlignmentPresets` namespaces.
+
+### SizePresets
+- `SmallObjects()` — Uniform [8, 64] bytes
+- `MediumObjects()` — Uniform [64, 512] bytes
+- `LargeObjects()` — Uniform [512, 4096] bytes
+- `WebServer()` — LogNormal, mean=256, stddev=512, [16, 4096]
+- `GameEntityPool()` — Bimodal: 85% [16,64], 15% [1024,2048], [8,8192]
+- `DatabasePages()` — PowerOfTwo [4096, 16384]
+
+### AlignmentPresets
+- `Default()` — Fixed alignment = 0 (allocator default)
+- `CacheLine()` — Fixed alignment = cache line size
+- `MatchSizePow2(minA, maxA)` — Alignment = next_pow2(size), clamped
+- `PowerOfTwoRange(minA, maxA)` — Random power-of-two in range
+
+Example usage:
+```cpp
+params.sizeDistribution = core::bench::SizePresets::WebServer();
+params.alignmentDistribution = core::bench::AlignmentPresets::CacheLine();
+```
+
+## Usage Example: Custom Workload
+
+```cpp
+core::bench::WorkloadParams params;
+params.seed = 42;
+params.operationCount = 100000;
+params.sizeDistribution = core::bench::SizePresets::GameEntityPool();
+params.alignmentDistribution = core::bench::AlignmentPresets::MatchSizePow2(8, 64);
+params.lifetimeModel = core::bench::LifetimeModel::Bounded;
+params.maxLiveObjects = 1000;
+params.allocFreeRatio = 0.6f;
+
+core::bench::PhaseDescriptor desc;
+desc.name = "Steady";
+desc.type = core::bench::PhaseType::Steady;
+desc.params = params;
+
+// ... setup PhaseContext, PhaseExecutor, etc.
+```
+
+See `workload/workload_params.hpp` for all available presets and parameter options.
