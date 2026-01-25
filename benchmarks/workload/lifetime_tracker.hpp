@@ -52,11 +52,11 @@ public:
     void Clear() noexcept;
 
     // Metrics
-    u32 GetLiveCount() const noexcept;
-    u64 GetLiveBytes() const noexcept;
-    u64 GetPeakBytes() const noexcept;
-    u32 GetPeakCount() const noexcept;
-    u32 GetCapacity() const noexcept { return _capacity; }
+    [[nodiscard]] u32 GetLiveCount() const noexcept;
+    [[nodiscard]] u64 GetLiveBytes() const noexcept;
+    [[nodiscard]] u64 GetPeakBytes() const noexcept;
+    [[nodiscard]] u32 GetPeakCount() const noexcept;
+    [[nodiscard]] u32 GetCapacity() const noexcept { return _capacity; }
 
 private:
     LifetimeModel _model;
@@ -66,12 +66,17 @@ private:
 
     AllocInfo* _buffer = nullptr;
     u32 _count = 0;
+    u32 _head = 0;
+    u32 _tail = 0;
+    bool _ringMode = false;
 
     u64 _totalLiveBytes = 0;
     u64 _peakLiveBytes = 0;
     u32 _peakLiveCount = 0;
 
     void RemoveIndex(u32 idx) noexcept;
+public:
+    [[nodiscard]] bool isValid() const noexcept { return _buffer != nullptr; }
 };
 
 } // namespace core::bench

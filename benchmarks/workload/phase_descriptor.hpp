@@ -35,7 +35,7 @@ enum class ReclaimMode {
 using ReclaimCallback = void(*)(PhaseContext& ctx) noexcept;
 
 // Callback for custom operations in phase (called each iteration)
-using PhaseOperationCallback = void(*)(PhaseContext& ctx, u64 opIndex) noexcept;
+using PhaseOperationCallback = void(*)(PhaseContext& ctx) noexcept;
 
 // Callback for checking phase completion (returns true when phase should end)
 using PhaseCompletionCallback = bool(*)(const PhaseContext& ctx) noexcept;

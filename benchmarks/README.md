@@ -192,3 +192,31 @@ See `workload/workload_params.hpp` for all available presets and parameter optio
 - **Time-based Completion:**
   - The main operation loop is limited by `operationCount`. If you want to use a time-based completion callback, you must set a sufficiently large `operationCount` to allow the callback to trigger. If `operationCount` is zero, the phase will terminate immediately and the callback will not be called.
   - This is by design for determinism and reproducibility. If you need unlimited or time-based phases, set `operationCount` to a large value and use a custom completion callback.
+
+## Workload Model and Phase Semantics
+
+### Lifetime Models and Tracking
+- **FIFO/Bounded**: Now implemented as O(1) ring buffer (head/tail). RemoveIndex for idx==0 just advances head, no array copy. For other models, swap-remove is used.
+- **Bounded**: When the buffer is full, the oldest allocation is forcibly freed (forcedFree). Free operations before reaching capacity are ignored. This matches a true bounded live-set.
+- **Peaks**: Peak live count/bytes are reset on Clear()/FreeAll(), so shared trackers between phases do not leak peak stats.
+
+### Phases with Zero Operations
+- If `operationCount == 0`, the phase will not create a LifetimeTracker and will only call `completionCheck` and/or `customOperation` once if provided.
+- This allows for time-based or callback-only phases without dummy operations.
+
+### customOperation Semantics
+- The `customOperation` callback now only receives `PhaseContext` (not Operation). It is responsible for updating all relevant metrics in the context.
+- If you use customOperation, you must update allocCount, freeCount, bytesAllocated, bytesFreed, etc. in PhaseContext yourself.
+
+### Parameter Validation
+- `allocFreeRatio` is always clamped to [0,1].
+- For `AlignmentDistributionType::Typical64`, bucketCount is clamped to 4 if using defaults.
+- All size/alignment distributions are clamped to valid ranges.
+
+### API Invariants
+- All operations are counted and validated. If a buffer cannot be allocated for LifetimeTracker, the phase will not track allocations and will free untracked allocations immediately.
+- For Bounded/FIFO, ring buffer is used for O(1) performance. For large live-sets, this avoids O(n) shifts.
+
+### Responsibility for Metrics
+- If you override operation flow with customOperation, you are responsible for updating all phase metrics in PhaseContext.
+

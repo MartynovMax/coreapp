@@ -50,24 +50,24 @@ struct SizeDistribution {
     DistributionType type;
     u32 minSize;
     u32 maxSize;
-    
+
     // For statistical distributions (Normal, LogNormal):
-    float mean = 0.0f;
-    float stddev = 0.0f;
-    
+    f32 mean = 0.0f;
+    f32 stddev = 0.0f;
+
     // For shape-based distributions (Pareto, Exponential):
-    float shape = 0.0f;
-    
+    f32 shape = 0.0f;
+
     // For Bimodal distribution:
     u32 peak1Min = 0;
     u32 peak1Max = 0;
     u32 peak2Min = 0;
     u32 peak2Max = 0;
-    float peak1Weight = 0.5f;       // Probability of first peak (0.0 to 1.0)
-    
+    f32 peak1Weight = 0.5f;       // Probability of first peak (0.0 to 1.0)
+
     // For CustomBuckets distribution:
     const u32* buckets = nullptr;   // Array of size buckets
-    const float* weights = nullptr; // Array of weights (must sum to 1.0)
+    const f32* weights = nullptr; // Array of weights (must sum to 1.0)
     u32 bucketCount = 0;
 };
 
@@ -85,17 +85,11 @@ enum class AlignmentDistributionType {
 
 struct AlignmentDistribution {
     AlignmentDistributionType type = AlignmentDistributionType::Fixed;
-
-    // Fixed alignment (0 means: rely on allocator default CORE_DEFAULT_ALIGNMENT)
     core::memory_alignment fixedAlignment = 0;
-
-    // Range-based / MatchSizePow2:
     core::memory_alignment minAlignment = 8;
     core::memory_alignment maxAlignment = 64;
-
-    // Typical64 or CustomBuckets:
     const core::memory_alignment* buckets = nullptr;
-    const float* weights = nullptr;
+    const f32* weights = nullptr;
     u32 bucketCount = 0;
 };
 
@@ -131,8 +125,8 @@ struct WorkloadParams {
     core::memory_tag tag = 0;
     core::AllocationFlags flags = core::AllocationFlags::None;
     // Operation mix:
-    float allocFreeRatio = 1.0f;        // 1.0 = alloc only, 0.5 = 50/50, 0.0 = free only
-    
+    f32 allocFreeRatio = 1.0f;        // 1.0 = alloc only, 0.5 = 50/50, 0.0 = free only
+
     // Lifetime behavior:
     LifetimeModel lifetimeModel = LifetimeModel::Fifo;
     u32 maxLiveObjects = 0;             // For Bounded model (0 = unlimited, unlimited = large internal buffer)

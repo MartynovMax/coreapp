@@ -33,8 +33,8 @@ struct PhaseCompletePayload {
     u64 peakLiveBytes;
     u64 finalLiveCount;
     u64 finalLiveBytes;
-    double opsPerSec;
-    double throughput;
+    f64 opsPerSec;
+    f64 throughput;
 };
 
 // TickPayload - metrics for tick events

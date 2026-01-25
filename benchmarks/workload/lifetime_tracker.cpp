@@ -15,6 +15,9 @@ LifetimeTracker::LifetimeTracker(u32 capacity, LifetimeModel model, SeededRNG& r
     , _buffer(nullptr)
     , _capacity(capacity)
     , _count(0)
+    , _head(0)
+    , _tail(0)
+    , _ringMode(model == LifetimeModel::Fifo || model == LifetimeModel::Bounded)
     , _totalLiveBytes(0)
     , _peakLiveBytes(0)
     , _peakLiveCount(0)
@@ -49,14 +52,14 @@ LifetimeTracker::~LifetimeTracker() noexcept {
 }
 
 LifetimeTracker::TrackResult LifetimeTracker::Track(void* ptr, u32 size, core::memory_alignment alignment, core::memory_tag tag, u64 opIndex) noexcept {
-    ASSERT(_buffer != nullptr);
     TrackResult result{};
-    if (!_buffer || !ptr || size == 0) {
+    if (!isValid() || !ptr || size == 0) {
         return result;
     }
     if (_count >= _capacity) {
-        if (_model == LifetimeModel::Bounded) {
-            const AllocInfo& toFree = _buffer[0];
+        if (_ringMode && _model == LifetimeModel::Bounded) {
+            // Forced free oldest (head)
+            const AllocInfo& toFree = _buffer[_head];
             if (_allocator && toFree.ptr) {
                 core::AllocationInfo info{};
                 info.ptr = toFree.ptr;
@@ -66,19 +69,25 @@ LifetimeTracker::TrackResult LifetimeTracker::Track(void* ptr, u32 size, core::m
                 _allocator->Deallocate(info);
             }
             result.forcedFree = true;
-            result.freedInfo = _buffer[0];
-            RemoveIndex(0);
+            result.freedInfo = _buffer[_head];
+            RemoveIndex(_head);
         } else {
             return result;
         }
     }
-    AllocInfo& info = _buffer[_count++];
+    u32 idx = _ringMode ? _tail : _count;
+    AllocInfo& info = _buffer[idx];
     info.ptr = ptr;
     info.size = size;
     info.alignment = alignment;
     info.tag = tag;
     info.allocTime = opIndex;
-
+    if (_ringMode) {
+        _tail = (_tail + 1) % _capacity;
+        if (_count < _capacity) _count++;
+    } else {
+        _count++;
+    }
     _totalLiveBytes += size;
     if (_totalLiveBytes > _peakLiveBytes) _peakLiveBytes = _totalLiveBytes;
     if (_count > _peakLiveCount) _peakLiveCount = _count;
@@ -87,82 +96,95 @@ LifetimeTracker::TrackResult LifetimeTracker::Track(void* ptr, u32 size, core::m
 }
 
 void LifetimeTracker::RemoveIndex(u32 idx) noexcept {
-    if (idx >= _count) return;
+    if (!isValid() || _count == 0) return;
     _totalLiveBytes -= _buffer[idx].size;
-    if ((_model == LifetimeModel::Fifo || _model == LifetimeModel::Bounded) && idx == 0 && _count > 1) {
-        // FIFO: shift all elements left
-        for (u32 i = 1; i < _count; ++i) {
-            _buffer[i - 1] = _buffer[i];
+    if (_ringMode) {
+        // Only support remove head (FIFO/Bounded)
+        if (idx == _head) {
+            _head = (_head + 1) % _capacity;
+            _count--;
         }
-    } else if (idx != _count - 1) {
-        // Swap-remove for other models
-        _buffer[idx] = _buffer[_count - 1];
+        // else: ignore (only head can be removed in ring mode)
+    } else {
+        if (idx != _count - 1) {
+            _buffer[idx] = _buffer[_count - 1];
+        }
+        --_count;
     }
-    --_count;
 }
 
 bool LifetimeTracker::PopForFree(AllocInfo& out_info) noexcept {
-    ASSERT(_buffer != nullptr);
-    if (!_buffer || _count == 0) {
+    if (!isValid() || _count == 0) {
         return false;
     }
-
     u32 idx = 0;
-
-    switch (_model) {
-        case LifetimeModel::Lifo:
-            idx = _count - 1;
-            break;
-
-        case LifetimeModel::Fifo:
-            idx = 0;
-            break;
-
-        case LifetimeModel::Random:
-            idx = _rng.NextU32() % _count;
-            break;
-
-        case LifetimeModel::Bounded:
-            // When bounded and we hit/exceed the bound, free something (FIFO semantics by default).
-            if (_capacity > 0 && _count >= _capacity) {
-                idx = 0;
-            } else {
+    if (_ringMode) {
+        switch (_model) {
+            case LifetimeModel::Fifo:
+            case LifetimeModel::Bounded:
+                idx = _head;
+                break;
+            case LifetimeModel::Lifo:
+                idx = (_tail + _capacity - 1) % _capacity;
+                break;
+            case LifetimeModel::Random:
+                idx = (_head + (_rng.NextU32() % _count)) % _capacity;
+                break;
+            case LifetimeModel::LongLived:
+            default:
                 return false;
-            }
-            break;
-
-        case LifetimeModel::LongLived:
-        default:
-            return false;
+        }
+    } else {
+        switch (_model) {
+            case LifetimeModel::Lifo:
+                idx = _count - 1;
+                break;
+            case LifetimeModel::Fifo:
+                idx = 0;
+                break;
+            case LifetimeModel::Random:
+                idx = _rng.NextU32() % _count;
+                break;
+            case LifetimeModel::Bounded:
+                if (_capacity > 0 && _count >= _capacity) {
+                    idx = 0;
+                } else {
+                    return false;
+                }
+                break;
+            case LifetimeModel::LongLived:
+            default:
+                return false;
+        }
     }
-
     out_info = _buffer[idx];
     RemoveIndex(idx);
     return true;
 }
 
 void LifetimeTracker::FreeAll() noexcept {
-    ASSERT(_buffer != nullptr);
-    if (!_buffer) {
+    if (!isValid()) {
         return;
     }
-
     if (_allocator) {
-        for (u32 i = 0; i < _count; ++i) {
-            const AllocInfo& a = _buffer[i];
-
+        u32 n = _count;
+        for (u32 i = 0; i < n; ++i) {
+            u32 idx = _ringMode ? (_head + i) % _capacity : i;
+            const AllocInfo& a = _buffer[idx];
             core::AllocationInfo info{};
             info.ptr = a.ptr;
             info.size = a.size;
-            info.alignment = a.alignment; // 0 is allowed; allocator will normalize if it chooses
+            info.alignment = a.alignment;
             info.tag = a.tag;
-
             _allocator->Deallocate(info);
         }
     }
-
     _count = 0;
+    _head = 0;
+    _tail = 0;
     _totalLiveBytes = 0;
+    _peakLiveBytes = 0;
+    _peakLiveCount = 0;
 }
 
 void LifetimeTracker::GetAllLive(AllocInfo** outArray, u32* outCount) const noexcept {
@@ -172,7 +194,11 @@ void LifetimeTracker::GetAllLive(AllocInfo** outArray, u32* outCount) const noex
 
 void LifetimeTracker::Clear() noexcept {
     _count = 0;
+    _head = 0;
+    _tail = 0;
     _totalLiveBytes = 0;
+    _peakLiveBytes = 0;
+    _peakLiveCount = 0;
 }
 
 u32 LifetimeTracker::GetLiveCount() const noexcept { return _count; }

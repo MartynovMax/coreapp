@@ -59,8 +59,10 @@ void PhaseExecutor::Execute() {
         trackerCapacity = _desc.params.maxLiveObjects;
     } else if (_desc.params.operationCount > 0 && _desc.params.operationCount < 1000000) {
         trackerCapacity = static_cast<u32>(_desc.params.operationCount);
+    } else if (_desc.params.operationCount > 0) {
+        trackerCapacity = 1000000;
     } else {
-        trackerCapacity = 1000000; // Default: 1 million live objects if unlimited
+        trackerCapacity = 0;
     }
 
     // Use external tracker if provided in context (for cross-phase live-set)
@@ -68,14 +70,27 @@ void PhaseExecutor::Execute() {
     if (_ctx.externalLifetimeTracker) {
         _tracker = _ctx.externalLifetimeTracker;
         ownsTracker = false;
-    } else {
+    } else if (trackerCapacity > 0) {
         _tracker = new LifetimeTracker(trackerCapacity, _desc.params.lifetimeModel, *_ctx.rng, _ctx.allocator);
         ownsTracker = true;
+    } else {
+        _tracker = nullptr;
+        ownsTracker = false;
     }
-    ASSERT(_tracker != nullptr);
-    _ctx.lifetimeTracker = _tracker;
-    // Save ownership flag for destructor
     _ownsTracker = ownsTracker;
+    _ctx.lifetimeTracker = _tracker;
+
+    if (_tracker) _tracker->Clear();
+
+    if (_desc.params.operationCount == 0) {
+        if (_desc.completionCheck) {
+            _desc.completionCheck(_ctx);
+        }
+        if (_desc.customOperation) {
+            _desc.customOperation(_ctx);
+        }
+        return;
+    }
 
     // Setup context pointers
     _ctx.eventSink = _eventSink;
@@ -113,7 +128,7 @@ void PhaseExecutor::Execute() {
         const Operation op = _opStream->Next();
         _ctx.currentOpIndex = opIndex;
         if (_desc.customOperation) {
-            _desc.customOperation(_ctx, opIndex);
+            _desc.customOperation(_ctx);
         } else {
             if (op.type == OpType::Alloc) {
                 ExecuteOperationAlloc(op, opIndex);
@@ -177,10 +192,8 @@ void PhaseExecutor::Execute() {
         evt.data.phaseComplete.peakLiveBytes = _tracker->GetPeakBytes();
         evt.data.phaseComplete.finalLiveCount = _tracker->GetLiveCount();
         evt.data.phaseComplete.finalLiveBytes = _tracker->GetLiveBytes();
-        evt.data.phaseComplete.opsPerSec = (durationNs > 0) ?
-            static_cast<double>(totalIssuedOperations) * 1e9 / static_cast<double>(durationNs) : 0.0;
-        evt.data.phaseComplete.throughput = (durationNs > 0) ?
-            static_cast<double>(evt.data.phaseComplete.bytesAllocated) * 1e9 / static_cast<double>(durationNs) : 0.0;
+        evt.data.phaseComplete.opsPerSec = durationNs > 0 ? static_cast<f64>(totalIssuedOperations) * 1e9 / static_cast<f64>(durationNs) : 0.0;
+        evt.data.phaseComplete.throughput = durationNs > 0 ? static_cast<f64>(evt.data.phaseComplete.bytesAllocated) * 1e9 / static_cast<f64>(durationNs) : 0.0;
         _eventSink->OnEvent(evt);
     }
 
@@ -197,27 +210,16 @@ void PhaseExecutor::Execute() {
 }
 
 void PhaseExecutor::ExecuteOperationAlloc(const Operation& op, u64 opIndex) const {
-    ASSERT(_ctx.allocator != nullptr);
-    ASSERT(_tracker != nullptr);
-    if (_tracker->GetLiveCount() >= _tracker->GetCapacity() && _desc.params.lifetimeModel != LifetimeModel::Bounded) {
-        return;
-    }
-    core::AllocationRequest req{};
-    req.size = op.size;
-    req.alignment = op.alignment;
-    req.tag = op.tag;
-    req.flags = op.flags;
-
-    if (void* ptr = _ctx.allocator->Allocate(req)) {
-        auto trackResult = _tracker->Track(ptr, op.size, op.alignment, op.tag, opIndex);
-        if (trackResult.tracked) {
-            _ctx.allocCount++;
-            _ctx.bytesAllocated += op.size;
-        }
-        if (trackResult.forcedFree) {
-            _ctx.freeCount++;
-            _ctx.bytesFreed += trackResult.freedInfo.size;
-        }
+    if (!_tracker || !_tracker->isValid()) return;
+    auto result = _tracker->Track(op.ptr, op.size, op.alignment, op.tag, opIndex);
+    if (!result.tracked && op.ptr) {
+        // Free untracked allocation
+        core::AllocationInfo info{};
+        info.ptr = op.ptr;
+        info.size = op.size;
+        info.alignment = op.alignment;
+        info.tag = op.tag;
+        _ctx.allocator->Deallocate(info);
     }
 }
 
