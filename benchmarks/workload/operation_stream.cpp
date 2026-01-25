@@ -22,12 +22,16 @@ OperationStream::OperationStream(const WorkloadParams& params, SeededRNG& rng) n
     }
     if (_params.sizeDistribution.type == DistributionType::CustomBuckets) {
         ASSERT(_params.sizeDistribution.bucketCount > 0);
+        ASSERT(_params.sizeDistribution.buckets != nullptr);
+        ASSERT(_params.sizeDistribution.weights != nullptr);
         f32 sum = 0.0f;
         for (u32 i = 0; i < _params.sizeDistribution.bucketCount; ++i) sum += _params.sizeDistribution.weights[i];
         ASSERT(sum > 0.99f && sum < 1.01f);
     }
     if (_params.alignmentDistribution.type == AlignmentDistributionType::CustomBuckets) {
         ASSERT(_params.alignmentDistribution.bucketCount > 0);
+        ASSERT(_params.alignmentDistribution.buckets != nullptr);
+        ASSERT(_params.alignmentDistribution.weights != nullptr);
         f32 sum = 0.0f;
         for (u32 i = 0; i < _params.alignmentDistribution.bucketCount; ++i) sum += _params.alignmentDistribution.weights[i];
         ASSERT(sum > 0.99f && sum < 1.01f);
@@ -298,16 +302,12 @@ u32 OperationStream::GenerateSize() const noexcept {
             if (dist.buckets == nullptr || dist.weights == nullptr || dist.bucketCount == 0) {
                 return _rng.NextRange(dist.minSize, dist.maxSize);
             }
-            f32 sum = 0.0f;
-            for (u32 i = 0; i < dist.bucketCount; ++i) sum += dist.weights[i];
-            ASSERT(sum > 0.99f && sum < 1.01f);
             f32 r = static_cast<f32>(_rng.NextU32()) / static_cast<f32>(0xFFFFFFFFu);
             f32 cumulative = 0.0f;
             for (u32 i = 0; i < dist.bucketCount; i++) {
                 cumulative += dist.weights[i];
                 if (r < cumulative) return dist.buckets[i];
             }
-
             return dist.buckets[dist.bucketCount - 1];
         }
 

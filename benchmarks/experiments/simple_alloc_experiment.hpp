@@ -46,6 +46,7 @@ private:
     PhaseDescriptor _phaseDesc{};
     PhaseExecutor* _phaseExecutor = nullptr;
     IEventSink* _eventSink = nullptr;
+    core::bench::SeededRNG _rng{0};
 };
 
 } // namespace bench

@@ -44,6 +44,8 @@ void SimpleAllocExperiment::Setup(const ExperimentParams& params) {
     _allocator = &core::GetDefaultAllocator();
     ASSERT(_allocator != nullptr);
     _seed = params.seed;
+    _rng = core::bench::SeededRNG(_seed);
+    _phaseCtx.rng = &_rng;
 }
 
 void SimpleAllocExperiment::Warmup() {
@@ -69,10 +71,9 @@ void SimpleAllocExperiment::Warmup() {
     _phaseDesc.completionCheck = nullptr;
     _phaseDesc.userData = nullptr;
 
-    SeededRNG rng(_params.seed);
     _phaseCtx = {};
     _phaseCtx.allocator = _allocator;
-    _phaseCtx.rng = &rng;
+    _phaseCtx.rng = &_rng;
     ASSERT(_phaseCtx.rng != nullptr);
     _phaseCtx.eventSink = _eventSink;
     _phaseCtx.phaseName = _phaseDesc.name;

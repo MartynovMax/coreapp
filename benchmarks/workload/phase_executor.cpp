@@ -78,7 +78,7 @@ void PhaseExecutor::Execute() {
     _ownsTracker = ownsTracker;
     _ctx.lifetimeTracker = _tracker;
 
-    if (_tracker && (!_ctx.externalLifetimeTracker || _desc.reclaimMode == ReclaimMode::FreeAll)) {
+    if (_tracker && (!_ctx.externalLifetimeTracker && _desc.reclaimMode != ReclaimMode::FreeAll)) {
         _tracker->Clear();
     }
 
@@ -232,6 +232,8 @@ void PhaseExecutor::ExecuteOperationAlloc(const Operation& op, u64 opIndex) cons
             info.alignment = op.alignment;
             info.tag = op.tag;
             _ctx.allocator->Deallocate(info);
+            _ctx.freeCount++;
+            _ctx.bytesFreed += op.size;
         }
         _ctx.allocCount++;
         _ctx.bytesAllocated += op.size;
@@ -267,8 +269,12 @@ void PhaseExecutor::ExecuteReclaim() {
             // Do nothing, preserve live-set between phases
             break;
         case ReclaimMode::FreeAll:
-            if (_tracker && _tracker->isValid()) {
-                _tracker->FreeAll();
+            if (_tracker) {
+                u64 freedCount = 0;
+                u64 freedBytes = 0;
+                _tracker->FreeAll(&freedCount, &freedBytes);
+                _ctx.freeCount += freedCount;
+                _ctx.bytesFreed += freedBytes;
             }
             break;
         case ReclaimMode::Custom:

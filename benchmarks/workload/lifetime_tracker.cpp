@@ -5,7 +5,6 @@
 
 #include "lifetime_tracker.hpp"
 #include "core/base/core_assert.hpp"
-#include <functional>
 
 namespace core::bench {
 
@@ -230,11 +229,12 @@ void LifetimeTracker::GetAllLive(AllocInfo** outArray, u32* outCount, u32* outHe
     if (outRingMode) *outRingMode = _ringMode;
 }
 
-void LifetimeTracker::ForEachLive(const std::function<void(const AllocInfo&)>& callback) const noexcept {
-    if (!isValid() || _count == 0) return;
+void LifetimeTracker::ForEachLive(LiveObjectCallback callback, void* userData) const noexcept {
+    if (!callback) return;
     for (u32 i = 0; i < _count; ++i) {
         u32 idx = _ringMode ? (_head + i) % _capacity : i;
-        callback(_buffer[idx]);
+        const AllocInfo& info = _buffer[idx];
+        callback(info, userData);
     }
 }
 

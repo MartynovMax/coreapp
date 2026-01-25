@@ -9,7 +9,6 @@
 #include "workload_params.hpp"
 #include "common/seeded_rng.hpp"
 #include "core/memory/core_allocator.hpp"
-#include <functional>
 
 namespace core::bench {
 
@@ -61,7 +60,8 @@ public:
     [[nodiscard]] u32 GetCapacity() const noexcept { return _capacity; }
 
     // Iterate all live objects in logical order (safe for ring mode)
-    void ForEachLive(const std::function<void(const AllocInfo&)>& callback) const noexcept;
+    using LiveObjectCallback = void(*)(const AllocInfo& info, void* userData);
+    void ForEachLive(LiveObjectCallback callback, void* userData) const noexcept;
 
 private:
     LifetimeModel _model;
