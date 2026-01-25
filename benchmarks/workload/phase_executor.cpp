@@ -30,9 +30,10 @@ PhaseExecutor::~PhaseExecutor() noexcept {
         delete _opStream;
         _opStream = nullptr;
     }
-    if (_tracker) {
+    if (_ownsTracker && _tracker) {
         delete _tracker;
         _tracker = nullptr;
+        _ownsTracker = false;
     }
 }
 
@@ -48,11 +49,22 @@ void PhaseExecutor::Execute() {
     if (_tracker) { delete _tracker; _tracker = nullptr; }
     _opStream = new OperationStream(_desc.params, *_ctx.rng);
     ASSERT(_opStream != nullptr);
-    _tracker = new LifetimeTracker(_desc.params.lifetimeModel, _desc.params.maxLiveObjects, *_ctx.rng, _ctx.allocator);
+
+    // Use external tracker if provided in context (for cross-phase live-set)
+    bool ownsTracker = false;
+    if (_ctx.externalLifetimeTracker) {
+        _tracker = _ctx.externalLifetimeTracker;
+        ownsTracker = false;
+    } else {
+        _tracker = new LifetimeTracker(_desc.params.lifetimeModel, _desc.params.maxLiveObjects, *_ctx.rng, _ctx.allocator);
+        ownsTracker = true;
+    }
     ASSERT(_tracker != nullptr);
+    _ctx.lifetimeTracker = _tracker;
+    // Save ownership flag for destructor
+    _ownsTracker = ownsTracker;
 
     // Setup context pointers
-    _ctx.lifetimeTracker = _tracker;
     _ctx.eventSink = _eventSink;
     _ctx.userData = _desc.userData;
     _ctx.phaseName = _desc.name;

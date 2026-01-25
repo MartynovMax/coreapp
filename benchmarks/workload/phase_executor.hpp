@@ -42,6 +42,7 @@ private:
     PhaseStats _stats;
     OperationStream* _opStream;
     LifetimeTracker* _tracker;
+    bool _ownsTracker = false;
 };
 
 } // namespace bench

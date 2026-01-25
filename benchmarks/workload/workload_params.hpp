@@ -136,8 +136,8 @@ struct WorkloadParams {
     
     // Lifetime behavior:
     LifetimeModel lifetimeModel = LifetimeModel::Fifo;
-    u32 maxLiveObjects = 0;             // For Bounded model (0 = unlimited)
-    
+    u32 maxLiveObjects = 0;             // For Bounded model (0 = unlimited, unlimited = large internal buffer)
+
     // Tick configuration:
     u64 tickInterval = 0;               // Emit tick event every N operations (0 = disabled)
 };

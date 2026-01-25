@@ -106,7 +106,8 @@ namespace {
         ReclaimCallback reclaimCallback = nullptr,
         PhaseOperationCallback customOperation = nullptr,
         PhaseCompletionCallback completionCheck = nullptr,
-        void* userData = nullptr)
+        void* userData = nullptr,
+        const PhaseContext* externalCtx = nullptr)
     {
         ASSERT(allocator != nullptr);
         PhaseDescriptor desc{};
@@ -132,7 +133,9 @@ namespace {
         ctx.phaseType = phaseType;
         ctx.repetitionId = repetitionId;
         ctx.userData = userData;
-
+        if (externalCtx) {
+            ctx.externalLifetimeTracker = externalCtx->externalLifetimeTracker;
+        }
         if (phaseExecutor) {
             delete phaseExecutor;
             phaseExecutor = nullptr;
@@ -147,6 +150,9 @@ namespace {
 }
 
 void SimpleAllocExperiment::RunPhases() {
+    // --- Shared tracker for Steady and BulkReclaim ---
+    LifetimeTracker* sharedTracker = nullptr;
+
     // Phase 1: RampUp (alloc-only)
     WorkloadParams rampUpParams = _params;
     rampUpParams.seed = _seed;
@@ -169,7 +175,10 @@ void SimpleAllocExperiment::RunPhases() {
     steadyParams.maxLiveObjects = 1000;
     steadyParams.allocFreeRatio = 0.5f;
     steadyParams.tickInterval = 1000;
-    RunPhase(_phaseExecutor, _allocator, _eventSink, "Steady", Name(), PhaseType::Steady, 0, steadyParams, ReclaimMode::None);
+    sharedTracker = new LifetimeTracker(steadyParams.lifetimeModel, steadyParams.maxLiveObjects, *_phaseCtx.rng, _allocator);
+    PhaseContext steadyCtx = _phaseCtx;
+    steadyCtx.externalLifetimeTracker = sharedTracker;
+    RunPhase(_phaseExecutor, _allocator, _eventSink, "Steady", Name(), PhaseType::Steady, 0, steadyParams, ReclaimMode::None, nullptr, nullptr, nullptr, nullptr, &steadyCtx);
 
     // Phase 3: BulkReclaim (FreeAll)
     WorkloadParams reclaimParams = _params;
@@ -181,7 +190,14 @@ void SimpleAllocExperiment::RunPhases() {
     reclaimParams.maxLiveObjects = 0;
     reclaimParams.allocFreeRatio = 0.0f;
     reclaimParams.tickInterval = 0;
-    RunPhase(_phaseExecutor, _allocator, _eventSink, "BulkReclaim", Name(), PhaseType::BulkReclaim, 0, reclaimParams, ReclaimMode::FreeAll);
+    PhaseContext reclaimCtx = _phaseCtx;
+    reclaimCtx.externalLifetimeTracker = sharedTracker;
+    RunPhase(_phaseExecutor, _allocator, _eventSink, "BulkReclaim", Name(), PhaseType::BulkReclaim, 0, reclaimParams, ReclaimMode::FreeAll, nullptr, nullptr, nullptr, nullptr, &reclaimCtx);
+
+    if (sharedTracker) {
+        delete sharedTracker;
+        sharedTracker = nullptr;
+    }
 }
 
 void SimpleAllocExperiment::Teardown() noexcept {

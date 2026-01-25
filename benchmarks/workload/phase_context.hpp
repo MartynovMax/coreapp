@@ -42,6 +42,9 @@ struct PhaseContext {
 
     // User data for callbacks:
     void* userData = nullptr;
+
+    // Optionally, use external tracker for cross-phase live-set (e.g. for BulkReclaim)
+    LifetimeTracker* externalLifetimeTracker = nullptr;
 };
 
 } // namespace bench
