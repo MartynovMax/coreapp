@@ -182,3 +182,13 @@ desc.params = params;
 ```
 
 See `workload/workload_params.hpp` for all available presets and parameter options.
+
+## Important Notes on Phase Metrics and Completion
+
+- **Bulk Reclaim (FreeAll):**
+  - All live allocations are actually freed and their sizes are included in `freeCount` and `bytesFreed` metrics. This ensures that phase statistics reflect the true number of deallocations and bytes freed, even for phases with mass reclamation.
+  - The time spent in bulk reclaim (FreeAll) is included in the phase duration and performance metrics (ops/sec, throughput).
+
+- **Time-based Completion:**
+  - The main operation loop is limited by `operationCount`. If you want to use a time-based completion callback, you must set a sufficiently large `operationCount` to allow the callback to trigger. If `operationCount` is zero, the phase will terminate immediately and the callback will not be called.
+  - This is by design for determinism and reproducibility. If you need unlimited or time-based phases, set `operationCount` to a large value and use a custom completion callback.

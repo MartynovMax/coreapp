@@ -183,7 +183,17 @@ void PhaseExecutor::ExecuteReclaim() const {
     if (_desc.reclaimMode == ReclaimMode::None) {
         return;
     } else if (_desc.reclaimMode == ReclaimMode::FreeAll) {
-        _tracker->Clear();
+        // Before FreeAll, count all live objects and bytes for stats
+        AllocInfo* liveArray = nullptr;
+        u32 liveCount = 0;
+        _tracker->GetAllLive(&liveArray, &liveCount);
+        u64 freedBytes = 0;
+        for (u32 i = 0; i < liveCount; ++i) {
+            freedBytes += liveArray[i].size;
+        }
+        _ctx.freeCount += liveCount;
+        _ctx.bytesFreed += freedBytes;
+        _tracker->FreeAll();
     } else if (_desc.reclaimMode == ReclaimMode::Custom && _desc.reclaimCallback) {
         _desc.reclaimCallback(_ctx);
     }
