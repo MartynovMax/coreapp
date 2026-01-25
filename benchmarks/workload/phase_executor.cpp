@@ -5,6 +5,7 @@
 
 #include "phase_executor.hpp"
 
+#include "tick_manager.hpp"
 #include "core/memory/memory_ops.hpp"
 #include "core/base/core_assert.hpp"
 
@@ -72,6 +73,11 @@ void PhaseExecutor::Execute() {
         _eventSink->OnEvent(evt);
     }
 
+    // TickManager integration
+    TickManager* tickManager = nullptr;
+    if (_desc.params.tickInterval > 0) {
+        tickManager = new TickManager(_desc.params.tickInterval);
+    }
     // Main operation loop
     u64 opIndex = 0;
     while (_opStream->HasNext()) {
@@ -86,11 +92,23 @@ void PhaseExecutor::Execute() {
                 ExecuteOperationFree(opIndex);
             }
         }
+        if (tickManager) {
+            TickContext tickCtx{};
+            tickCtx.opIndex = opIndex;
+            tickCtx.allocCount = _ctx.allocCount;
+            tickCtx.freeCount = _ctx.freeCount;
+            tickCtx.bytesAllocated = _ctx.bytesAllocated;
+            tickCtx.bytesFreed = _ctx.bytesFreed;
+            tickCtx.peakLiveCount = _tracker->GetPeakCount();
+            tickCtx.peakLiveBytes = _tracker->GetPeakBytes();
+            tickManager->OnOperation(tickCtx, _ctx);
+        }
         opIndex++;
         if (IsPhaseComplete()) {
             break;
         }
     }
+    if (tickManager) { delete tickManager; }
     u64 endTimestamp = timer.Now();
     u64 durationNs = endTimestamp - startTimestamp;
 

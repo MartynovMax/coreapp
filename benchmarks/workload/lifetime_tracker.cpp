@@ -69,13 +69,15 @@ void LifetimeTracker::Track(void* ptr, u32 size, core::memory_alignment alignmen
 }
 
 void LifetimeTracker::RemoveIndex(u32 idx) noexcept {
-    ASSERT(idx < _count);
     if (idx >= _count) return;
-
     _totalLiveBytes -= _buffer[idx].size;
-
-    // Swap-remove (keeps O(1), but breaks stable FIFO order; for FIFO we pop index 0 anyway)
-    if (idx != _count - 1) {
+    if ((_model == LifetimeModel::Fifo || _model == LifetimeModel::Bounded) && idx == 0 && _count > 1) {
+        // FIFO: shift all elements left
+        for (u32 i = 1; i < _count; ++i) {
+            _buffer[i - 1] = _buffer[i];
+        }
+    } else if (idx != _count - 1) {
+        // Swap-remove for other models
         _buffer[idx] = _buffer[_count - 1];
     }
     --_count;

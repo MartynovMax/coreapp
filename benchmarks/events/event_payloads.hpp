@@ -1,6 +1,7 @@
 #pragma once
 
 #include "../../core/base/core_types.hpp"
+#include "../workload/phase_types.hpp"
 
 namespace core {
 namespace bench {
