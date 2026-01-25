@@ -12,8 +12,7 @@
 #include "phase_context.hpp"
 #include "phase_types.hpp"
 
-namespace core {
-namespace bench {
+namespace core::bench {
 
 // Forward declarations
 class PhaseExecutor;
@@ -58,5 +57,4 @@ struct PhaseDescriptor {
     void* userData = nullptr;
 };
 
-} // namespace bench
-} // namespace core
+} // namespace core::bench

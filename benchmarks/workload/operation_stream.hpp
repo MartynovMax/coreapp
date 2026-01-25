@@ -11,11 +11,9 @@
 #include "../../core/base/core_types.hpp"
 #include "core/memory/core_allocator.hpp"
 #include "workload_params.hpp"
+#include "common/seeded_rng.hpp"
 
-namespace core {
-namespace bench {
-
-class SeededRNG;
+namespace core::bench {
 
 // ----------------------------------------------------------------------------
 // OpType - Operation type
@@ -64,5 +62,4 @@ private:
     static core::memory_alignment NextPow2(core::memory_alignment v) noexcept;
 };
 
-} // namespace bench
-} // namespace core
+} // namespace core::bench

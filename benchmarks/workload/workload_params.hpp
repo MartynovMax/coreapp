@@ -11,8 +11,7 @@
 #include "../../core/base/core_types.hpp"
 #include "core/memory/core_allocator.hpp" // AllocationFlags + memory types/macros
 
-namespace core {
-namespace bench {
+namespace core::bench {
 
 // ----------------------------------------------------------------------------
 // DistributionType - Size distribution patterns for allocations
@@ -252,5 +251,4 @@ inline AlignmentDistribution PowerOfTwoRange(
 
 } // namespace AlignmentPresets
 
-} // namespace bench
-} // namespace core
+} // namespace core::bench

@@ -1,7 +1,6 @@
 #pragma once
 
-namespace core {
-namespace bench {
+namespace core::bench {
 
 // PhaseType - Types of workload phases
 enum class PhaseType {
@@ -13,5 +12,4 @@ enum class PhaseType {
     Custom,
 };
 
-} // namespace bench
-} // namespace core
+} // namespace core::bench

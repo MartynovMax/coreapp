@@ -10,8 +10,7 @@
 #include "../events/event_sink.hpp"
 #include "phase_context.hpp"
 
-namespace core {
-namespace bench {
+namespace core::bench {
 
 struct TickContext {
     u64 opIndex;
@@ -34,5 +33,4 @@ private:
     u64 _lastTickOpIndex;
 };
 
-} // namespace bench
-} // namespace core
+} // namespace core::bench

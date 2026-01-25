@@ -11,10 +11,9 @@
 #include "operation_stream.hpp"
 #include "lifetime_tracker.hpp"
 #include "../events/event_payloads.hpp"
+#include "events/event_sink.hpp"
 
-namespace core {
-namespace bench {
-
+namespace core::bench {
 
 class PhaseExecutor {
 public:
@@ -38,12 +37,11 @@ private:
 
     const PhaseDescriptor& _desc;
     PhaseContext& _ctx;
-    IEventSink* _eventSink;
+    IEventSink *_eventSink;
     PhaseStats _stats;
     OperationStream* _opStream;
     LifetimeTracker* _tracker;
     bool _ownsTracker = false;
 };
 
-} // namespace bench
-} // namespace core
+} // namespace core::bench

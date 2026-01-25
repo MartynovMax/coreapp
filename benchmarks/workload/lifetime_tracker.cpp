@@ -6,8 +6,7 @@
 #include "lifetime_tracker.hpp"
 #include "core/base/core_assert.hpp"
 
-namespace core {
-namespace bench {
+namespace core::bench {
 
 LifetimeTracker::LifetimeTracker(u32 capacity, LifetimeModel model, SeededRNG& rng, IAllocator* allocator) noexcept
     : _model(model)
@@ -49,10 +48,11 @@ LifetimeTracker::~LifetimeTracker() noexcept {
     }
 }
 
-void LifetimeTracker::Track(void* ptr, u32 size, core::memory_alignment alignment, core::memory_tag tag, u64 opIndex) noexcept {
+LifetimeTracker::TrackResult LifetimeTracker::Track(void* ptr, u32 size, core::memory_alignment alignment, core::memory_tag tag, u64 opIndex) noexcept {
     ASSERT(_buffer != nullptr);
+    TrackResult result{};
     if (!_buffer || !ptr || size == 0) {
-        return;
+        return result;
     }
     if (_count >= _capacity) {
         if (_model == LifetimeModel::Bounded) {
@@ -65,9 +65,11 @@ void LifetimeTracker::Track(void* ptr, u32 size, core::memory_alignment alignmen
                 info.tag = toFree.tag;
                 _allocator->Deallocate(info);
             }
+            result.forcedFree = true;
+            result.freedInfo = _buffer[0];
             RemoveIndex(0);
         } else {
-            return;
+            return result;
         }
     }
     AllocInfo& info = _buffer[_count++];
@@ -80,6 +82,8 @@ void LifetimeTracker::Track(void* ptr, u32 size, core::memory_alignment alignmen
     _totalLiveBytes += size;
     if (_totalLiveBytes > _peakLiveBytes) _peakLiveBytes = _totalLiveBytes;
     if (_count > _peakLiveCount) _peakLiveCount = _count;
+    result.tracked = true;
+    return result;
 }
 
 void LifetimeTracker::RemoveIndex(u32 idx) noexcept {
@@ -176,5 +180,4 @@ u64 LifetimeTracker::GetLiveBytes() const noexcept { return _totalLiveBytes; }
 u64 LifetimeTracker::GetPeakBytes() const noexcept { return _peakLiveBytes; }
 u32 LifetimeTracker::GetPeakCount() const noexcept { return _peakLiveCount; }
 
-} // namespace bench
-} // namespace core
+} // namespace core::bench

@@ -13,8 +13,7 @@
 #include "events/event_types.hpp"
 #include "../common/high_res_timer.hpp"
 
-namespace core {
-namespace bench {
+namespace core::bench {
 
 PhaseExecutor::PhaseExecutor(const PhaseDescriptor& desc,
                              PhaseContext& ctx,
@@ -26,18 +25,15 @@ PhaseExecutor::PhaseExecutor(const PhaseDescriptor& desc,
 }
 
 PhaseExecutor::~PhaseExecutor() noexcept {
-    if (_opStream) {
-        delete _opStream;
-        _opStream = nullptr;
-    }
-    if (_ownsTracker && _tracker) {
+
+    if (_opStream) { delete _opStream; _opStream = nullptr; }
+    if (_tracker && _ownsTracker) {
         delete _tracker;
         _tracker = nullptr;
         _ownsTracker = false;
-    } else {
-        _tracker = nullptr;
-        _ownsTracker = false;
     }
+    _opStream = nullptr;
+    if (!_ctx.externalLifetimeTracker) _tracker = nullptr;
 }
 
 void PhaseExecutor::Execute() {
@@ -97,7 +93,7 @@ void PhaseExecutor::Execute() {
         evt.experimentName = _ctx.experimentName;
         evt.phaseName = _ctx.phaseName;
         evt.repetitionId = _ctx.repetitionId;
-        evt.data.phaseComplete.startTimestamp = startTimestamp;
+        evt.timestamp = startTimestamp;
         _eventSink->OnEvent(evt);
     }
 
@@ -138,7 +134,7 @@ void PhaseExecutor::Execute() {
             break;
         }
     }
-    if (tickManager) { delete tickManager; }
+    delete tickManager;
     u64 endTimestamp = timer.Now();
     u64 durationNs = endTimestamp - startTimestamp;
 
@@ -160,6 +156,7 @@ void PhaseExecutor::Execute() {
         evt.experimentName = _ctx.experimentName;
         evt.phaseName = _ctx.phaseName;
         evt.repetitionId = _ctx.repetitionId;
+        evt.timestamp = endTimestamp;
         evt.data.phaseComplete.experimentName = _ctx.experimentName;
         evt.data.phaseComplete.phaseName = _ctx.phaseName;
         evt.data.phaseComplete.phaseType = _ctx.phaseType;
@@ -190,7 +187,7 @@ void PhaseExecutor::Execute() {
         evt.experimentName = _ctx.experimentName;
         evt.phaseName = _ctx.phaseName;
         evt.repetitionId = _ctx.repetitionId;
-        evt.data.phaseComplete.endTimestamp = endTimestamp;
+        evt.timestamp = endTimestamp;
         _eventSink->OnEvent(evt);
     }
 }
@@ -208,9 +205,15 @@ void PhaseExecutor::ExecuteOperationAlloc(const Operation& op, u64 opIndex) cons
     req.flags = op.flags;
 
     if (void* ptr = _ctx.allocator->Allocate(req)) {
-        _tracker->Track(ptr, op.size, op.alignment, op.tag, opIndex);
-        _ctx.allocCount++;
-        _ctx.bytesAllocated += op.size;
+        auto trackResult = _tracker->Track(ptr, op.size, op.alignment, op.tag, opIndex);
+        if (trackResult.tracked) {
+            _ctx.allocCount++;
+            _ctx.bytesAllocated += op.size;
+        }
+        if (trackResult.forcedFree) {
+            _ctx.freeCount++;
+            _ctx.bytesFreed += trackResult.freedInfo.size;
+        }
     }
 }
 
@@ -263,5 +266,4 @@ const PhaseStats& PhaseExecutor::GetStats() const noexcept {
     return _stats;
 }
 
-} // namespace bench
-} // namespace core
+} // namespace core::bench

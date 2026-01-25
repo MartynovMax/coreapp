@@ -12,11 +12,10 @@
 #include "core/memory/core_allocator.hpp"
 #include "phase_types.hpp"
 
-namespace core {
-namespace bench {
-    class LifetimeTracker;
-    class SeededRNG;
-    class IEventSink;
+namespace core::bench {
+class LifetimeTracker;
+class SeededRNG;
+class IEventSink;
 
 // ----------------------------------------------------------------------------
 // PhaseContext - Execution context for phase operations
@@ -47,5 +46,4 @@ struct PhaseContext {
     LifetimeTracker* externalLifetimeTracker = nullptr;
 };
 
-} // namespace bench
-} // namespace core
+} // namespace core::bench

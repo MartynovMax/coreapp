@@ -10,8 +10,7 @@
 #include "common/seeded_rng.hpp"
 #include "core/memory/core_allocator.hpp"
 
-namespace core {
-namespace bench {
+namespace core::bench {
 
 struct AllocInfo {
     void* ptr = nullptr;
@@ -23,13 +22,21 @@ struct AllocInfo {
     u64 allocTime = 0; // Operation index when allocated
 };
 
+struct TrackResult {
+    bool tracked = false;
+    bool forcedFree = false;
+    AllocInfo freedInfo{};
+};
+
 class LifetimeTracker {
 public:
+    using TrackResult = ::core::bench::TrackResult;
+
     LifetimeTracker(u32 capacity, LifetimeModel model, SeededRNG& rng, IAllocator* allocator) noexcept;
     ~LifetimeTracker() noexcept;
 
     // Register a new allocation
-    void Track(void* ptr, u32 size, core::memory_alignment alignment, core::memory_tag tag, u64 opIndex) noexcept;
+    TrackResult Track(void* ptr, u32 size, core::memory_alignment alignment, core::memory_tag tag, u64 opIndex) noexcept;
 
     // Select an object to free (according to model) and remove it from tracking.
     // Returns false if nothing should be freed.
@@ -67,5 +74,4 @@ private:
     void RemoveIndex(u32 idx) noexcept;
 };
 
-} // namespace bench
-} // namespace core
+} // namespace core::bench
