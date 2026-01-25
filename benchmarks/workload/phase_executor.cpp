@@ -6,7 +6,6 @@
 #include "phase_executor.hpp"
 
 #include "tick_manager.hpp"
-#include "core/memory/memory_ops.hpp"
 #include "core/base/core_assert.hpp"
 
 #include "events/event_sink.hpp"
@@ -39,7 +38,6 @@ PhaseExecutor::~PhaseExecutor() noexcept {
 void PhaseExecutor::Execute() {
     ASSERT(_ctx.rng != nullptr);
     ASSERT(_ctx.allocator != nullptr);
-
     HighResTimer timer;
     u64 startTimestamp = timer.Now();
 
@@ -116,8 +114,8 @@ void PhaseExecutor::Execute() {
     }
     // Main operation loop
     u64 totalIssuedOperations = 0;
-    u64 opIndex = 0;
-    if (bool hasOperations = (_desc.params.operationCount > 0)) {
+    if (_desc.params.operationCount > 0) {
+        u64 opIndex = 0;
         while (_opStream->HasNext()) {
             Operation op = _opStream->Next();
             _ctx.currentOpIndex = opIndex;
@@ -160,6 +158,10 @@ void PhaseExecutor::Execute() {
     u64 endTimestamp = timer.Now();
     u64 durationNs = endTimestamp - startTimestamp;
 
+    // Save peak metrics before reclaim (they may be cleared)
+    u64 peakLiveCount = _tracker ? _tracker->GetPeakCount() : 0;
+    u64 peakLiveBytes = _tracker ? _tracker->GetPeakBytes() : 0;
+
     // Reclaim phase if needed (always, even if no operations)
     ExecuteReclaim();
 
@@ -168,8 +170,8 @@ void PhaseExecutor::Execute() {
     _stats.freeCount = _ctx.freeCount;
     _stats.bytesAllocated = _ctx.bytesAllocated;
     _stats.bytesFreed = _ctx.bytesFreed;
-    _stats.peakLiveCount = _tracker ? _tracker->GetPeakCount() : 0;
-    _stats.peakLiveBytes = _tracker ? _tracker->GetPeakBytes() : 0;
+    _stats.peakLiveCount = peakLiveCount;
+    _stats.peakLiveBytes = peakLiveBytes;
 
     // PhaseComplete event with full payload
     if (_eventSink) {
@@ -188,11 +190,11 @@ void PhaseExecutor::Execute() {
         evt.data.phaseComplete.durationNs = durationNs;
         evt.data.phaseComplete.allocCount = _ctx.allocCount;
         evt.data.phaseComplete.freeCount = _ctx.freeCount;
-        evt.data.phaseComplete.totalOperations = _ctx.allocCount + _ctx.freeCount;
+        evt.data.phaseComplete.totalOperations = totalIssuedOperations; // Use issued ops, not alloc+free
         evt.data.phaseComplete.bytesAllocated = _ctx.bytesAllocated;
         evt.data.phaseComplete.bytesFreed = _ctx.bytesFreed;
-        evt.data.phaseComplete.peakLiveCount = _tracker ? _tracker->GetPeakCount() : 0;
-        evt.data.phaseComplete.peakLiveBytes = _tracker ? _tracker->GetPeakBytes() : 0;
+        evt.data.phaseComplete.peakLiveCount = peakLiveCount;
+        evt.data.phaseComplete.peakLiveBytes = peakLiveBytes;
         evt.data.phaseComplete.finalLiveCount = _tracker ? _tracker->GetLiveCount() : 0;
         evt.data.phaseComplete.finalLiveBytes = _tracker ? _tracker->GetLiveBytes() : 0;
         evt.data.phaseComplete.opsPerSec = durationNs > 0 ? static_cast<f64>(totalIssuedOperations) * 1e9 / static_cast<f64>(durationNs) : 0.0;
@@ -213,19 +215,15 @@ void PhaseExecutor::Execute() {
 }
 
 void PhaseExecutor::ExecuteOperationAlloc(const Operation& op, u64 opIndex) const {
-    if (!_tracker || !_tracker->isValid()) return;
-    // Real allocation (fix: call allocator)
-    if (!op.ptr) {
-        core::AllocationRequest req{};
-        req.size = op.size;
-        req.alignment = op.alignment;
-        req.tag = op.tag;
-        req.flags = op.flags;
-        void* ptr = _ctx.allocator->Allocate(req);
-        if (!ptr) return; // Allocation failed
-        // Compose new operation with ptr
-        Operation realOp = op;
-        realOp.ptr = ptr;
+    // Always perform allocation, even if tracker is not present (alloc+forget)
+    core::AllocationRequest req{};
+    req.size = op.size;
+    req.alignment = op.alignment;
+    req.tag = op.tag;
+    req.flags = op.flags;
+    void* ptr = _ctx.allocator->Allocate(req);
+    if (!ptr) return; // Allocation failed
+    if (_tracker && _tracker->isValid()) {
         auto result = _tracker->Track(ptr, op.size, op.alignment, op.tag, opIndex);
         if (!result.tracked && ptr) {
             // Free untracked allocation
@@ -240,8 +238,12 @@ void PhaseExecutor::ExecuteOperationAlloc(const Operation& op, u64 opIndex) cons
         _ctx.bytesAllocated += op.size;
         if (result.forcedFree) {
             _ctx.freeCount++;
-            _ctx.bytesFreed += op.size; // Можно уточнить freed size, если нужно
+            _ctx.bytesFreed += result.freedInfo.size; // Use actual freed size
         }
+    } else {
+        // Not tracked, just alloc+forget
+        _ctx.allocCount++;
+        _ctx.bytesAllocated += op.size;
     }
 }
 
@@ -260,28 +262,16 @@ void PhaseExecutor::ExecuteOperationFree(u64 /*opIndex*/) const {
 }
 
 void PhaseExecutor::ExecuteReclaim() {
-    if (!_tracker || !_tracker->isValid()) return;
-    if (_desc.reclaimMode == ReclaimMode::FreeAll) {
-        // Корректно итерируемся по live-объектам с учётом ring-буфера
-        AllocInfo* liveArray = nullptr;
-        u32 liveCount = 0;
-        _tracker->GetAllLive(&liveArray, &liveCount);
-        u64 freedBytes = 0;
-        for (u32 i = 0; i < liveCount; ++i) {
-            core::AllocationInfo info{};
-            info.ptr = liveArray[i].ptr;
-            info.size = liveArray[i].size;
-            info.alignment = liveArray[i].alignment;
-            info.tag = liveArray[i].tag;
-            _ctx.allocator->Deallocate(info);
-            freedBytes += info.size;
-        }
-        _ctx.freeCount += liveCount;
-        _ctx.bytesFreed += freedBytes;
-        _tracker->Clear();
-    } else if (_desc.reclaimMode == ReclaimMode::Custom && _desc.reclaimCallback) {
-        _desc.reclaimCallback(_ctx);
-    }
+    if (!_tracker) return;
+    // Save peak metrics before reclaim (they will be cleared by FreeAll)
+    _stats.peakLiveCount = _tracker->GetPeakCount();
+    _stats.peakLiveBytes = _tracker->GetPeakBytes();
+    // Use FreeAll for correct ring-buffer traversal
+    core::u64 freedCount = 0;
+    core::u64 freedBytes = 0;
+    _tracker->FreeAll(&freedCount, &freedBytes);
+    _ctx.freeCount += freedCount;
+    _ctx.bytesFreed += freedBytes;
 }
 
 bool PhaseExecutor::IsPhaseComplete() const {

@@ -44,6 +44,7 @@ public:
 
     // Free all tracked allocations via allocator (if available) and clear tracking.
     void FreeAll() noexcept;
+    void FreeAll(core::u64* outCount, core::u64* outBytes) noexcept;
 
     // Get all live objects (view)
     void GetAllLive(AllocInfo** outArray, u32* outCount) const noexcept;

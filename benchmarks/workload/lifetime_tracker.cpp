@@ -187,6 +187,39 @@ void LifetimeTracker::FreeAll() noexcept {
     _peakLiveCount = 0;
 }
 
+void LifetimeTracker::FreeAll(core::u64* outCount, core::u64* outBytes) noexcept {
+    if (!isValid()) {
+        if (outCount) *outCount = 0;
+        if (outBytes) *outBytes = 0;
+        return;
+    }
+    core::u64 freedCount = 0;
+    core::u64 freedBytes = 0;
+    if (_allocator) {
+        u32 n = _count;
+        for (u32 i = 0; i < n; ++i) {
+            u32 idx = _ringMode ? (_head + i) % _capacity : i;
+            const AllocInfo& a = _buffer[idx];
+            core::AllocationInfo info{};
+            info.ptr = a.ptr;
+            info.size = a.size;
+            info.alignment = a.alignment;
+            info.tag = a.tag;
+            _allocator->Deallocate(info);
+            freedCount++;
+            freedBytes += a.size;
+        }
+    }
+    if (outCount) *outCount = freedCount;
+    if (outBytes) *outBytes = freedBytes;
+    _count = 0;
+    _head = 0;
+    _tail = 0;
+    _totalLiveBytes = 0;
+    _peakLiveBytes = 0;
+    _peakLiveCount = 0;
+}
+
 void LifetimeTracker::GetAllLive(AllocInfo** outArray, u32* outCount) const noexcept {
     if (outArray) *outArray = _buffer;
     if (outCount) *outCount = _count;
