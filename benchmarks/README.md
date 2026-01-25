@@ -89,3 +89,50 @@ desc.description = "Description";
 desc.factory = &MyExperiment::Create;
 registry.Register(desc);
 ```
+
+# Workload Model Overview
+
+This section describes the workload modeling system used in the Axiom coreapp benchmarks. The system is designed for deterministic, reproducible, and extensible benchmarking of memory allocators and related subsystems.
+
+## Key Concepts
+
+### 1. WorkloadParams
+Defines all parameters for a benchmark phase, including:
+- Size distribution (Uniform, PowerOfTwo, Normal, LogNormal, Exponential, Pareto, SmallBiased, LargeBiased, Bimodal, WebServerAlloc, GameEngine, DatabaseCache, CustomBuckets)
+- Alignment distribution (Fixed, PowerOfTwoRange, MatchSizePow2, Typical64, CustomBuckets)
+- Allocation metadata (tag, flags)
+- Operation mix (alloc/free ratio)
+- Lifetime model (Fifo, Lifo, Random, Bounded, LongLived)
+- Max live objects (for bounded models)
+- Tick interval (for periodic events)
+
+### 2. OperationStream
+Generates a deterministic sequence of allocation/free operations based on WorkloadParams and a seeded RNG. Each operation carries size, alignment, tag, and flags, ensuring full reproducibility and flexibility.
+
+### 3. LifetimeTracker
+Tracks all live allocations and implements various lifetime models (Fifo, Lifo, Random, Bounded, LongLived). Ensures that deallocation operations are consistent with the allocation attributes and supports efficient selection/removal.
+
+### 4. PhaseDescriptor & PhaseContext
+- **PhaseDescriptor**: Describes a single phase of a benchmark, including its name, type, parameters, and callbacks for custom operations and completion checks.
+- **PhaseContext**: Provides runtime context for a phase, including pointers to the allocator, RNG, event sink, and runtime metrics.
+
+### 5. PhaseExecutor
+Executes a benchmark phase using OperationStream and LifetimeTracker. Handles the main operation loop, event emission, tick management, and phase completion logic.
+
+### 6. TickManager
+Manages periodic tick events for progress reporting and metrics collection during phase execution.
+
+## Extensibility
+- All distributions and models are extensible via enums and parameter structs.
+- Callbacks allow custom operation and completion logic per phase.
+- No STL is used in public headers for maximum portability and minimal dependencies.
+
+## Determinism
+- All random decisions (size, alignment, operation type, lifetime) are made via a seeded RNG, ensuring reproducible results for the same seed and parameters.
+
+## Example Usage
+- Define a set of WorkloadParams for your scenario.
+- Create a PhaseDescriptor for each phase (e.g., RampUp, Steady, BulkReclaim).
+- Use PhaseExecutor to run each phase, collecting events and metrics.
+
+See the code in `workload/` for detailed API and implementation.

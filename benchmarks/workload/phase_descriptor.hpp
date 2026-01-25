@@ -11,7 +11,6 @@
 #include "workload_params.hpp"
 #include "phase_context.hpp"
 #include "phase_types.hpp"
-#include <functional>
 
 namespace core {
 namespace bench {
