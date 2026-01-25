@@ -10,6 +10,28 @@ OperationStream::OperationStream(const WorkloadParams& params, SeededRNG& rng) n
     , _rng(rng)
     , _currentOp(0)
 {
+    ASSERT(_params.sizeDistribution.minSize > 0);
+    ASSERT(_params.sizeDistribution.maxSize >= _params.sizeDistribution.minSize);
+    ASSERT(_params.alignmentDistribution.minAlignment >= 0);
+    ASSERT(_params.alignmentDistribution.maxAlignment >= _params.alignmentDistribution.minAlignment);
+    if (_params.sizeDistribution.type == DistributionType::Bimodal || _params.sizeDistribution.type == DistributionType::GameEngine) {
+        ASSERT(_params.sizeDistribution.peak1Min >= _params.sizeDistribution.minSize);
+        ASSERT(_params.sizeDistribution.peak1Max <= _params.sizeDistribution.maxSize);
+        ASSERT(_params.sizeDistribution.peak2Min >= _params.sizeDistribution.minSize);
+        ASSERT(_params.sizeDistribution.peak2Max <= _params.sizeDistribution.maxSize);
+    }
+    if (_params.sizeDistribution.type == DistributionType::CustomBuckets) {
+        ASSERT(_params.sizeDistribution.bucketCount > 0);
+        f32 sum = 0.0f;
+        for (u32 i = 0; i < _params.sizeDistribution.bucketCount; ++i) sum += _params.sizeDistribution.weights[i];
+        ASSERT(sum > 0.99f && sum < 1.01f);
+    }
+    if (_params.alignmentDistribution.type == AlignmentDistributionType::CustomBuckets) {
+        ASSERT(_params.alignmentDistribution.bucketCount > 0);
+        f32 sum = 0.0f;
+        for (u32 i = 0; i < _params.alignmentDistribution.bucketCount; ++i) sum += _params.alignmentDistribution.weights[i];
+        ASSERT(sum > 0.99f && sum < 1.01f);
+    }
 }
 
 Operation OperationStream::Next() noexcept {
@@ -60,7 +82,7 @@ core::memory_alignment OperationStream::GenerateAlignment(u32 size) const noexce
 
         case AlignmentDistributionType::PowerOfTwoRange: {
             core::memory_alignment minA = NextPow2(ad.minAlignment);
-            core::memory_alignment maxA = ad.maxAlignment;
+            core::memory_alignment maxA = NextPow2(ad.maxAlignment);
             if (maxA == 0) maxA = minA;
             if (minA > maxA) minA = maxA;
             u32 minPower = 0, maxPower = 0;
@@ -118,6 +140,10 @@ core::memory_alignment OperationStream::GenerateAlignment(u32 size) const noexce
 
 u32 OperationStream::GenerateSize() const noexcept {
     const SizeDistribution& dist = _params.sizeDistribution;
+
+    // Clamp min/max for all distributions
+    ASSERT(dist.minSize > 0);
+    ASSERT(dist.maxSize >= dist.minSize);
 
     switch (dist.type) {
         case DistributionType::Uniform:
@@ -214,9 +240,14 @@ u32 OperationStream::GenerateSize() const noexcept {
         }
 
         case DistributionType::Bimodal: {
+            // Clamp peaks to [minSize, maxSize]
+            u32 peak1Min = dist.peak1Min < dist.minSize ? dist.minSize : dist.peak1Min;
+            u32 peak1Max = dist.peak1Max > dist.maxSize ? dist.maxSize : dist.peak1Max;
+            u32 peak2Min = dist.peak2Min < dist.minSize ? dist.minSize : dist.peak2Min;
+            u32 peak2Max = dist.peak2Max > dist.maxSize ? dist.maxSize : dist.peak2Max;
             f32 r = static_cast<f32>(_rng.NextU32()) / static_cast<f32>(0xFFFFFFFFu);
-            if (r < dist.peak1Weight) return _rng.NextRange(dist.peak1Min, dist.peak1Max);
-            return _rng.NextRange(dist.peak2Min, dist.peak2Max);
+            if (r < dist.peak1Weight) return _rng.NextRange(peak1Min, peak1Max);
+            return _rng.NextRange(peak2Min, peak2Max);
         }
 
         case DistributionType::WebServerAlloc: {
@@ -234,9 +265,14 @@ u32 OperationStream::GenerateSize() const noexcept {
         }
 
         case DistributionType::GameEngine: {
+            // Clamp peaks to [minSize, maxSize]
+            u32 peak1Min = dist.peak1Min < dist.minSize ? dist.minSize : dist.peak1Min;
+            u32 peak1Max = dist.peak1Max > dist.maxSize ? dist.maxSize : dist.peak1Max;
+            u32 peak2Min = dist.peak2Min < dist.minSize ? dist.minSize : dist.peak2Min;
+            u32 peak2Max = dist.peak2Max > dist.maxSize ? dist.maxSize : dist.peak2Max;
             f32 r = static_cast<f32>(_rng.NextU32()) / static_cast<f32>(0xFFFFFFFFu);
-            if (r < dist.peak1Weight) return _rng.NextRange(dist.peak1Min, dist.peak1Max);
-            return _rng.NextRange(dist.peak2Min, dist.peak2Max);
+            if (r < dist.peak1Weight) return _rng.NextRange(peak1Min, peak1Max);
+            return _rng.NextRange(peak2Min, peak2Max);
         }
 
         case DistributionType::DatabaseCache: {
@@ -262,10 +298,11 @@ u32 OperationStream::GenerateSize() const noexcept {
             if (dist.buckets == nullptr || dist.weights == nullptr || dist.bucketCount == 0) {
                 return _rng.NextRange(dist.minSize, dist.maxSize);
             }
-
+            f32 sum = 0.0f;
+            for (u32 i = 0; i < dist.bucketCount; ++i) sum += dist.weights[i];
+            ASSERT(sum > 0.99f && sum < 1.01f);
             f32 r = static_cast<f32>(_rng.NextU32()) / static_cast<f32>(0xFFFFFFFFu);
             f32 cumulative = 0.0f;
-
             for (u32 i = 0; i < dist.bucketCount; i++) {
                 cumulative += dist.weights[i];
                 if (r < cumulative) return dist.buckets[i];

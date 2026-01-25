@@ -5,6 +5,7 @@
 
 #include "lifetime_tracker.hpp"
 #include "core/base/core_assert.hpp"
+#include <functional>
 
 namespace core::bench {
 
@@ -220,12 +221,30 @@ void LifetimeTracker::FreeAll(core::u64* outCount, core::u64* outBytes) noexcept
     _peakLiveCount = 0;
 }
 
-void LifetimeTracker::GetAllLive(AllocInfo** outArray, u32* outCount) const noexcept {
+void LifetimeTracker::GetAllLive(AllocInfo** outArray, u32* outCount, u32* outHead, bool* outRingMode) const noexcept {
+    // WARNING: In ringMode (FIFO/Bounded), buffer is not contiguous and not ordered by allocation time.
+    // Use ForEachLive() for correct iteration over live objects.
     if (outArray) *outArray = _buffer;
     if (outCount) *outCount = _count;
+    if (outHead) *outHead = _head;
+    if (outRingMode) *outRingMode = _ringMode;
 }
 
+void LifetimeTracker::ForEachLive(const std::function<void(const AllocInfo&)>& callback) const noexcept {
+    if (!isValid() || _count == 0) return;
+    for (u32 i = 0; i < _count; ++i) {
+        u32 idx = _ringMode ? (_head + i) % _capacity : i;
+        callback(_buffer[idx]);
+    }
+}
+
+u32 LifetimeTracker::GetLiveCount() const noexcept { return _count; }
+u64 LifetimeTracker::GetLiveBytes() const noexcept { return _totalLiveBytes; }
+u64 LifetimeTracker::GetPeakBytes() const noexcept { return _peakLiveBytes; }
+u32 LifetimeTracker::GetPeakCount() const noexcept { return _peakLiveCount; }
+
 void LifetimeTracker::Clear() noexcept {
+    // Reset live-set without freeing objects (for cross-phase carry-over)
     _count = 0;
     _head = 0;
     _tail = 0;
@@ -234,9 +253,5 @@ void LifetimeTracker::Clear() noexcept {
     _peakLiveCount = 0;
 }
 
-u32 LifetimeTracker::GetLiveCount() const noexcept { return _count; }
-u64 LifetimeTracker::GetLiveBytes() const noexcept { return _totalLiveBytes; }
-u64 LifetimeTracker::GetPeakBytes() const noexcept { return _peakLiveBytes; }
-u32 LifetimeTracker::GetPeakCount() const noexcept { return _peakLiveCount; }
 
 } // namespace core::bench

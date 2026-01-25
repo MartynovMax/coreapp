@@ -9,6 +9,7 @@
 #include "workload_params.hpp"
 #include "common/seeded_rng.hpp"
 #include "core/memory/core_allocator.hpp"
+#include <functional>
 
 namespace core::bench {
 
@@ -47,7 +48,7 @@ public:
     void FreeAll(core::u64* outCount, core::u64* outBytes) noexcept;
 
     // Get all live objects (view)
-    void GetAllLive(AllocInfo** outArray, u32* outCount) const noexcept;
+    void GetAllLive(AllocInfo** outArray, u32* outCount, u32* outHead = nullptr, bool* outRingMode = nullptr) const noexcept;
 
     // Clear all tracks (does NOT deallocate!)
     void Clear() noexcept;
@@ -58,6 +59,9 @@ public:
     [[nodiscard]] u64 GetPeakBytes() const noexcept;
     [[nodiscard]] u32 GetPeakCount() const noexcept;
     [[nodiscard]] u32 GetCapacity() const noexcept { return _capacity; }
+
+    // Iterate all live objects in logical order (safe for ring mode)
+    void ForEachLive(const std::function<void(const AllocInfo&)>& callback) const noexcept;
 
 private:
     LifetimeModel _model;

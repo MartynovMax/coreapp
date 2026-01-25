@@ -78,8 +78,7 @@ void PhaseExecutor::Execute() {
     _ownsTracker = ownsTracker;
     _ctx.lifetimeTracker = _tracker;
 
-    // Do not clear external tracker for BulkReclaim (preserve live-set)
-    if (_tracker && (!_ctx.externalLifetimeTracker || _desc.reclaimMode != ReclaimMode::FreeAll)) {
+    if (_tracker && (!_ctx.externalLifetimeTracker || _desc.reclaimMode == ReclaimMode::FreeAll)) {
         _tracker->Clear();
     }
 
@@ -261,17 +260,25 @@ void PhaseExecutor::ExecuteOperationFree(u64 /*opIndex*/) const {
     _ctx.bytesFreed += info.size;
 }
 
+// Reclaim phase: handle according to ReclaimMode
 void PhaseExecutor::ExecuteReclaim() {
-    if (!_tracker) return;
-    // Save peak metrics before reclaim (they will be cleared by FreeAll)
-    _stats.peakLiveCount = _tracker->GetPeakCount();
-    _stats.peakLiveBytes = _tracker->GetPeakBytes();
-    // Use FreeAll for correct ring-buffer traversal
-    core::u64 freedCount = 0;
-    core::u64 freedBytes = 0;
-    _tracker->FreeAll(&freedCount, &freedBytes);
-    _ctx.freeCount += freedCount;
-    _ctx.bytesFreed += freedBytes;
+    switch (_desc.reclaimMode) {
+        case ReclaimMode::None:
+            // Do nothing, preserve live-set between phases
+            break;
+        case ReclaimMode::FreeAll:
+            if (_tracker && _tracker->isValid()) {
+                _tracker->FreeAll();
+            }
+            break;
+        case ReclaimMode::Custom:
+            if (_desc.reclaimCallback) {
+                _desc.reclaimCallback(_ctx);
+            }
+            break;
+        default:
+            break;
+    }
 }
 
 bool PhaseExecutor::IsPhaseComplete() const {
