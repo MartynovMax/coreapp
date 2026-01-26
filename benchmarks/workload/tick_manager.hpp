@@ -31,6 +31,7 @@ public:
 private:
     u64 _tickInterval;
     u64 _lastTickOpIndex;
+    bool _hasEmitted = false;
 };
 
 } // namespace core::bench

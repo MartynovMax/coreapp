@@ -36,6 +36,8 @@ using ReclaimCallback = void(*)(PhaseContext& ctx) noexcept;
 
 // Callback for custom operations in phase (called each iteration)
 using PhaseOperationCallback = void(*)(PhaseContext& ctx) noexcept;
+struct Operation;
+using PhaseOperationWithOpCallback = void(*)(PhaseContext& ctx, const Operation& op) noexcept;
 
 // Callback for checking phase completion (returns true when phase should end)
 using PhaseCompletionCallback = bool(*)(const PhaseContext& ctx) noexcept;
@@ -45,6 +47,7 @@ using PhaseCompletionCallback = bool(*)(const PhaseContext& ctx) noexcept;
 // ----------------------------------------------------------------------------
 
 struct PhaseDescriptor {
+    // NOTE: name/experimentName are caller-owned and must outlive any PhaseExecutor using them.
     const char* name = nullptr;
     const char* experimentName = nullptr;
     PhaseType type = PhaseType::Steady;
@@ -53,6 +56,7 @@ struct PhaseDescriptor {
     ReclaimMode reclaimMode = ReclaimMode::None;
     ReclaimCallback reclaimCallback = nullptr;
     PhaseOperationCallback customOperation = nullptr;
+    PhaseOperationWithOpCallback customOperationWithOp = nullptr;
     PhaseCompletionCallback completionCheck = nullptr;
     void* userData = nullptr;
 };

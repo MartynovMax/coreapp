@@ -66,19 +66,23 @@ void PhaseExecutor::Execute() {
     // Use external tracker if provided in context (for cross-phase live-set)
     bool ownsTracker = false;
     if (_ctx.externalLifetimeTracker) {
-        _tracker = _ctx.externalLifetimeTracker;
-        ownsTracker = false;
-    } else if (trackerCapacity > 0) {
+        if (_ctx.externalLifetimeTracker->GetModel() != _desc.params.lifetimeModel) {
+            ASSERT(false);
+            _tracker = nullptr;
+            ownsTracker = false;
+        } else {
+            _tracker = _ctx.externalLifetimeTracker;
+            ownsTracker = false;
+        }
+    }
+    if (!_tracker && trackerCapacity > 0) {
         _tracker = new LifetimeTracker(trackerCapacity, _desc.params.lifetimeModel, *_ctx.rng, _ctx.allocator);
         ownsTracker = true;
-    } else {
-        _tracker = nullptr;
-        ownsTracker = false;
     }
     _ownsTracker = ownsTracker;
     _ctx.lifetimeTracker = _tracker;
 
-    if (_tracker && (!_ctx.externalLifetimeTracker && _desc.reclaimMode != ReclaimMode::FreeAll)) {
+    if (_tracker && (_ownsTracker && _desc.reclaimMode != ReclaimMode::FreeAll)) {
         _tracker->Clear();
     }
 
@@ -118,9 +122,15 @@ void PhaseExecutor::Execute() {
         while (_opStream->HasNext()) {
             Operation op = _opStream->Next();
             _ctx.currentOpIndex = opIndex;
-            if (_desc.customOperation) {
+            if (_desc.customOperationWithOp) {
+                _desc.customOperationWithOp(_ctx, op);
+            } else if (_desc.customOperation) {
                 _desc.customOperation(_ctx);
             } else {
+                if (op.type == OpType::Free && _tracker && _tracker->isValid() && _tracker->GetLiveCount() == 0) {
+                    _opStream->PrepareAlloc(op);
+                    op.type = OpType::Alloc;
+                }
                 if (op.type == OpType::Alloc) {
                     ExecuteOperationAlloc(op, opIndex);
                 } else if (op.type == OpType::Free) {
@@ -222,29 +232,37 @@ void PhaseExecutor::ExecuteOperationAlloc(const Operation& op, u64 opIndex) cons
     req.flags = op.flags;
     void* ptr = _ctx.allocator->Allocate(req);
     if (!ptr) return; // Allocation failed
-    if (_tracker && _tracker->isValid()) {
-        auto result = _tracker->Track(ptr, op.size, op.alignment, op.tag, opIndex);
-        if (!result.tracked && ptr) {
-            // Free untracked allocation
-            core::AllocationInfo info{};
-            info.ptr = ptr;
-            info.size = op.size;
-            info.alignment = op.alignment;
-            info.tag = op.tag;
-            _ctx.allocator->Deallocate(info);
-            _ctx.freeCount++;
-            _ctx.bytesFreed += op.size;
-        }
-        _ctx.allocCount++;
-        _ctx.bytesAllocated += op.size;
-        if (result.forcedFree) {
-            _ctx.freeCount++;
-            _ctx.bytesFreed += result.freedInfo.size; // Use actual freed size
-        }
-    } else {
-        // Not tracked, just alloc+forget
-        _ctx.allocCount++;
-        _ctx.bytesAllocated += op.size;
+    _ctx.allocCount++;
+    _ctx.bytesAllocated += op.size;
+    if (!_tracker) {
+        return;
+    }
+    if (!_tracker->isValid()) {
+        core::AllocationInfo info{};
+        info.ptr = ptr;
+        info.size = op.size;
+        info.alignment = op.alignment;
+        info.tag = op.tag;
+        _ctx.allocator->Deallocate(info);
+        _ctx.freeCount++;
+        _ctx.bytesFreed += op.size;
+        return;
+    }
+    auto result = _tracker->Track(ptr, op.size, op.alignment, op.tag, opIndex);
+    if (!result.tracked && ptr) {
+        // Free untracked allocation
+        core::AllocationInfo info{};
+        info.ptr = ptr;
+        info.size = op.size;
+        info.alignment = op.alignment;
+        info.tag = op.tag;
+        _ctx.allocator->Deallocate(info);
+        _ctx.freeCount++;
+        _ctx.bytesFreed += op.size;
+    }
+    if (result.forcedFree) {
+        _ctx.freeCount++;
+        _ctx.bytesFreed += result.freedInfo.size; // Use actual freed size
     }
 }
 
@@ -295,4 +313,3 @@ bool PhaseExecutor::IsPhaseComplete() const {
 }
 
 } // namespace core::bench
-

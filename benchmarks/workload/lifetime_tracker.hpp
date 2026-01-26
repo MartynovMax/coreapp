@@ -58,6 +58,7 @@ public:
     [[nodiscard]] u64 GetPeakBytes() const noexcept;
     [[nodiscard]] u32 GetPeakCount() const noexcept;
     [[nodiscard]] u32 GetCapacity() const noexcept { return _capacity; }
+    [[nodiscard]] LifetimeModel GetModel() const noexcept { return _model; }
 
     // Iterate all live objects in logical order (safe for ring mode)
     using LiveObjectCallback = void(*)(const AllocInfo& info, void* userData);

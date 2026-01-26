@@ -199,24 +199,31 @@ See `workload/workload_params.hpp` for all available presets and parameter optio
 - **FIFO/Bounded**: Now implemented as O(1) ring buffer (head/tail). RemoveIndex for idx==0 just advances head, no array copy. For other models, swap-remove is used.
 - **Bounded**: When the buffer is full, the oldest allocation is forcibly freed (forcedFree). Free operations before reaching capacity are ignored. This matches a true bounded live-set.
 - **Peaks**: Peak live count/bytes are reset on Clear()/FreeAll(), so shared trackers between phases do not leak peak stats.
+- **Empty live-set**: If a tracker is present but empty, free operations are converted into allocs to keep the alloc/free mix meaningful.
 
 ### Phases with Zero Operations
 - If `operationCount == 0`, the phase will not create a LifetimeTracker and will only call `completionCheck` and/or `customOperation` once if provided.
 - This allows for time-based or callback-only phases without dummy operations.
+- `customOperationWithOp` is only invoked when operations are generated (operationCount > 0).
 
 ### customOperation Semantics
-- The `customOperation` callback now only receives `PhaseContext` (not Operation). It is responsible for updating all relevant metrics in the context.
-- If you use customOperation, you must update allocCount, freeCount, bytesAllocated, bytesFreed, etc. in PhaseContext yourself.
+- `customOperation` only receives `PhaseContext` (not Operation). It fully replaces the default alloc/free loop and must update metrics itself.
+- If you need the generated operation data, use `customOperationWithOp` which receives both `PhaseContext` and the generated `Operation`.
+- If you use either custom callback, you are responsible for updating allocCount, freeCount, bytesAllocated, bytesFreed, etc. in PhaseContext yourself.
 
 ### Parameter Validation
-- `allocFreeRatio` is always clamped to [0,1].
+- `allocFreeRatio` is always clamped to [0,1]. For `LifetimeModel::LongLived`, it is forced to 1.0 to avoid no-op frees.
 - For `AlignmentDistributionType::Typical64`, bucketCount is clamped to 4 if using defaults.
-- All size/alignment distributions are clamped to valid ranges.
+- All size/alignment distributions are clamped to valid ranges; a default SizePresets::SmallObjects() is applied if minSize is unset.
+- Power-of-two distributions may round min/max up to the next power-of-two, and ranges are clamped to avoid invalid RNG bounds.
+- For `AlignmentDistributionType::PowerOfTwoRange`, min/max are rounded up to powers-of-two before sampling.
 
 ### API Invariants
 - All operations are counted and validated. If a buffer cannot be allocated for LifetimeTracker, the phase will not track allocations and will free untracked allocations immediately.
 - For Bounded/FIFO, ring buffer is used for O(1) performance. For large live-sets, this avoids O(n) shifts.
+- If `operationCount > 1,000,000` and `maxLiveObjects == 0`, tracker capacity is capped at 1,000,000 to avoid unbounded memory usage.
+- External lifetime trackers must use the same LifetimeModel as the phase; mismatches cause PhaseExecutor to create a local tracker instead.
+- Bucket arrays and phase names are caller-owned and must outlive their use in OperationStream/PhaseExecutor.
 
 ### Responsibility for Metrics
 - If you override operation flow with customOperation, you are responsible for updating all phase metrics in PhaseContext.
-

@@ -66,6 +66,7 @@ struct SizeDistribution {
     f32 peak1Weight = 0.5f;       // Probability of first peak (0.0 to 1.0)
 
     // For CustomBuckets distribution:
+    // NOTE: Buckets/weights are caller-owned and must outlive any OperationStream/PhaseExecutor using them.
     const u32* buckets = nullptr;   // Array of size buckets
     const f32* weights = nullptr; // Array of weights (must sum to 1.0)
     u32 bucketCount = 0;
@@ -88,6 +89,7 @@ struct AlignmentDistribution {
     core::memory_alignment fixedAlignment = 0;
     core::memory_alignment minAlignment = 8;
     core::memory_alignment maxAlignment = 64;
+    // NOTE: Buckets/weights are caller-owned and must outlive any OperationStream/PhaseExecutor using them.
     const core::memory_alignment* buckets = nullptr;
     const f32* weights = nullptr;
     u32 bucketCount = 0;
@@ -105,6 +107,10 @@ enum class LifetimeModel {
     LongLived,          // Objects live until bulk reclaim
 };
 
+namespace SizePresets {
+    SizeDistribution SmallObjects() noexcept;
+}
+
 // ----------------------------------------------------------------------------
 // WorkloadParams - Complete workload parameterization
 // ----------------------------------------------------------------------------
@@ -115,7 +121,7 @@ struct WorkloadParams {
     u64 operationCount = 0;             // Number of operations to execute
     
     // Size distribution:
-    SizeDistribution sizeDistribution = {};
+    SizeDistribution sizeDistribution = SizePresets::SmallObjects();
     
 
     // Alignment distribution:

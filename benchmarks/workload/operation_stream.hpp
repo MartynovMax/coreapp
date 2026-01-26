@@ -48,13 +48,18 @@ public:
 
     // Generate next operation
     Operation Next() noexcept;
+    void PrepareAlloc(Operation& op) noexcept;
 
     // Check if more operations available
     bool HasNext() const noexcept;
 private:
-    const WorkloadParams& _params;
+    WorkloadParams _params;
     SeededRNG& _rng;
     u64 _currentOp = 0;
+    bool _sizeBucketsValid = false;
+    bool _alignmentBucketsValid = false;
+    f32 _sizeBucketWeightSum = 0.0f;
+    f32 _alignmentBucketWeightSum = 0.0f;
     u32 GenerateSize() const noexcept;
     core::memory_alignment GenerateAlignment(u32 size) const noexcept;
     OpType DecideOperation() const noexcept;

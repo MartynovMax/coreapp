@@ -10,9 +10,23 @@ OperationStream::OperationStream(const WorkloadParams& params, SeededRNG& rng) n
     , _rng(rng)
     , _currentOp(0)
 {
+    if (_params.sizeDistribution.minSize == 0) {
+        _params.sizeDistribution = SizePresets::SmallObjects();
+    }
+    if (_params.sizeDistribution.maxSize < _params.sizeDistribution.minSize) {
+        _params.sizeDistribution.maxSize = _params.sizeDistribution.minSize;
+    }
+    if (_params.alignmentDistribution.maxAlignment < _params.alignmentDistribution.minAlignment) {
+        _params.alignmentDistribution.maxAlignment = _params.alignmentDistribution.minAlignment;
+    }
+    if (_params.allocFreeRatio < 0.0f) _params.allocFreeRatio = 0.0f;
+    if (_params.allocFreeRatio > 1.0f) _params.allocFreeRatio = 1.0f;
+    if (_params.lifetimeModel == LifetimeModel::LongLived) {
+        _params.allocFreeRatio = 1.0f;
+    }
+
     ASSERT(_params.sizeDistribution.minSize > 0);
     ASSERT(_params.sizeDistribution.maxSize >= _params.sizeDistribution.minSize);
-    ASSERT(_params.alignmentDistribution.minAlignment >= 0);
     ASSERT(_params.alignmentDistribution.maxAlignment >= _params.alignmentDistribution.minAlignment);
     if (_params.sizeDistribution.type == DistributionType::Bimodal || _params.sizeDistribution.type == DistributionType::GameEngine) {
         ASSERT(_params.sizeDistribution.peak1Min >= _params.sizeDistribution.minSize);
@@ -24,17 +38,31 @@ OperationStream::OperationStream(const WorkloadParams& params, SeededRNG& rng) n
         ASSERT(_params.sizeDistribution.bucketCount > 0);
         ASSERT(_params.sizeDistribution.buckets != nullptr);
         ASSERT(_params.sizeDistribution.weights != nullptr);
-        f32 sum = 0.0f;
-        for (u32 i = 0; i < _params.sizeDistribution.bucketCount; ++i) sum += _params.sizeDistribution.weights[i];
-        ASSERT(sum > 0.99f && sum < 1.01f);
+        if (_params.sizeDistribution.bucketCount > 0 && _params.sizeDistribution.buckets != nullptr &&
+            _params.sizeDistribution.weights != nullptr) {
+            f32 sum = 0.0f;
+            for (u32 i = 0; i < _params.sizeDistribution.bucketCount; ++i) sum += _params.sizeDistribution.weights[i];
+            if (sum > 0.0f) {
+                _sizeBucketsValid = true;
+                _sizeBucketWeightSum = sum;
+            }
+            ASSERT(sum > 0.99f && sum < 1.01f);
+        }
     }
     if (_params.alignmentDistribution.type == AlignmentDistributionType::CustomBuckets) {
         ASSERT(_params.alignmentDistribution.bucketCount > 0);
         ASSERT(_params.alignmentDistribution.buckets != nullptr);
         ASSERT(_params.alignmentDistribution.weights != nullptr);
-        f32 sum = 0.0f;
-        for (u32 i = 0; i < _params.alignmentDistribution.bucketCount; ++i) sum += _params.alignmentDistribution.weights[i];
-        ASSERT(sum > 0.99f && sum < 1.01f);
+        if (_params.alignmentDistribution.bucketCount > 0 && _params.alignmentDistribution.buckets != nullptr &&
+            _params.alignmentDistribution.weights != nullptr) {
+            f32 sum = 0.0f;
+            for (u32 i = 0; i < _params.alignmentDistribution.bucketCount; ++i) sum += _params.alignmentDistribution.weights[i];
+            if (sum > 0.0f) {
+                _alignmentBucketsValid = true;
+                _alignmentBucketWeightSum = sum;
+            }
+            ASSERT(sum > 0.99f && sum < 1.01f);
+        }
     }
 }
 
@@ -44,11 +72,7 @@ Operation OperationStream::Next() noexcept {
     op.type = DecideOperation();
 
     if (op.type == OpType::Alloc) {
-        op.size = GenerateSize();
-        op.alignment = GenerateAlignment(op.size);
-        op.tag = _params.tag;
-        op.flags = _params.flags;
-        op.ptr = nullptr;
+        PrepareAlloc(op);
     } else {
         op.size = 0;
         op.alignment = 0;
@@ -63,6 +87,14 @@ Operation OperationStream::Next() noexcept {
 
 bool OperationStream::HasNext() const noexcept {
     return _currentOp < _params.operationCount;
+}
+
+void OperationStream::PrepareAlloc(Operation& op) noexcept {
+    op.size = GenerateSize();
+    op.alignment = GenerateAlignment(op.size);
+    op.tag = _params.tag;
+    op.flags = _params.flags;
+    op.ptr = nullptr;
 }
 
 core::memory_alignment OperationStream::NextPow2(core::memory_alignment v) noexcept {
@@ -123,10 +155,11 @@ core::memory_alignment OperationStream::GenerateAlignment(u32 size) const noexce
             return buckets[count - 1];
         }
         case AlignmentDistributionType::CustomBuckets: {
-            if (ad.buckets == nullptr || ad.weights == nullptr || ad.bucketCount == 0) {
+            if (!_alignmentBucketsValid) {
                 return ad.fixedAlignment; // fallback, can be 0
             }
             f32 r = static_cast<f32>(_rng.NextU32()) / static_cast<f32>(0xFFFFFFFFu);
+            r *= _alignmentBucketWeightSum;
             f32 cumulative = 0.0f;
             for (u32 i = 0; i < ad.bucketCount; i++) {
                 cumulative += ad.weights[i];
@@ -165,6 +198,7 @@ u32 OperationStream::GenerateSize() const noexcept {
             u32 maxPower = 0;
             temp = dist.maxSize;
             while (temp > 1) { temp >>= 1; maxPower++; }
+            if (minPower > maxPower) maxPower = minPower;
             u32 power = _rng.NextRange(minPower, maxPower);
             u32 sz = 1u << power;
             if (sz < dist.minSize) sz = dist.minSize;
@@ -291,6 +325,7 @@ u32 OperationStream::GenerateSize() const noexcept {
             u32 maxPower = 0;
             temp = dist.maxSize;
             while (temp > 1) { temp >>= 1; maxPower++; }
+            if (minPower > maxPower) maxPower = minPower;
             u32 power = _rng.NextRange(minPower, maxPower);
             u32 sz = 1u << power;
             if (sz < dist.minSize) sz = dist.minSize;
@@ -299,10 +334,11 @@ u32 OperationStream::GenerateSize() const noexcept {
         }
 
         case DistributionType::CustomBuckets: {
-            if (dist.buckets == nullptr || dist.weights == nullptr || dist.bucketCount == 0) {
+            if (!_sizeBucketsValid) {
                 return _rng.NextRange(dist.minSize, dist.maxSize);
             }
             f32 r = static_cast<f32>(_rng.NextU32()) / static_cast<f32>(0xFFFFFFFFu);
+            r *= _sizeBucketWeightSum;
             f32 cumulative = 0.0f;
             for (u32 i = 0; i < dist.bucketCount; i++) {
                 cumulative += dist.weights[i];

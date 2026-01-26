@@ -97,15 +97,18 @@ LifetimeTracker::TrackResult LifetimeTracker::Track(void* ptr, u32 size, core::m
 
 void LifetimeTracker::RemoveIndex(u32 idx) noexcept {
     if (!isValid() || _count == 0) return;
-    _totalLiveBytes -= _buffer[idx].size;
     if (_ringMode) {
         // Only support remove head (FIFO/Bounded)
         if (idx == _head) {
+            _totalLiveBytes -= _buffer[idx].size;
             _head = (_head + 1) % _capacity;
             _count--;
+        } else {
+            ASSERT(false);
+            return;
         }
-        // else: ignore (only head can be removed in ring mode)
     } else {
+        _totalLiveBytes -= _buffer[idx].size;
         if (idx != _count - 1) {
             _buffer[idx] = _buffer[_count - 1];
         }
@@ -125,11 +128,11 @@ bool LifetimeTracker::PopForFree(AllocInfo& out_info) noexcept {
                 idx = _head;
                 break;
             case LifetimeModel::Lifo:
-                idx = (_tail + _capacity - 1) % _capacity;
-                break;
+                ASSERT(false);
+                return false;
             case LifetimeModel::Random:
-                idx = (_head + (_rng.NextU32() % _count)) % _capacity;
-                break;
+                ASSERT(false);
+                return false;
             case LifetimeModel::LongLived:
             default:
                 return false;
