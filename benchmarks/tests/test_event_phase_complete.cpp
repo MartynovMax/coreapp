@@ -4,6 +4,7 @@
 #include "../workload/phase_descriptor.hpp"
 #include "../workload/workload_params.hpp"
 #include "../common/seeded_rng.hpp"
+#include "test_helpers.hpp"
 #include "core/memory/malloc_allocator.hpp"
 #include <gtest/gtest.h>
 #include <vector>
@@ -11,14 +12,7 @@
 
 using namespace core;
 using namespace core::bench;
-
-class MockEventSink final : public IEventSink {
-public:
-    std::vector<Event> events;
-    void OnEvent(const Event& event) noexcept override {
-        events.push_back(event);
-    }
-};
+using namespace core::bench::test;
 
 TEST(EventTypesTest, PhaseCompletePayloadDesignatedInitializers) {
     PhaseCompletePayload payload{

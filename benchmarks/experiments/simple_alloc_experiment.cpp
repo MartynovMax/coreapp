@@ -41,7 +41,7 @@ const char* SimpleAllocExperiment::AllocatorName() const noexcept {
 
 void SimpleAllocExperiment::Setup(const ExperimentParams& params) {
     ASSERT(&core::GetDefaultAllocator() != nullptr);
-    _allocator = &core::GetDefaultAllocator();
+    _allocator = _allocatorOverride ? _allocatorOverride : &core::GetDefaultAllocator();
     ASSERT(_allocator != nullptr);
     _seed = params.seed;
     _rng = core::bench::SeededRNG(_seed);
@@ -206,18 +206,22 @@ void SimpleAllocExperiment::RunPhases() {
 }
 
 void SimpleAllocExperiment::Teardown() noexcept {
-    // Clean up phase executor if still allocated
+    if (_resetCallback) {
+        _resetCallback(_resetUserData);
+    }
     if (_phaseExecutor) {
         delete _phaseExecutor;
         _phaseExecutor = nullptr;
     }
-    // Reset pointers and state
     _allocator = nullptr;
+    _allocatorOverride = nullptr;
     _eventSink = nullptr;
     _seed = 0;
     _params = {};
     _phaseCtx = {};
     _phaseDesc = {};
+    _resetCallback = nullptr;
+    _resetUserData = nullptr;
 }
 
 } // namespace bench

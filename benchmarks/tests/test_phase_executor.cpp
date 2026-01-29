@@ -20,14 +20,6 @@ using namespace core;
 using namespace core::bench;
 using namespace core::bench::test;
 
-class MockEventSink : public IEventSink {
-public:
-    std::vector<Event> events;
-    void OnEvent(const Event& event) noexcept override {
-        events.push_back(event);
-    }
-};
-
 static PhaseContext MakeContext(IAllocator* allocator, SeededRNG* rng) {
     PhaseContext ctx{};
     ctx.allocator = allocator;

@@ -2,19 +2,13 @@
 #include "../workload/phase_context.hpp"
 #include "../events/event_types.hpp"
 #include "../events/event_sink.hpp"
+#include "test_helpers.hpp"
 #include <gtest/gtest.h>
 #include <vector>
 
 using namespace core;
 using namespace core::bench;
-
-class MockEventSink final : public IEventSink {
-public:
-    std::vector<Event> events;
-    void OnEvent(const Event& event) noexcept override {
-        events.push_back(event);
-    }
-};
+using namespace core::bench::test;
 
 static PhaseContext MakePhaseContext(IEventSink* sink) {
     PhaseContext ctx{};

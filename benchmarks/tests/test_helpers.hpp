@@ -6,7 +6,9 @@
 // =============================================================================
 
 #include "../runner/experiment_interface.hpp"
+#include "../events/event_types.hpp"
 #include "core/base/core_types.hpp"
+#include <vector>
 
 namespace core {
 namespace bench {
@@ -104,6 +106,18 @@ public:
     const char* Description() const noexcept override { return "Failing in setup"; }
     const char* AllocatorName() const noexcept override { return "none"; }
     static IExperiment* Create() noexcept { return new FailingInSetupExperiment(); }
+};
+
+// ----------------------------------------------------------------------------
+// MockEventSink - Mock implementation of IEventSink for testing
+// ----------------------------------------------------------------------------
+
+class MockEventSink : public IEventSink {
+public:
+    std::vector<Event> events;
+    void OnEvent(const Event& event) noexcept override {
+        events.push_back(event);
+    }
 };
 
 } // namespace test

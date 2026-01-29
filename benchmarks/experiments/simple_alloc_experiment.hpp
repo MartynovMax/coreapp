@@ -36,10 +36,17 @@ public:
 
     void AttachEventSink(IEventSink* sink) noexcept override { _eventSink = sink; }
 
+    void SetAllocatorForTests(IAllocator* allocator) noexcept { _allocatorOverride = allocator; }
+    void SetResetCallbackForTests(void (*callback)(void*), void* userData) noexcept {
+        _resetCallback = callback;
+        _resetUserData = userData;
+    }
+
     static IExperiment* Create() noexcept;
 
 private:
     IAllocator* _allocator = nullptr;
+    IAllocator* _allocatorOverride = nullptr;
     WorkloadParams _params{};
     u64 _seed = 0;
     PhaseContext _phaseCtx{};
@@ -47,6 +54,8 @@ private:
     PhaseExecutor* _phaseExecutor = nullptr;
     IEventSink* _eventSink = nullptr;
     core::bench::SeededRNG _rng{0};
+    void (*_resetCallback)(void*) = nullptr;
+    void* _resetUserData = nullptr;
 };
 
 } // namespace bench
