@@ -294,5 +294,9 @@ bool PhaseExecutor::IsPhaseComplete() const {
     return false;
 }
 
+const PhaseStats& PhaseExecutor::GetStats() const noexcept {
+    return _stats;
+}
+
 } // namespace core::bench
 
