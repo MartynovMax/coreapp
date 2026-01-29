@@ -7,6 +7,13 @@
 
 #include "../runner/experiment_interface.hpp"
 #include "../events/event_types.hpp"
+#include "../workload/phase_executor.hpp"
+#include "../workload/phase_descriptor.hpp"
+#include "../workload/workload_params.hpp"
+#include "../workload/operation_stream.hpp"
+#include "../workload/lifetime_tracker.hpp"
+#include "../common/seeded_rng.hpp"
+#include "core/memory/core_allocator.hpp"
 #include "core/base/core_types.hpp"
 #include <vector>
 
@@ -119,6 +126,60 @@ public:
         events.push_back(event);
     }
 };
+
+// ----------------------------------------------------------------------------
+// Advanced workload test helpers
+// ----------------------------------------------------------------------------
+
+namespace advanced {
+
+struct PhaseRunResult {
+    PhaseStats stats{};
+    u64 liveCount = 0;
+    u64 liveBytes = 0;
+};
+
+inline PhaseRunResult RunPhaseWithTracker(const PhaseDescriptor& desc,
+                                          IAllocator* allocator,
+                                          LifetimeTracker* tracker,
+                                          MockEventSink* sink) {
+    SeededRNG rng(desc.params.seed);
+    PhaseContext ctx{};
+    ctx.allocator = allocator;
+    ctx.rng = &rng;
+    ctx.eventSink = sink;
+    ctx.phaseName = desc.name;
+    ctx.experimentName = desc.experimentName;
+    ctx.phaseType = desc.type;
+    ctx.repetitionId = desc.repetitionId;
+    ctx.userData = desc.userData;
+    ctx.externalLifetimeTracker = tracker;
+    PhaseExecutor exec(desc, ctx, sink);
+    exec.Execute();
+    PhaseRunResult result;
+    result.stats = exec.GetStats();
+    if (tracker) {
+        result.liveCount = tracker->GetLiveCount();
+        result.liveBytes = tracker->GetLiveBytes();
+    }
+    return result;
+}
+
+inline std::vector<u32> SampleSizes(const WorkloadParams& params, u32 count, u64 seed) {
+    SeededRNG rng(seed);
+    OperationStream stream(params, rng);
+    std::vector<u32> sizes;
+    sizes.reserve(count);
+    for (u32 i = 0; i < count && stream.HasNext(); ++i) {
+        Operation op = stream.Next();
+        if (op.type == OpType::Alloc) {
+            sizes.push_back(op.size);
+        }
+    }
+    return sizes;
+}
+
+} // namespace advanced
 
 } // namespace test
 } // namespace bench
