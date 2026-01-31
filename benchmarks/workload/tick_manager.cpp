@@ -13,13 +13,13 @@
 namespace core::bench {
 
 TickManager::TickManager(u64 tickInterval) noexcept
-    : _tickInterval(tickInterval), _lastTickOpIndex(static_cast<u64>(-1)) {}
+    : _tickInterval(tickInterval), _lastTickOpIndex(0) {}
 
 void TickManager::OnOperation(const TickContext& ctx, const PhaseContext& phaseCtx) noexcept {
     if (_tickInterval == 0) return;
-    if (ctx.opIndex >= _lastTickOpIndex + _tickInterval) {
+    if (const u64 opCount = ctx.opIndex + 1; opCount >= _lastTickOpIndex + _tickInterval) {
         EmitTickEvent(ctx, phaseCtx);
-        _lastTickOpIndex = ctx.opIndex;
+        _lastTickOpIndex = opCount;
     }
 }
 

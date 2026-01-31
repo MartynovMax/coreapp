@@ -23,6 +23,7 @@ TEST(AdvancedWorkloadTest, OneMillionOperationsExperiment) {
     desc.experimentName = "Advanced";
     desc.type = PhaseType::Steady;
     desc.params = params;
+    desc.reclaimMode = ReclaimMode::FreeAll;
 
     PhaseContext ctx{};
     ctx.allocator = &allocator;
@@ -51,6 +52,7 @@ TEST(AdvancedWorkloadTest, TickEventsEvery10KOperations) {
     desc.experimentName = "Advanced";
     desc.type = PhaseType::Steady;
     desc.params = params;
+    desc.reclaimMode = ReclaimMode::FreeAll;
 
     PhaseContext ctx{};
     ctx.allocator = &allocator;
@@ -114,6 +116,7 @@ TEST(AdvancedWorkloadTest, LongRunningNoPerformanceRegression) {
     desc.experimentName = "Advanced";
     desc.type = PhaseType::Steady;
     desc.params = params;
+    desc.reclaimMode = ReclaimMode::FreeAll;
 
     PhaseContext ctx1{};
     ctx1.allocator = &allocator;
@@ -161,6 +164,7 @@ TEST(AdvancedWorkloadTest, DeterminismTenRunsSameSeed) {
     desc.experimentName = "Advanced";
     desc.type = PhaseType::Steady;
     desc.params = params;
+    desc.reclaimMode = ReclaimMode::FreeAll;
 
     MockEventSink baseSink;
     SeededRNG baseRng(1400);
@@ -199,3 +203,4 @@ TEST(AdvancedWorkloadTest, DeterminismTenRunsSameSeed) {
         }
     }
 }
+

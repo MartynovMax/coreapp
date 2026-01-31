@@ -90,6 +90,7 @@ TEST(AdvancedWorkloadTest, StackAllocatorBoundedArena) {
     desc.type = PhaseType::Custom;
     desc.params = params;
     desc.customOperation = &StackLifoOp;
+    desc.reclaimMode = ReclaimMode::FreeAll;
 
     PhaseContext ctx{};
     ctx.allocator = &allocator;

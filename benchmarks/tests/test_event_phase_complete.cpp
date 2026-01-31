@@ -95,6 +95,7 @@ TEST(EventTypesTest, MockEventSinkCapturesPhaseEvents) {
     desc.experimentName = "exp";
     desc.type = PhaseType::Steady;
     desc.params = params;
+    desc.reclaimMode = ReclaimMode::FreeAll;
 
     PhaseContext ctx{};
     ctx.allocator = &allocator;
@@ -129,6 +130,7 @@ TEST(EventTypesTest, MockEventSinkCapturesTickEvents) {
     desc.experimentName = "exp";
     desc.type = PhaseType::Steady;
     desc.params = params;
+    desc.reclaimMode = ReclaimMode::FreeAll;
 
     PhaseContext ctx{};
     ctx.allocator = &allocator;
@@ -160,6 +162,7 @@ TEST(EventTypesTest, EventOrderingPhaseBeginTickPhaseComplete) {
     desc.experimentName = "exp";
     desc.type = PhaseType::Steady;
     desc.params = params;
+    desc.reclaimMode = ReclaimMode::FreeAll;
 
     PhaseContext ctx{};
     ctx.allocator = &allocator;

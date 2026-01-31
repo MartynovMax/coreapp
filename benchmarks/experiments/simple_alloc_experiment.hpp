@@ -29,10 +29,10 @@ public:
     void RunPhases() override;
     void Teardown() noexcept override;
 
-    const char* Name() const noexcept override;
-    const char* Category() const noexcept override;
-    const char* Description() const noexcept override;
-    const char* AllocatorName() const noexcept override;
+    [[nodiscard]] const char* Name() const noexcept override;
+    [[nodiscard]] const char* Category() const noexcept override;
+    [[nodiscard]] const char* Description() const noexcept override;
+    [[nodiscard]] const char* AllocatorName() const noexcept override;
 
     void AttachEventSink(IEventSink* sink) noexcept override { _eventSink = sink; }
 

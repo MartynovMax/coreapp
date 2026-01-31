@@ -60,9 +60,11 @@ TEST(AdvancedWorkloadTest, ConditionalPhaseCompletionMemoryThreshold) {
     params.operationCount = 1000;
     params.allocFreeRatio = 1.0f;
     params.lifetimeModel = LifetimeModel::Fifo;
-    params.sizeDistribution = SizePresets::SmallObjects();
+    static auto smallObjects = SizePresets::SmallObjects();
+    params.sizeDistribution = smallObjects;
 
-    ThresholdState state{};
+    static ThresholdState state{};
+    state.ptrs.clear();
     state.allocSize = 256;
     gThresholdState = &state;
 
@@ -73,6 +75,7 @@ TEST(AdvancedWorkloadTest, ConditionalPhaseCompletionMemoryThreshold) {
     desc.params = params;
     desc.customOperation = &ThresholdOp;
     desc.completionCheck = &ThresholdComplete;
+    desc.reclaimMode = ReclaimMode::Custom;
 
     PhaseContext ctx{};
     ctx.allocator = &allocator;
@@ -124,9 +127,10 @@ TEST(AdvancedWorkloadTest, CustomOperationBatchedAllocations) {
     params.operationCount = 3;
     params.allocFreeRatio = 1.0f;
     params.lifetimeModel = LifetimeModel::Fifo;
-    params.sizeDistribution = SizePresets::SmallObjects();
+    static auto smallObjects = SizePresets::SmallObjects();
+    params.sizeDistribution = smallObjects;
 
-    BatchState state{};
+    static BatchState state{};
     state.batchSize = 4;
     state.allocSize = 64;
     gBatchState = &state;
@@ -137,6 +141,7 @@ TEST(AdvancedWorkloadTest, CustomOperationBatchedAllocations) {
     desc.type = PhaseType::Custom;
     desc.params = params;
     desc.customOperation = &BatchAllocOp;
+    desc.reclaimMode = ReclaimMode::FreeAll;
 
     PhaseContext ctx{};
     ctx.allocator = &allocator;
@@ -188,9 +193,10 @@ TEST(AdvancedWorkloadTest, UserDataPropagationThroughCallbacks) {
     params.operationCount = 5;
     params.allocFreeRatio = 1.0f;
     params.lifetimeModel = LifetimeModel::Fifo;
-    params.sizeDistribution = SizePresets::SmallObjects();
+    static auto smallObjects = SizePresets::SmallObjects();
+    params.sizeDistribution = smallObjects;
 
-    UserDataState state{};
+    static UserDataState state{};
     state.expected = &state;
     gUserDataState = &state;
 

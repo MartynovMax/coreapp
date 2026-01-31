@@ -24,6 +24,7 @@ static void RunDistributionPhase(const SizeDistribution& dist, DistributionType 
     desc.experimentName = "Advanced";
     desc.type = PhaseType::Steady;
     desc.params = params;
+    desc.reclaimMode = ReclaimMode::FreeAll;
 
     PhaseContext ctx{};
     ctx.allocator = &allocator;

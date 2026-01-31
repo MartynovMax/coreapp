@@ -4,228 +4,215 @@
 // =============================================================================
 
 #include "simple_alloc_experiment.hpp"
+
+#include <memory> // Ensure make_unique is available
+
 #include "../runner/experiment_params.hpp"
-#include "../runner/experiment_registry.hpp"
-#include "../workload/phase_executor.hpp"
 #include "../workload/phase_descriptor.hpp"
-#include "../workload/workload_params.hpp"
-#include "../workload/phase_context.hpp"
-#include "../events/event_sink.hpp"
-#include "../events/event_types.hpp"
-#include "core/memory/core_allocator.hpp"
+#include "../workload/phase_executor.hpp"
 #include "../common/seeded_rng.hpp"
+#include "core/memory/core_allocator.hpp"
 #include "core/base/core_assert.hpp"
 
-namespace core {
-namespace bench {
+namespace core::bench {
+
+namespace {
+
+void RunPhaseOnce(
+    IAllocator* allocator,
+    IEventSink* eventSink,
+    const char* phaseName,
+    const char* experimentName,
+    PhaseType phaseType,
+    u32 repetitionId,
+    const WorkloadParams& params,
+    ReclaimMode reclaimMode,
+    LifetimeTracker* externalTracker = nullptr,
+    ReclaimCallback reclaimCallback = nullptr,
+    PhaseOperationCallback customOperation = nullptr,
+    PhaseCompletionCallback completionCheck = nullptr,
+    void* userData = nullptr) noexcept {
+    ASSERT(allocator != nullptr);
+    ASSERT(eventSink != nullptr);
+
+    PhaseDescriptor desc{};
+    desc.name = phaseName;
+    desc.experimentName = experimentName;
+    desc.type = phaseType;
+    desc.repetitionId = repetitionId;
+    desc.params = params;
+    desc.reclaimMode = reclaimMode;
+    desc.reclaimCallback = reclaimCallback;
+    desc.customOperation = customOperation;
+    desc.completionCheck = completionCheck;
+    desc.userData = userData;
+
+    SeededRNG rng(params.seed);
+    PhaseContext ctx{};
+    ctx.allocator = allocator;
+    ctx.rng = &rng;
+    ctx.eventSink = eventSink;
+
+    ctx.phaseName = phaseName;
+    ctx.experimentName = experimentName;
+    ctx.phaseType = phaseType;
+    ctx.repetitionId = repetitionId;
+    ctx.userData = userData;
+
+    ctx.externalLifetimeTracker = externalTracker;
+
+    PhaseExecutor exec(desc, ctx, eventSink);
+    exec.Execute();
+}
+
+WorkloadParams MakeBaseParams(u32 seed) noexcept {
+    WorkloadParams p{};
+    p.seed = seed;
+    p.sizeDistribution = SizePresets::SmallObjects();
+    p.alignmentDistribution = AlignmentPresets::Default();
+    p.lifetimeModel = LifetimeModel::Fifo;
+    p.maxLiveObjects = 0;
+    p.operationCount = 0;
+    p.allocFreeRatio = 0.0f;
+    p.tickInterval = 0;
+    return p;
+}
+
+} // namespace
 
 IExperiment* SimpleAllocExperiment::Create() noexcept {
     return new SimpleAllocExperiment();
 }
 
-const char* SimpleAllocExperiment::Name() const noexcept {
-    return "SimpleAlloc";
-}
-
-const char* SimpleAllocExperiment::Category() const noexcept {
-    return "Allocation";
-}
+const char* SimpleAllocExperiment::Name() const noexcept { return "SimpleAlloc"; }
+const char* SimpleAllocExperiment::Category() const noexcept { return "Allocation"; }
 
 const char* SimpleAllocExperiment::Description() const noexcept {
     return "A simple allocation/free experiment with phase-based workload model.";
 }
 
-const char* SimpleAllocExperiment::AllocatorName() const noexcept {
-    return "DefaultAllocator";
-}
+const char* SimpleAllocExperiment::AllocatorName() const noexcept { return "DefaultAllocator"; }
 
 void SimpleAllocExperiment::Setup(const ExperimentParams& params) {
-    ASSERT(&core::GetDefaultAllocator() != nullptr);
-    _allocator = _allocatorOverride ? _allocatorOverride : &core::GetDefaultAllocator();
+    _allocator = &core::GetDefaultAllocator();
     ASSERT(_allocator != nullptr);
+
     _seed = params.seed;
     _rng = core::bench::SeededRNG(_seed);
+
+    _params = MakeBaseParams(_seed);
+    _phaseCtx = {};
+    _phaseCtx.allocator = _allocator;
     _phaseCtx.rng = &_rng;
+    _phaseCtx.eventSink = _eventSink;
+    _phaseCtx.experimentName = Name();
 }
 
 void SimpleAllocExperiment::Warmup() {
     ASSERT(_allocator != nullptr);
-    _params.seed = _seed + 1;
-    _params.operationCount = 128;
-    _params.sizeDistribution = core::bench::SizePresets::SmallObjects();
-    _params.alignmentDistribution = core::bench::AlignmentPresets::Default();
-    _params.lifetimeModel = core::bench::LifetimeModel::Fifo;
-    _params.maxLiveObjects = 16;
-    _params.allocFreeRatio = 1.0f;
-    _params.tickInterval = 0;
 
-    _phaseDesc = {};
-    _phaseDesc.name = "Warmup";
-    _phaseDesc.experimentName = Name();
-    _phaseDesc.type = PhaseType::RampUp;
-    _phaseDesc.repetitionId = 0;
-    _phaseDesc.params = _params;
-    _phaseDesc.reclaimMode = ReclaimMode::FreeAll;
-    _phaseDesc.reclaimCallback = nullptr;
-    _phaseDesc.customOperation = nullptr;
-    _phaseDesc.completionCheck = nullptr;
-    _phaseDesc.userData = nullptr;
+    WorkloadParams warm = MakeBaseParams(_seed + 1);
+    warm.operationCount = 128;
+    warm.maxLiveObjects = 16;
+    warm.allocFreeRatio = 1.0f;
+    warm.tickInterval = 0;
 
-    _phaseCtx = {};
-    _phaseCtx.allocator = _allocator;
-    _phaseCtx.rng = &_rng;
-    ASSERT(_phaseCtx.rng != nullptr);
-    _phaseCtx.eventSink = _eventSink;
-    _phaseCtx.phaseName = _phaseDesc.name;
-    _phaseCtx.experimentName = _phaseDesc.experimentName;
-    _phaseCtx.phaseType = _phaseDesc.type;
-    _phaseCtx.repetitionId = _phaseDesc.repetitionId;
-    _phaseCtx.userData = nullptr;
-
-    if (_phaseExecutor) {
-        delete _phaseExecutor;
-        _phaseExecutor = nullptr;
-    }
-    _phaseExecutor = new PhaseExecutor(_phaseDesc, _phaseCtx, _eventSink);
-    ASSERT(_phaseExecutor != nullptr);
-    _phaseExecutor->Execute();
-    delete _phaseExecutor;
-    _phaseExecutor = nullptr;
-}
-
-namespace {
-    void RunPhase(
-        PhaseExecutor*& phaseExecutor,
-        IAllocator* allocator,
-        IEventSink* eventSink,
-        const char* phaseName,
-        const char* experimentName,
-        PhaseType phaseType,
-        u32 repetitionId,
-        const WorkloadParams& params,
-        ReclaimMode reclaimMode,
-        ReclaimCallback reclaimCallback = nullptr,
-        PhaseOperationCallback customOperation = nullptr,
-        PhaseCompletionCallback completionCheck = nullptr,
-        void* userData = nullptr,
-        const PhaseContext* externalCtx = nullptr)
-    {
-        ASSERT(allocator != nullptr);
-        PhaseDescriptor desc{};
-        desc.name = phaseName;
-        desc.experimentName = experimentName;
-        desc.type = phaseType;
-        desc.repetitionId = repetitionId;
-        desc.params = params;
-        desc.reclaimMode = reclaimMode;
-        desc.reclaimCallback = reclaimCallback;
-        desc.customOperation = customOperation;
-        desc.completionCheck = completionCheck;
-        desc.userData = userData;
-
-        SeededRNG rng(params.seed);
-        PhaseContext ctx{};
-        ctx.allocator = allocator;
-        ctx.rng = &rng;
-        ASSERT(ctx.rng != nullptr);
-        ctx.eventSink = eventSink;
-        ctx.phaseName = phaseName;
-        ctx.experimentName = experimentName;
-        ctx.phaseType = phaseType;
-        ctx.repetitionId = repetitionId;
-        ctx.userData = userData;
-        if (externalCtx) {
-            ctx.externalLifetimeTracker = externalCtx->externalLifetimeTracker;
-        }
-        if (phaseExecutor) {
-            delete phaseExecutor;
-            phaseExecutor = nullptr;
-        }
-        phaseExecutor = new PhaseExecutor(desc, ctx, eventSink);
-        ASSERT(phaseExecutor != nullptr);
-        phaseExecutor->Execute();
-        delete phaseExecutor;
-        phaseExecutor = nullptr;
-    }
-
+    RunPhaseOnce(
+        _allocator,
+        _eventSink,
+        "Warmup",
+        Name(),
+        PhaseType::RampUp,
+        /*repetitionId=*/0,
+        warm,
+        ReclaimMode::FreeAll);
 }
 
 void SimpleAllocExperiment::RunPhases() {
-    // --- Shared tracker for Steady and BulkReclaim ---
-    LifetimeTracker* sharedTracker = nullptr;
+    ASSERT(_allocator != nullptr);
+
     SeededRNG sharedRng(_seed + 100);
 
-    // Phase 1: RampUp (alloc-only)
-    WorkloadParams rampUpParams = _params;
-    rampUpParams.seed = _seed;
-    rampUpParams.operationCount = 10000;
-    rampUpParams.sizeDistribution = core::bench::SizePresets::SmallObjects();
-    rampUpParams.alignmentDistribution = core::bench::AlignmentPresets::Default();
-    rampUpParams.lifetimeModel = core::bench::LifetimeModel::Fifo;
-    rampUpParams.maxLiveObjects = 10000;
-    rampUpParams.allocFreeRatio = 1.0f;
-    rampUpParams.tickInterval = 0;
-    RunPhase(_phaseExecutor, _allocator, _eventSink, "RampUp", Name(), PhaseType::RampUp, 0, rampUpParams, ReclaimMode::None);
+    WorkloadParams ramp = MakeBaseParams(_seed);
+    ramp.operationCount = 10000;
+    ramp.lifetimeModel = LifetimeModel::Fifo;
+    ramp.maxLiveObjects = 10000;
+    ramp.allocFreeRatio = 1.0f;
+    ramp.tickInterval = 0;
 
-    // Phase 2: Steady (mixed alloc/free, bounded live-set)
-    WorkloadParams steadyParams = _params;
-    steadyParams.seed = _seed + 100;
-    steadyParams.operationCount = 20000;
-    steadyParams.sizeDistribution = core::bench::SizePresets::SmallObjects();
-    steadyParams.alignmentDistribution = core::bench::AlignmentPresets::Default();
-    steadyParams.lifetimeModel = core::bench::LifetimeModel::Bounded;
-    steadyParams.maxLiveObjects = 1000;
-    steadyParams.allocFreeRatio = 0.5f;
-    steadyParams.tickInterval = 1000;
+    auto sharedTracker = std::make_unique<LifetimeTracker>(
+        ramp.maxLiveObjects,
+        ramp.lifetimeModel,
+        sharedRng,
+        _allocator);
 
-    u32 trackerCapacity = steadyParams.maxLiveObjects;
-    sharedTracker = new LifetimeTracker(trackerCapacity, steadyParams.lifetimeModel, sharedRng, _allocator);
+    ASSERT(sharedTracker != nullptr);
+    sharedTracker->Clear();
 
-    PhaseContext steadyCtx = _phaseCtx;
-    steadyCtx.externalLifetimeTracker = sharedTracker;
-    RunPhase(_phaseExecutor, _allocator, _eventSink, "Steady", Name(), PhaseType::Steady, 0, steadyParams, ReclaimMode::None, nullptr, nullptr, nullptr, nullptr, &steadyCtx);
+    RunPhaseOnce(
+        _allocator,
+        _eventSink,
+        "RampUp",
+        Name(),
+        PhaseType::RampUp,
+        /*repetitionId=*/0,
+        ramp,
+        ReclaimMode::None,
+        /*externalTracker=*/sharedTracker.get());
 
-    // Phase 3: BulkReclaim (FreeAll)
-    WorkloadParams reclaimParams = _params;
-    reclaimParams.seed = _seed + 200;
-    reclaimParams.operationCount = 0;
-    reclaimParams.sizeDistribution = core::bench::SizePresets::SmallObjects();
-    reclaimParams.alignmentDistribution = core::bench::AlignmentPresets::Default();
-    reclaimParams.lifetimeModel = core::bench::LifetimeModel::Fifo;
-    reclaimParams.maxLiveObjects = 0;
-    reclaimParams.allocFreeRatio = 0.0f;
-    reclaimParams.tickInterval = 0;
-    PhaseContext reclaimCtx = _phaseCtx;
-    reclaimCtx.externalLifetimeTracker = sharedTracker;
-    RunPhase(_phaseExecutor, _allocator, _eventSink, "BulkReclaim", Name(), PhaseType::BulkReclaim, 0, reclaimParams, ReclaimMode::FreeAll, nullptr, nullptr, nullptr, nullptr, &reclaimCtx);
+    WorkloadParams steady = MakeBaseParams(_seed + 100);
+    steady.operationCount = 20000;
+    steady.lifetimeModel = LifetimeModel::Fifo;
+    steady.maxLiveObjects = ramp.maxLiveObjects;
+    steady.allocFreeRatio = 0.5f;
+    steady.tickInterval = 1000;
 
-    if (sharedTracker) {
-        delete sharedTracker;
-        sharedTracker = nullptr;
-    }
+    RunPhaseOnce(
+        _allocator,
+        _eventSink,
+        "Steady",
+        Name(),
+        PhaseType::Steady,
+        /*repetitionId=*/0,
+        steady,
+        ReclaimMode::None,
+        /*externalTracker=*/sharedTracker.get());
+
+    WorkloadParams bulk = MakeBaseParams(_seed + 200);
+    bulk.operationCount = 0;
+    bulk.tickInterval = 0;
+
+    RunPhaseOnce(
+        _allocator,
+        _eventSink,
+        "BulkReclaim",
+        Name(),
+        PhaseType::BulkReclaim,
+        /*repetitionId=*/0,
+        bulk,
+        ReclaimMode::FreeAll,
+        /*externalTracker=*/sharedTracker.get());
 }
 
 void SimpleAllocExperiment::Teardown() noexcept {
     if (_resetCallback) {
         _resetCallback(_resetUserData);
     }
-    if (_phaseExecutor) {
-        delete _phaseExecutor;
-        _phaseExecutor = nullptr;
-    }
+
     _allocator = nullptr;
     _allocatorOverride = nullptr;
     _eventSink = nullptr;
+
     _seed = 0;
     _params = {};
     _phaseCtx = {};
     _phaseDesc = {};
+
     _resetCallback = nullptr;
     _resetUserData = nullptr;
 }
 
-} // namespace bench
-} // namespace core
+} // namespace core::bench
 
 extern "C" core::bench::IExperiment* CreateSimpleAllocExperiment() {
     return new core::bench::SimpleAllocExperiment();

@@ -78,12 +78,20 @@ void PhaseExecutor::Execute() {
     _ownsTracker = ownsTracker;
     _ctx.lifetimeTracker = _tracker;
 
-    if (_tracker && (!_ctx.externalLifetimeTracker && _desc.reclaimMode != ReclaimMode::FreeAll)) {
+    if (_desc.reclaimMode == ReclaimMode::None) {
+        if (_ownsTracker || !_tracker || _tracker != _ctx.externalLifetimeTracker || !_tracker->isValid()) {
+            FATAL("ReclaimMode::None requires a valid externalLifetimeTracker (preserve live-set between phases)");
+        }
+    }
+
+    if (_tracker && _ownsTracker && _desc.reclaimMode != ReclaimMode::FreeAll) {
         _tracker->Clear();
     }
 
     // Setup context pointers (always, even for operationCount==0)
-    _ctx.eventSink = _eventSink;
+    if (_eventSink) {
+        _ctx.eventSink = _eventSink;
+    }
     _ctx.userData = _desc.userData;
     _ctx.phaseName = _desc.name;
     _ctx.experimentName = _desc.experimentName;
@@ -266,10 +274,13 @@ void PhaseExecutor::ExecuteOperationFree(u64 /*opIndex*/) const {
 void PhaseExecutor::ExecuteReclaim() {
     switch (_desc.reclaimMode) {
         case ReclaimMode::None:
-            // Do nothing, preserve live-set between phases
+            ASSERT(!_ownsTracker);
+            ASSERT(_tracker == _ctx.externalLifetimeTracker);
+            ASSERT(_tracker && _tracker->isValid());
             break;
         case ReclaimMode::FreeAll:
             if (_tracker) {
+                ASSERT(_tracker->isValid());
                 u64 freedCount = 0;
                 u64 freedBytes = 0;
                 _tracker->FreeAll(&freedCount, &freedBytes);
