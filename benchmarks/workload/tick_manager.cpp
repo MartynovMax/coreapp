@@ -7,19 +7,19 @@
 #include "../common/high_res_timer.hpp"
 #include "../events/event_sink.hpp"
 #include "../events/event_types.hpp"
-#include "core/memory/memory_ops.hpp"
 #include "phase_context.hpp"
 
 namespace core::bench {
 
 TickManager::TickManager(u64 tickInterval) noexcept
-    : _tickInterval(tickInterval), _lastTickOpIndex(0) {}
+    : _tickInterval(tickInterval) {}
 
 void TickManager::OnOperation(const TickContext& ctx, const PhaseContext& phaseCtx) noexcept {
     if (_tickInterval == 0) return;
-    if (const u64 opCount = ctx.opIndex + 1; opCount >= _lastTickOpIndex + _tickInterval) {
+
+    const u64 oneBased = ctx.opIndex + 1;
+    if ((oneBased % _tickInterval) == 0) {
         EmitTickEvent(ctx, phaseCtx);
-        _lastTickOpIndex = opCount;
     }
 }
 
