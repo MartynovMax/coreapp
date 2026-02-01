@@ -21,6 +21,13 @@ PhaseExecutor::PhaseExecutor(const PhaseDescriptor& desc,
 {
     ASSERT(_ctx.rng != nullptr);
     ASSERT(_ctx.allocator != nullptr);
+
+    // Ensure RNG seed matches WorkloadParams seed
+    ASSERT(_ctx.rng->GetSeed() == _desc.params.seed && "RNG seed does not match WorkloadParams seed");
+
+    if (_ctx.externalLifetimeTracker) {
+        ASSERT(_ctx.externalLifetimeTracker->isValid());
+    }
 }
 
 PhaseExecutor::~PhaseExecutor() noexcept {

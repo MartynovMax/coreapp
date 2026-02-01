@@ -1,3 +1,4 @@
+#include "core/base/core_types.hpp"
 #include "operation_stream.hpp"
 #include "core/base/core_assert.hpp"
 #include "../common/seeded_rng.hpp"
@@ -6,18 +7,33 @@
 namespace core::bench {
 
 namespace {
+    // Lookup table for deterministic mode
+    constexpr f32 kDeterministicTable[] = {
+        0.1f, 0.2f, 0.3f, 0.4f, 0.5f, 0.6f, 0.7f, 0.8f, 0.9f, 1.0f
+    };
+    constexpr usize kTableSize = sizeof(kDeterministicTable) / sizeof(kDeterministicTable[0]);
+
     // Internal helper for generating random floats in [0, 1) using core types
-    inline f32 NextUnitFloat01(SeededRNG& rng) noexcept {
+    inline f32 NextUnitFloat01(SeededRNG& rng, bool deterministicMode) noexcept {
+        if (deterministicMode) {
+            static usize index = 0;
+            f32 value = kDeterministicTable[index];
+            index = (index + 1) % kTableSize;
+            return value;
+        }
         constexpr f64 kInv2Pow32 = 1.0 / 4294967296.0; // 2^32
         return static_cast<f32>(static_cast<f64>(rng.NextU32()) * kInv2Pow32);
     }
 }
 
-OperationStream::OperationStream(const WorkloadParams& params, SeededRNG& rng) noexcept
+OperationStream::OperationStream(const WorkloadParams& params, SeededRNG& rng, bool deterministicMode) noexcept
     : _params(params)
     , _rng(rng)
     , _currentOp(0)
+    , _deterministicMode(deterministicMode)
 {
+    ASSERT(deterministicMode == true || deterministicMode == false);
+
     ASSERT(_params.sizeDistribution.minSize > 0);
     ASSERT(_params.sizeDistribution.maxSize >= _params.sizeDistribution.minSize);
     ASSERT(_params.alignmentDistribution.maxAlignment >= _params.alignmentDistribution.minAlignment);
@@ -102,6 +118,7 @@ bool OperationStream::HasNext() const noexcept {
 }
 
 core::memory_alignment OperationStream::NextPow2(core::memory_alignment v) noexcept {
+    if (v == 0) return 0; // Explicitly handle zero case
     if (v <= 1) return 1;
     v--;
     v |= v >> 1;
@@ -109,6 +126,9 @@ core::memory_alignment OperationStream::NextPow2(core::memory_alignment v) noexc
     v |= v >> 4;
     v |= v >> 8;
     v |= v >> 16;
+    if constexpr (sizeof(core::memory_alignment) > 4) {
+        v |= v >> 32; // Handle 64-bit alignment
+    }
     v++;
     return v;
 }
@@ -150,7 +170,7 @@ core::memory_alignment OperationStream::GenerateAlignment(u32 size) const noexce
             const f32* weights = ad.weights ? ad.weights : defWeights;
             u32 count = ad.buckets && ad.weights && ad.bucketCount > 0 ? ad.bucketCount : 4;
             if (count > 4) count = 4;
-            f32 r = NextUnitFloat01(_rng);
+            f32 r = NextUnitFloat01(_rng, _deterministicMode);
             f32 cumulative = 0.0f;
             for (u32 i = 0; i < count; i++) {
                 cumulative += weights[i];
@@ -162,7 +182,7 @@ core::memory_alignment OperationStream::GenerateAlignment(u32 size) const noexce
             if (ad.buckets == nullptr || ad.weights == nullptr || ad.bucketCount == 0) {
                 return ad.fixedAlignment; // fallback, can be 0
             }
-            f32 r = NextUnitFloat01(_rng);
+            f32 r = NextUnitFloat01(_rng, _deterministicMode);
             f32 cumulative = 0.0f;
             for (u32 i = 0; i < ad.bucketCount; i++) {
                 cumulative += ad.weights[i];
@@ -211,7 +231,7 @@ u32 OperationStream::GenerateSize() const noexcept {
         case DistributionType::Normal: {
             f32 sum = 0.0f;
             for (i32 i = 0; i < 12; i++) {
-                sum += NextUnitFloat01(_rng);
+                sum += NextUnitFloat01(_rng, _deterministicMode);
             }
             f32 z = sum - 6.0f;
             f32 value = dist.mean + z * dist.stddev;
@@ -224,7 +244,7 @@ u32 OperationStream::GenerateSize() const noexcept {
         case DistributionType::LogNormal: {
             f32 sum = 0.0f;
             for (i32 i = 0; i < 12; i++) {
-                sum += NextUnitFloat01(_rng);
+                sum += NextUnitFloat01(_rng, _deterministicMode);
             }
             f32 z = sum - 6.0f;
             f32 logValue = dist.mean + z * dist.stddev;
@@ -236,7 +256,7 @@ u32 OperationStream::GenerateSize() const noexcept {
         }
 
         case DistributionType::Exponential: {
-            f32 u = NextUnitFloat01(_rng);
+            f32 u = NextUnitFloat01(_rng, _deterministicMode);
             if (u == 0.0f) u = 1e-8f;
             f32 lambda = (dist.shape > 0.0f) ? dist.shape : 1.0f;
             f32 value = -logf(u) / lambda;
@@ -247,7 +267,7 @@ u32 OperationStream::GenerateSize() const noexcept {
         }
 
         case DistributionType::Pareto: {
-            f32 u = NextUnitFloat01(_rng);
+            f32 u = NextUnitFloat01(_rng, _deterministicMode);
             if (u == 0.0f) u = 1e-8f;
             f32 alpha = (dist.shape > 0.0f) ? dist.shape : 1.5f;
             f32 value = static_cast<f32>(dist.minSize) * powf(1.0f / u, 1.0f / alpha);
@@ -258,7 +278,7 @@ u32 OperationStream::GenerateSize() const noexcept {
         }
 
         case DistributionType::SmallBiased: {
-            f32 r = NextUnitFloat01(_rng);
+            f32 r = NextUnitFloat01(_rng, _deterministicMode);
             if (r < 0.9f) {
                 u32 smallMax = (dist.minSize + 56 < dist.maxSize) ? (dist.minSize + 56) : dist.maxSize;
                 return _rng.NextRange(dist.minSize, smallMax);
@@ -269,7 +289,7 @@ u32 OperationStream::GenerateSize() const noexcept {
         }
 
         case DistributionType::LargeBiased: {
-            f32 r = NextUnitFloat01(_rng);
+            f32 r = NextUnitFloat01(_rng, _deterministicMode);
             if (r < 0.9f) {
                 u32 largeMin = (dist.minSize + 64 < dist.maxSize) ? (dist.minSize + 64) : dist.minSize;
                 return _rng.NextRange(largeMin, dist.maxSize);
@@ -284,7 +304,7 @@ u32 OperationStream::GenerateSize() const noexcept {
             u32 peak1Max = dist.peak1Max > dist.maxSize ? dist.maxSize : dist.peak1Max;
             u32 peak2Min = dist.peak2Min < dist.minSize ? dist.minSize : dist.peak2Min;
             u32 peak2Max = dist.peak2Max > dist.maxSize ? dist.maxSize : dist.peak2Max;
-            f32 r = NextUnitFloat01(_rng);
+            f32 r = NextUnitFloat01(_rng, _deterministicMode);
             if (r < dist.peak1Weight) return _rng.NextRange(peak1Min, peak1Max);
             return _rng.NextRange(peak2Min, peak2Max);
         }
@@ -292,7 +312,7 @@ u32 OperationStream::GenerateSize() const noexcept {
         case DistributionType::WebServerAlloc: {
             f32 sum = 0.0f;
             for (i32 i = 0; i < 12; i++) {
-                sum += NextUnitFloat01(_rng);
+                sum += NextUnitFloat01(_rng, _deterministicMode);
             }
             f32 z = sum - 6.0f;
             f32 logValue = dist.mean + z * dist.stddev;
@@ -308,7 +328,7 @@ u32 OperationStream::GenerateSize() const noexcept {
             u32 peak1Max = dist.peak1Max > dist.maxSize ? dist.maxSize : dist.peak1Max;
             u32 peak2Min = dist.peak2Min < dist.minSize ? dist.minSize : dist.peak2Min;
             u32 peak2Max = dist.peak2Max > dist.maxSize ? dist.maxSize : dist.peak2Max;
-            f32 r = NextUnitFloat01(_rng);
+            f32 r = NextUnitFloat01(_rng, _deterministicMode);
             if (r < dist.peak1Weight) return _rng.NextRange(peak1Min, peak1Max);
             return _rng.NextRange(peak2Min, peak2Max);
         }
@@ -336,7 +356,7 @@ u32 OperationStream::GenerateSize() const noexcept {
             if (dist.buckets == nullptr || dist.weights == nullptr || dist.bucketCount == 0) {
                 return _rng.NextRange(dist.minSize, dist.maxSize);
             }
-            f32 r = NextUnitFloat01(_rng);
+            f32 r = NextUnitFloat01(_rng, _deterministicMode);
             f32 cumulative = 0.0f;
             for (u32 i = 0; i < dist.bucketCount; i++) {
                 cumulative += dist.weights[i];
@@ -361,7 +381,7 @@ OpType OperationStream::DecideOperation() const noexcept {
     if (ratio <= 0.0f) return OpType::Free;
     if (ratio >= 1.0f) return OpType::Alloc;
 
-    const f32 r = NextUnitFloat01(_rng); // [0,1)
+    const f32 r = NextUnitFloat01(_rng, _deterministicMode); // [0,1)
     return (r < ratio) ? OpType::Alloc : OpType::Free;
 }
 

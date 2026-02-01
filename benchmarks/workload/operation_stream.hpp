@@ -43,7 +43,7 @@ struct Operation {
 
 class OperationStream {
 public:
-    OperationStream(const WorkloadParams& params, SeededRNG& rng) noexcept;
+    OperationStream(const WorkloadParams& params, SeededRNG& rng, bool deterministicMode = false) noexcept;
     ~OperationStream() noexcept = default;
 
     // Generate next operation
@@ -58,6 +58,8 @@ private:
     const WorkloadParams& _params;
     SeededRNG& _rng;
     u64 _currentOp = 0;
+    bool _deterministicMode = false;
+
     u32 GenerateSize() const noexcept;
     core::memory_alignment GenerateAlignment(u32 size) const noexcept;
     OpType DecideOperation() const noexcept;
