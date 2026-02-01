@@ -56,6 +56,8 @@ private:
     core::bench::SeededRNG _rng{0};
     void (*_resetCallback)(void*) = nullptr;
     void* _resetUserData = nullptr;
+
+    u32 _warmupIterations = 0;
 };
 
 } // namespace bench

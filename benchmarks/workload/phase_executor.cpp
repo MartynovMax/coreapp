@@ -98,6 +98,10 @@ void PhaseExecutor::Execute() {
     _ctx.freeCount = 0;
     _ctx.bytesAllocated = 0;
     _ctx.bytesFreed = 0;
+    _ctx.internalFreeCount = 0;
+    _ctx.internalBytesFreed = 0;
+    _ctx.reclaimFreeCount = 0;
+    _ctx.reclaimBytesFreed = 0;
 
     // Emit OnPhaseBegin event if event sink exists
     if (_eventSink) {
@@ -124,17 +128,25 @@ void PhaseExecutor::Execute() {
 
         u64 opIndex = 0;
         while (_opStream->HasNext()) {
-            Operation op = _opStream->Next();
+            const u64 liveCount = _tracker ? _tracker->GetLiveCount() : 0;
+
+            if (liveCount == 0 && _desc.params.allocFreeRatio <= 0.0f) {
+                break;
+            }
+
+            Operation op = _opStream->Next(liveCount);
             _ctx.currentOpIndex = opIndex;
+
             if (_desc.customOperation) {
                 _desc.customOperation(_ctx);
             } else {
                 if (op.type == OpType::Alloc) {
                     ExecuteOperationAlloc(op, opIndex);
-                } else if (op.type == OpType::Free) {
+                } else { // OpType::Free
                     ExecuteOperationFree(opIndex);
                 }
             }
+
             if (tickManager) {
                 TickContext tickCtx{};
                 tickCtx.opIndex = opIndex;
@@ -146,8 +158,11 @@ void PhaseExecutor::Execute() {
                 tickCtx.peakLiveBytes = _tracker ? _tracker->GetPeakBytes() : 0;
                 tickManager->OnOperation(tickCtx, _ctx);
             }
+
             opIndex++;
             totalIssuedOperations++;
+
+            // Check if the phase is complete
             if (IsPhaseComplete()) {
                 break;
             }
@@ -181,6 +196,16 @@ void PhaseExecutor::Execute() {
     _stats.bytesFreed = _ctx.bytesFreed;
     _stats.peakLiveCount = peakLiveCount;
     _stats.peakLiveBytes = peakLiveBytes;
+    _stats.internalFreeCount = _ctx.internalFreeCount;
+    _stats.internalBytesFreed = _ctx.internalBytesFreed;
+    _stats.reclaimFreeCount = _ctx.reclaimFreeCount;
+    _stats.reclaimBytesFreed = _ctx.reclaimBytesFreed;
+
+    // Derived totals for compatibility
+    u64 totalFreeCount = _ctx.freeCount + _ctx.internalFreeCount + _ctx.reclaimFreeCount;
+    u64 totalBytesFreed = _ctx.bytesFreed + _ctx.internalBytesFreed + _ctx.reclaimBytesFreed;
+    _stats.totalFreeCount = totalFreeCount;
+    _stats.totalBytesFreed = totalBytesFreed;
 
     // PhaseComplete event with full payload
     if (_eventSink) {
@@ -246,12 +271,12 @@ void PhaseExecutor::ExecuteOperationAlloc(const Operation& op, u64 opIndex) cons
             info.alignment = op.alignment;
             info.tag = op.tag;
             _ctx.allocator->Deallocate(info);
-            _ctx.freeCount++;
-            _ctx.bytesFreed += op.size;
+            _ctx.internalFreeCount++;
+            _ctx.internalBytesFreed += op.size;
         }
         if (result.forcedFree) {
-            _ctx.freeCount++;
-            _ctx.bytesFreed += result.freedInfo.size;
+            _ctx.internalFreeCount++;
+            _ctx.internalBytesFreed += result.freedInfo.size;
         }
     }
 }
@@ -284,8 +309,8 @@ void PhaseExecutor::ExecuteReclaim() {
                 u64 freedCount = 0;
                 u64 freedBytes = 0;
                 _tracker->FreeAll(&freedCount, &freedBytes);
-                _ctx.freeCount += freedCount;
-                _ctx.bytesFreed += freedBytes;
+                _ctx.reclaimFreeCount += freedCount;
+                _ctx.reclaimBytesFreed += freedBytes;
             }
             break;
         case ReclaimMode::Custom:

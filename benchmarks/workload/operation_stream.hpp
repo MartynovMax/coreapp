@@ -49,6 +49,9 @@ public:
     // Generate next operation
     Operation Next() noexcept;
 
+    // Generate next operation with live count awareness
+    Operation Next(u64 liveCount) noexcept;
+
     // Check if more operations available
     bool HasNext() const noexcept;
 private:

@@ -13,6 +13,12 @@ struct PhaseStats {
     u64 bytesFreed;
     u64 peakLiveCount;
     u64 peakLiveBytes;
+    u64 internalFreeCount;
+    u64 internalBytesFreed;
+    u64 reclaimFreeCount;
+    u64 reclaimBytesFreed;
+    u64 totalFreeCount;
+    u64 totalBytesFreed;
 };
 
 // PhaseCompletePayload - full phase completion metrics for event sink

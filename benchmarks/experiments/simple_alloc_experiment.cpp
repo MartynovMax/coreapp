@@ -106,32 +106,38 @@ void SimpleAllocExperiment::Setup(const ExperimentParams& params) {
     _phaseCtx.rng = &_rng;
     _phaseCtx.eventSink = _eventSink;
     _phaseCtx.experimentName = Name();
+
+    _warmupIterations = params.warmupIterations;
 }
 
 void SimpleAllocExperiment::Warmup() {
     ASSERT(_allocator != nullptr);
 
-    WorkloadParams warm = MakeBaseParams(_seed + 1);
-    warm.operationCount = 128;
-    warm.maxLiveObjects = 16;
-    warm.allocFreeRatio = 1.0f;
-    warm.tickInterval = 0;
+    if (_warmupIterations == 0) {
+        return; // Skip Warmup if iterations are zero
+    }
 
-    RunPhaseOnce(
-        _allocator,
-        _eventSink,
-        "Warmup",
-        Name(),
-        PhaseType::RampUp,
-        /*repetitionId=*/0,
-        warm,
-        ReclaimMode::FreeAll);
+    for (u32 i = 0; i < _warmupIterations; ++i) {
+        WorkloadParams warm = MakeBaseParams(_seed + 1 + i);
+        warm.operationCount = 128;
+        warm.maxLiveObjects = warm.operationCount; // Ensure FIFO does not overflow
+        warm.allocFreeRatio = 1.0f;
+        warm.tickInterval = 0;
+
+        RunPhaseOnce(
+            _allocator,
+            _eventSink,
+            "Warmup",
+            Name(),
+            PhaseType::RampUp,
+            /*repetitionId=*/0,
+            warm,
+            ReclaimMode::FreeAll);
+    }
 }
 
 void SimpleAllocExperiment::RunPhases() {
     ASSERT(_allocator != nullptr);
-
-    SeededRNG sharedRng(_seed + 100);
 
     WorkloadParams ramp = MakeBaseParams(_seed);
     ramp.operationCount = 10000;
@@ -140,13 +146,21 @@ void SimpleAllocExperiment::RunPhases() {
     ramp.allocFreeRatio = 1.0f;
     ramp.tickInterval = 0;
 
+    WorkloadParams steady = MakeBaseParams(_seed + 100);
+    steady.operationCount = 20000;
+    steady.lifetimeModel = LifetimeModel::Fifo;
+    steady.maxLiveObjects = 20000; // Allow headroom for allocs
+    steady.allocFreeRatio = 0.5f;
+    steady.tickInterval = 1000;
+
+    SeededRNG sharedRng(_seed + 100);
+    const u32 sharedCapacity = steady.maxLiveObjects;
+
     auto sharedTracker = std::make_unique<LifetimeTracker>(
-        ramp.maxLiveObjects,
-        ramp.lifetimeModel,
+        sharedCapacity,
+        LifetimeModel::Fifo,
         sharedRng,
         _allocator);
-
-    ASSERT(sharedTracker != nullptr);
     sharedTracker->Clear();
 
     RunPhaseOnce(
@@ -159,13 +173,6 @@ void SimpleAllocExperiment::RunPhases() {
         ramp,
         ReclaimMode::None,
         /*externalTracker=*/sharedTracker.get());
-
-    WorkloadParams steady = MakeBaseParams(_seed + 100);
-    steady.operationCount = 20000;
-    steady.lifetimeModel = LifetimeModel::Fifo;
-    steady.maxLiveObjects = ramp.maxLiveObjects;
-    steady.allocFreeRatio = 0.5f;
-    steady.tickInterval = 1000;
 
     RunPhaseOnce(
         _allocator,

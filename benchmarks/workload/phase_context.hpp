@@ -38,6 +38,10 @@ struct PhaseContext {
     u64 freeCount = 0;
     u64 bytesAllocated = 0;
     u64 bytesFreed = 0;
+    u64 internalFreeCount = 0;
+    u64 internalBytesFreed = 0;
+    u64 reclaimFreeCount = 0;
+    u64 reclaimBytesFreed = 0;
 
     // User data for callbacks:
     void* userData = nullptr;

@@ -2,7 +2,6 @@
 #include "../workload/phase_descriptor.hpp"
 #include "../workload/phase_context.hpp"
 #include "../workload/workload_params.hpp"
-#include "../workload/operation_stream.hpp"
 #include "../workload/lifetime_tracker.hpp"
 #include "../workload/phase_types.hpp"
 #include "../workload/../events/event_sink.hpp"
@@ -51,7 +50,7 @@ TEST(PhaseExecutorTest, SinglePhaseRampUpAllocOnly) {
     exec.Execute();
     const PhaseStats& stats = exec.GetStats();
     EXPECT_EQ(stats.allocCount, 10u);
-    EXPECT_EQ(stats.freeCount, 10u);
+    EXPECT_EQ(stats.totalFreeCount, 10u);
     EXPECT_GT(stats.bytesAllocated, 0u);
 }
 
@@ -69,9 +68,9 @@ TEST(PhaseExecutorTest, SinglePhaseSteadyMixedAllocFree) {
     PhaseExecutor exec(desc, ctx);
     exec.Execute();
     const PhaseStats& stats = exec.GetStats();
-    EXPECT_GE(stats.allocCount + stats.freeCount, 20u);
+    EXPECT_GE(stats.allocCount + stats.totalFreeCount, 20u);
     EXPECT_GT(stats.allocCount, 0u);
-    EXPECT_GT(stats.freeCount, 0u);
+    EXPECT_GT(stats.totalFreeCount, 0u);
 }
 
 TEST(PhaseExecutorTest, ReclaimModeFreeAllFreesAllTrackedObjects) {
@@ -88,7 +87,7 @@ TEST(PhaseExecutorTest, ReclaimModeFreeAllFreesAllTrackedObjects) {
     PhaseExecutor exec(desc, ctx);
     exec.Execute();
     const PhaseStats& stats = exec.GetStats();
-    EXPECT_EQ(stats.freeCount, 16u);
+    EXPECT_EQ(stats.totalFreeCount, 16u);
 }
 
 TEST(PhaseExecutorTest, ReclaimModeCustomCallbackInvoked) {
@@ -128,7 +127,7 @@ TEST(PhaseExecutorTest, PhaseStatsAccumulateCorrectly) {
     exec.Execute();
     const PhaseStats& stats = exec.GetStats();
     EXPECT_GT(stats.allocCount, 0u);
-    EXPECT_GT(stats.freeCount, 0u);
+    EXPECT_GT(stats.totalFreeCount, 0u);
     EXPECT_GT(stats.bytesAllocated, 0u);
     EXPECT_GT(stats.bytesFreed, 0u);
 }
@@ -261,20 +260,33 @@ TEST(PhaseExecutorTest, WithBumpArena) {
     std::vector<uint8_t> buffer(4096);
     core::BumpArena arena(buffer.data(), buffer.size());
     core::ArenaAllocatorAdapter allocator(arena);
+
     SeededRNG rng(10);
+
     WorkloadParams params;
     params.seed = 10;
     params.operationCount = 10;
     params.allocFreeRatio = 1.0f;
     params.lifetimeModel = LifetimeModel::Fifo;
     params.sizeDistribution = SizePresets::SmallObjects();
+
     PhaseDescriptor desc = MakeDesc("BumpArena", PhaseType::Steady, params);
+
+    desc.reclaimMode = ReclaimMode::None;
+
     PhaseContext ctx = MakeContext(&allocator, &rng);
+
+    LifetimeTracker tracker(params.operationCount, params.lifetimeModel, rng, &allocator);
+    ctx.externalLifetimeTracker = &tracker;
+
     PhaseExecutor exec(desc, ctx);
     exec.Execute();
+
     const PhaseStats& stats = exec.GetStats();
     EXPECT_EQ(stats.allocCount, 10u);
     EXPECT_GT(stats.bytesAllocated, 0u);
+
+    tracker.Clear();
 }
 
 TEST(PhaseExecutorTest, WithPoolAllocator) {
@@ -312,7 +324,7 @@ TEST(PhaseExecutorTest, WithFifoLifetimeModel) {
     exec.Execute();
     const PhaseStats& stats = exec.GetStats();
     EXPECT_GT(stats.allocCount, 0u);
-    EXPECT_GT(stats.freeCount, 0u);
+    EXPECT_GT(stats.totalFreeCount, 0u);
 }
 
 TEST(PhaseExecutorTest, WithLifoLifetimeModel) {
@@ -330,7 +342,7 @@ TEST(PhaseExecutorTest, WithLifoLifetimeModel) {
     exec.Execute();
     const PhaseStats& stats = exec.GetStats();
     EXPECT_GT(stats.allocCount, 0u);
-    EXPECT_GT(stats.freeCount, 0u);
+    EXPECT_GT(stats.totalFreeCount, 0u);
 }
 
 TEST(PhaseExecutorTest, WithRandomLifetimeModel) {
@@ -348,7 +360,7 @@ TEST(PhaseExecutorTest, WithRandomLifetimeModel) {
     exec.Execute();
     const PhaseStats& stats = exec.GetStats();
     EXPECT_GT(stats.allocCount, 0u);
-    EXPECT_GT(stats.freeCount, 0u);
+    EXPECT_GT(stats.totalFreeCount, 0u);
 }
 
 TEST(PhaseExecutorTest, WithBoundedLifetimeModel) {
@@ -394,7 +406,7 @@ TEST(PhaseExecutorTest, MultiPhaseSequence) {
     for (int i = 0; i < 3; ++i) {
         PhaseExecutor exec(descs[i], ctx);
         exec.Execute();
-        totalOps += exec.GetStats().allocCount + exec.GetStats().freeCount;
+        totalOps += exec.GetStats().allocCount + exec.GetStats().totalFreeCount;
     }
     EXPECT_GE(totalOps, 6u);
 }
@@ -419,7 +431,7 @@ TEST(PhaseExecutorTest, DeterminismSameSeedIdenticalStatsAndEvents) {
     const PhaseStats& stats1 = exec1.GetStats();
     const PhaseStats& stats2 = exec2.GetStats();
     EXPECT_EQ(stats1.allocCount, stats2.allocCount);
-    EXPECT_EQ(stats1.freeCount, stats2.freeCount);
+    EXPECT_EQ(stats1.totalFreeCount, stats2.totalFreeCount);
     EXPECT_EQ(stats1.bytesAllocated, stats2.bytesAllocated);
     EXPECT_EQ(stats1.bytesFreed, stats2.bytesFreed);
     EXPECT_EQ(stats1.peakLiveCount, stats2.peakLiveCount);
@@ -445,7 +457,7 @@ TEST(PhaseExecutorTest, StressTest1MOperations) {
     exec.Execute();
     const PhaseStats& stats = exec.GetStats();
     EXPECT_GT(stats.allocCount, 400000u);
-    EXPECT_GT(stats.freeCount, 400000u);
-    EXPECT_LT(stats.allocCount + stats.freeCount, 1000000u);
+    EXPECT_GT(stats.totalFreeCount, 400000u);
+    EXPECT_LE(stats.allocCount + stats.freeCount, 1000000u);
+    EXPECT_GT(stats.reclaimFreeCount, 0u);
 }
-

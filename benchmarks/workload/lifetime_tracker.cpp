@@ -57,7 +57,7 @@ LifetimeTracker::TrackResult LifetimeTracker::Track(void* ptr, u32 size, core::m
         return result;
     }
     if (_count >= _capacity) {
-        if (_ringMode && _model == LifetimeModel::Bounded) {
+        if (_model == LifetimeModel::Bounded) {
             // Forced free oldest (head)
             const AllocInfo& toFree = _buffer[_head];
             if (_allocator && toFree.ptr) {
@@ -71,6 +71,9 @@ LifetimeTracker::TrackResult LifetimeTracker::Track(void* ptr, u32 size, core::m
             result.forcedFree = true;
             result.freedInfo = _buffer[_head];
             RemoveIndex(_head);
+        } else if (_model == LifetimeModel::Fifo) {
+            FATAL("LifetimeTracker FIFO overflow: increase capacity/maxLiveObjects or adjust workload");
+            return result; // Unreachable
         } else {
             return result;
         }

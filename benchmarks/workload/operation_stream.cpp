@@ -5,6 +5,14 @@
 
 namespace core::bench {
 
+namespace {
+    // Internal helper for generating random floats in [0, 1) using core types
+    inline f32 NextUnitFloat01(SeededRNG& rng) noexcept {
+        constexpr f64 kInv2Pow32 = 1.0 / 4294967296.0; // 2^32
+        return static_cast<f32>(static_cast<f64>(rng.NextU32()) * kInv2Pow32);
+    }
+}
+
 OperationStream::OperationStream(const WorkloadParams& params, SeededRNG& rng) noexcept
     : _params(params)
     , _rng(rng)
@@ -12,7 +20,6 @@ OperationStream::OperationStream(const WorkloadParams& params, SeededRNG& rng) n
 {
     ASSERT(_params.sizeDistribution.minSize > 0);
     ASSERT(_params.sizeDistribution.maxSize >= _params.sizeDistribution.minSize);
-    ASSERT(_params.alignmentDistribution.minAlignment >= 0);
     ASSERT(_params.alignmentDistribution.maxAlignment >= _params.alignmentDistribution.minAlignment);
     if (_params.sizeDistribution.type == DistributionType::Bimodal || _params.sizeDistribution.type == DistributionType::GameEngine) {
         ASSERT(_params.sizeDistribution.peak1Min >= _params.sizeDistribution.minSize);
@@ -42,6 +49,35 @@ Operation OperationStream::Next() noexcept {
     ASSERT(_currentOp < _params.operationCount);
     Operation op{};
     op.type = DecideOperation();
+
+    if (op.type == OpType::Alloc) {
+        op.size = GenerateSize();
+        op.alignment = GenerateAlignment(op.size);
+        op.tag = _params.tag;
+        op.flags = _params.flags;
+        op.ptr = nullptr;
+    } else {
+        op.size = 0;
+        op.alignment = 0;
+        op.tag = 0;
+        op.flags = core::AllocationFlags::None;
+        op.ptr = nullptr;
+    }
+
+    _currentOp++;
+    return op;
+}
+
+Operation OperationStream::Next(u64 liveCount) noexcept {
+    ASSERT(_currentOp < _params.operationCount);
+    Operation op{};
+
+    // Decide operation based on liveCount and allocFreeRatio
+    if (liveCount == 0) {
+        op.type = (_params.allocFreeRatio > 0.0f) ? OpType::Alloc : OpType::Free;
+    } else {
+        op.type = DecideOperation();
+    }
 
     if (op.type == OpType::Alloc) {
         op.size = GenerateSize();
@@ -114,7 +150,7 @@ core::memory_alignment OperationStream::GenerateAlignment(u32 size) const noexce
             const f32* weights = ad.weights ? ad.weights : defWeights;
             u32 count = ad.buckets && ad.weights && ad.bucketCount > 0 ? ad.bucketCount : 4;
             if (count > 4) count = 4;
-            f32 r = static_cast<f32>(_rng.NextU32()) / static_cast<f32>(0xFFFFFFFFu);
+            f32 r = NextUnitFloat01(_rng);
             f32 cumulative = 0.0f;
             for (u32 i = 0; i < count; i++) {
                 cumulative += weights[i];
@@ -126,7 +162,7 @@ core::memory_alignment OperationStream::GenerateAlignment(u32 size) const noexce
             if (ad.buckets == nullptr || ad.weights == nullptr || ad.bucketCount == 0) {
                 return ad.fixedAlignment; // fallback, can be 0
             }
-            f32 r = static_cast<f32>(_rng.NextU32()) / static_cast<f32>(0xFFFFFFFFu);
+            f32 r = NextUnitFloat01(_rng);
             f32 cumulative = 0.0f;
             for (u32 i = 0; i < ad.bucketCount; i++) {
                 cumulative += ad.weights[i];
@@ -175,7 +211,7 @@ u32 OperationStream::GenerateSize() const noexcept {
         case DistributionType::Normal: {
             f32 sum = 0.0f;
             for (i32 i = 0; i < 12; i++) {
-                sum += static_cast<f32>(_rng.NextU32()) / static_cast<f32>(0xFFFFFFFFu);
+                sum += NextUnitFloat01(_rng);
             }
             f32 z = sum - 6.0f;
             f32 value = dist.mean + z * dist.stddev;
@@ -188,7 +224,7 @@ u32 OperationStream::GenerateSize() const noexcept {
         case DistributionType::LogNormal: {
             f32 sum = 0.0f;
             for (i32 i = 0; i < 12; i++) {
-                sum += static_cast<f32>(_rng.NextU32()) / static_cast<f32>(0xFFFFFFFFu);
+                sum += NextUnitFloat01(_rng);
             }
             f32 z = sum - 6.0f;
             f32 logValue = dist.mean + z * dist.stddev;
@@ -200,7 +236,7 @@ u32 OperationStream::GenerateSize() const noexcept {
         }
 
         case DistributionType::Exponential: {
-            f32 u = static_cast<f32>(_rng.NextU32()) / static_cast<f32>(0xFFFFFFFFu);
+            f32 u = NextUnitFloat01(_rng);
             if (u == 0.0f) u = 1e-8f;
             f32 lambda = (dist.shape > 0.0f) ? dist.shape : 1.0f;
             f32 value = -logf(u) / lambda;
@@ -211,7 +247,7 @@ u32 OperationStream::GenerateSize() const noexcept {
         }
 
         case DistributionType::Pareto: {
-            f32 u = static_cast<f32>(_rng.NextU32()) / static_cast<f32>(0xFFFFFFFFu);
+            f32 u = NextUnitFloat01(_rng);
             if (u == 0.0f) u = 1e-8f;
             f32 alpha = (dist.shape > 0.0f) ? dist.shape : 1.5f;
             f32 value = static_cast<f32>(dist.minSize) * powf(1.0f / u, 1.0f / alpha);
@@ -222,7 +258,7 @@ u32 OperationStream::GenerateSize() const noexcept {
         }
 
         case DistributionType::SmallBiased: {
-            f32 r = static_cast<f32>(_rng.NextU32()) / static_cast<f32>(0xFFFFFFFFu);
+            f32 r = NextUnitFloat01(_rng);
             if (r < 0.9f) {
                 u32 smallMax = (dist.minSize + 56 < dist.maxSize) ? (dist.minSize + 56) : dist.maxSize;
                 return _rng.NextRange(dist.minSize, smallMax);
@@ -233,7 +269,7 @@ u32 OperationStream::GenerateSize() const noexcept {
         }
 
         case DistributionType::LargeBiased: {
-            f32 r = static_cast<f32>(_rng.NextU32()) / static_cast<f32>(0xFFFFFFFFu);
+            f32 r = NextUnitFloat01(_rng);
             if (r < 0.9f) {
                 u32 largeMin = (dist.minSize + 64 < dist.maxSize) ? (dist.minSize + 64) : dist.minSize;
                 return _rng.NextRange(largeMin, dist.maxSize);
@@ -244,12 +280,11 @@ u32 OperationStream::GenerateSize() const noexcept {
         }
 
         case DistributionType::Bimodal: {
-            // Clamp peaks to [minSize, maxSize]
             u32 peak1Min = dist.peak1Min < dist.minSize ? dist.minSize : dist.peak1Min;
             u32 peak1Max = dist.peak1Max > dist.maxSize ? dist.maxSize : dist.peak1Max;
             u32 peak2Min = dist.peak2Min < dist.minSize ? dist.minSize : dist.peak2Min;
             u32 peak2Max = dist.peak2Max > dist.maxSize ? dist.maxSize : dist.peak2Max;
-            f32 r = static_cast<f32>(_rng.NextU32()) / static_cast<f32>(0xFFFFFFFFu);
+            f32 r = NextUnitFloat01(_rng);
             if (r < dist.peak1Weight) return _rng.NextRange(peak1Min, peak1Max);
             return _rng.NextRange(peak2Min, peak2Max);
         }
@@ -257,7 +292,7 @@ u32 OperationStream::GenerateSize() const noexcept {
         case DistributionType::WebServerAlloc: {
             f32 sum = 0.0f;
             for (i32 i = 0; i < 12; i++) {
-                sum += static_cast<f32>(_rng.NextU32()) / static_cast<f32>(0xFFFFFFFFu);
+                sum += NextUnitFloat01(_rng);
             }
             f32 z = sum - 6.0f;
             f32 logValue = dist.mean + z * dist.stddev;
@@ -269,12 +304,11 @@ u32 OperationStream::GenerateSize() const noexcept {
         }
 
         case DistributionType::GameEngine: {
-            // Clamp peaks to [minSize, maxSize]
             u32 peak1Min = dist.peak1Min < dist.minSize ? dist.minSize : dist.peak1Min;
             u32 peak1Max = dist.peak1Max > dist.maxSize ? dist.maxSize : dist.peak1Max;
             u32 peak2Min = dist.peak2Min < dist.minSize ? dist.minSize : dist.peak2Min;
             u32 peak2Max = dist.peak2Max > dist.maxSize ? dist.maxSize : dist.peak2Max;
-            f32 r = static_cast<f32>(_rng.NextU32()) / static_cast<f32>(0xFFFFFFFFu);
+            f32 r = NextUnitFloat01(_rng);
             if (r < dist.peak1Weight) return _rng.NextRange(peak1Min, peak1Max);
             return _rng.NextRange(peak2Min, peak2Max);
         }
@@ -302,7 +336,7 @@ u32 OperationStream::GenerateSize() const noexcept {
             if (dist.buckets == nullptr || dist.weights == nullptr || dist.bucketCount == 0) {
                 return _rng.NextRange(dist.minSize, dist.maxSize);
             }
-            f32 r = static_cast<f32>(_rng.NextU32()) / static_cast<f32>(0xFFFFFFFFu);
+            f32 r = NextUnitFloat01(_rng);
             f32 cumulative = 0.0f;
             for (u32 i = 0; i < dist.bucketCount; i++) {
                 cumulative += dist.weights[i];
@@ -318,9 +352,16 @@ u32 OperationStream::GenerateSize() const noexcept {
 
 OpType OperationStream::DecideOperation() const noexcept {
     f32 ratio = _params.allocFreeRatio;
-    if (ratio < 0.0f) ratio = 0.0f;
+
+    // Handle NaN and clamp
+    if (!(ratio >= 0.0f)) ratio = 0.0f; // covers NaN and negatives
     if (ratio > 1.0f) ratio = 1.0f;
-    f32 r = static_cast<f32>(_rng.NextU32()) / static_cast<f32>(0xFFFFFFFFu);
+
+    // Strict endpoints
+    if (ratio <= 0.0f) return OpType::Free;
+    if (ratio >= 1.0f) return OpType::Alloc;
+
+    const f32 r = NextUnitFloat01(_rng); // [0,1)
     return (r < ratio) ? OpType::Alloc : OpType::Free;
 }
 

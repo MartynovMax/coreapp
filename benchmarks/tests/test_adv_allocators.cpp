@@ -18,7 +18,7 @@ TEST(AdvancedWorkloadTest, PoolAllocatorReclaimSemantics) {
     params.seed = 600;
     params.operationCount = 4;
     params.allocFreeRatio = 1.0f;
-    params.lifetimeModel = LifetimeModel::Fifo;
+    params.lifetimeModel = LifetimeModel::Bounded;
     params.maxLiveObjects = 1;
     params.sizeDistribution = SizeDistribution{DistributionType::Uniform, 8, 16};
     params.alignmentDistribution.type = AlignmentDistributionType::Fixed;
@@ -47,24 +47,26 @@ struct StackState {
     u32 allocSize = 0;
 };
 
-static StackState* gStackState = nullptr;
-
-static void StackLifoOp(PhaseContext& ctx) noexcept {
-    if (!gStackState) return;
+static void StackLifoOp(PhaseContext& ctx, StackState& state) noexcept {
     AllocationRequest req{};
-    req.size = gStackState->allocSize;
+    req.size = state.allocSize;
     req.alignment = CORE_DEFAULT_ALIGNMENT;
     void* ptr = ctx.allocator->Allocate(req);
     if (!ptr) return;
     ctx.allocCount += 1;
-    ctx.bytesAllocated += gStackState->allocSize;
+    ctx.bytesAllocated += state.allocSize;
     AllocationInfo info{};
     info.ptr = ptr;
-    info.size = gStackState->allocSize;
+    info.size = state.allocSize;
     info.alignment = CORE_DEFAULT_ALIGNMENT;
     ctx.allocator->Deallocate(info);
     ctx.freeCount += 1;
-    ctx.bytesFreed += gStackState->allocSize;
+    ctx.bytesFreed += state.allocSize;
+}
+
+static void CustomStackOperation(PhaseContext& ctx) noexcept {
+    auto* state = static_cast<StackState*>(ctx.userData);
+    StackLifoOp(ctx, *state);
 }
 
 TEST(AdvancedWorkloadTest, StackAllocatorBoundedArena) {
@@ -76,20 +78,20 @@ TEST(AdvancedWorkloadTest, StackAllocatorBoundedArena) {
     params.seed = 700;
     params.operationCount = 50;
     params.allocFreeRatio = 1.0f;
-    params.lifetimeModel = LifetimeModel::Fifo;
+    params.lifetimeModel = LifetimeModel::Bounded;
     params.maxLiveObjects = 1;
     params.sizeDistribution = SizePresets::SmallObjects();
 
     StackState state{};
     state.allocSize = 64;
-    gStackState = &state;
 
     PhaseDescriptor desc{};
     desc.name = "Stack";
     desc.experimentName = "Advanced";
     desc.type = PhaseType::Custom;
     desc.params = params;
-    desc.customOperation = &StackLifoOp;
+    desc.userData = &state;
+    desc.customOperation = CustomStackOperation;
     desc.reclaimMode = ReclaimMode::FreeAll;
 
     PhaseContext ctx{};
@@ -102,5 +104,4 @@ TEST(AdvancedWorkloadTest, StackAllocatorBoundedArena) {
     }
 
     EXPECT_EQ(allocator.Used(), 0u);
-    gStackState = nullptr;
 }

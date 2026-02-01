@@ -184,10 +184,18 @@ TEST(LifetimeTracker, BufferOverflow_Assertion) {
     MallocAllocator alloc;
     SeededRNG rng(9);
     LifetimeTracker tracker(2, LifetimeModel::Fifo, rng, &alloc);
-    tracker.Track(reinterpret_cast<void *>(1), 16, kAlign, kTag, 0);
-    tracker.Track(reinterpret_cast<void *>(2), 16, kAlign, kTag, 1);
-    const auto res = tracker.Track(reinterpret_cast<void *>(3), 16, kAlign, kTag, 2);
-    ASSERT_FALSE(res.tracked);
+
+    tracker.Track(reinterpret_cast<void*>(1), 16, kAlign, kTag, 0);
+    tracker.Track(reinterpret_cast<void*>(2), 16, kAlign, kTag, 1);
+
+#if GTEST_HAS_DEATH_TEST
+    ASSERT_DEATH(
+        { (void)tracker.Track(reinterpret_cast<void*>(3), 16, kAlign, kTag, 2); },
+        ".*"
+    );
+#else
+    (void)tracker;
+#endif
 }
 
 TEST(LifetimeTracker, MallocAllocator_BufferManagement) {
@@ -204,8 +212,10 @@ TEST(LifetimeTracker, MallocAllocator_BufferManagement) {
 TEST(LifetimeTracker, BumpArena_BufferManagement) {
     static u8 arenaBuf[4096];
     BumpArena arena(arenaBuf, sizeof(arenaBuf));
+    core::ArenaAllocatorAdapter alloc(arena);
     SeededRNG rng(11);
-    LifetimeTracker tracker(10, LifetimeModel::Fifo, rng, reinterpret_cast<IAllocator*>(&arena));
+
+    LifetimeTracker tracker(10, LifetimeModel::Fifo, rng, &alloc);
     TrackN(tracker, 10);
     AllocInfo info{};
     for (u32 i = 0; i < 10; ++i)

@@ -6,11 +6,9 @@
 #include "test_helpers.hpp"
 #include "core/memory/bump_arena.hpp"
 #include "core/memory/arena.hpp"
-#include "core/memory/malloc_allocator.hpp"
 #include <gtest/gtest.h>
 #include <vector>
 #include <string>
-#include <unordered_map>
 
 using namespace core;
 using namespace core::bench;
@@ -18,13 +16,14 @@ using namespace core::bench::test;
 
 static Event FindPhaseComplete(const std::vector<Event>& events, const char* phaseName) {
     for (const auto& evt : events) {
-        if (evt.type == EventType::PhaseComplete && evt.phaseName && phaseName) {
+        if (evt.type == EventType::PhaseComplete && evt.phaseName != nullptr && phaseName != nullptr) {
             if (std::string(evt.phaseName) == phaseName) {
                 return evt;
             }
         }
     }
-    return Event{};
+    ADD_FAILURE() << "PhaseComplete event not found for phase: " << phaseName;
+    return Event{}; // Return a default Event to avoid undefined behavior.
 }
 
 TEST(SimpleAllocExperimentTest, RegistrationSucceeds) {
@@ -256,9 +255,10 @@ TEST(SimpleAllocExperimentTest, EventSinkCapturesAllPhaseEvents) {
         if (evt.type == EventType::PhaseEnd) phaseEndCount++;
     }
 
-    EXPECT_EQ(phaseBeginCount, 4u);
-    EXPECT_EQ(phaseCompleteCount, 4u);
-    EXPECT_EQ(phaseEndCount, 4u);
+    const u32 expectedPhases = 3u + (params.warmupIterations > 0 ? 1u : 0u);
+    EXPECT_EQ(phaseBeginCount, expectedPhases);
+    EXPECT_EQ(phaseCompleteCount, expectedPhases);
+    EXPECT_EQ(phaseEndCount, expectedPhases);
 }
 
 TEST(SimpleAllocExperimentTest, PhaseStatsMatchExpectedValues) {
@@ -277,7 +277,12 @@ TEST(SimpleAllocExperimentTest, PhaseStatsMatchExpectedValues) {
     experiment.Teardown();
 
     Event ramp = FindPhaseComplete(sink.events, "RampUp");
+    ASSERT_EQ(ramp.type, EventType::PhaseComplete);
+    ASSERT_TRUE(ramp.phaseName);
+
     Event bulk = FindPhaseComplete(sink.events, "BulkReclaim");
+    ASSERT_EQ(bulk.type, EventType::PhaseComplete);
+    ASSERT_TRUE(bulk.phaseName);
 
     EXPECT_EQ(ramp.data.phaseComplete.totalOperations, 10000u);
     EXPECT_EQ(ramp.data.phaseComplete.allocCount, 10000u);

@@ -96,7 +96,7 @@ TEST(AdvancedWorkloadTest, LongRunningNoLeaks) {
         PhaseExecutor exec(desc, ctx);
         exec.Execute();
         const PhaseStats& stats = exec.GetStats();
-        EXPECT_EQ(stats.freeCount, stats.allocCount);
+        EXPECT_EQ(stats.totalFreeCount, stats.allocCount);
     }
 }
 
