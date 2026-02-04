@@ -54,11 +54,15 @@ public:
 
     // Check if more operations available
     bool HasNext() const noexcept;
+
+    // Generate next unit float in [0, 1)
+    f32 NextUnitFloat01() const noexcept;
 private:
     const WorkloadParams& _params;
     SeededRNG& _rng;
     u64 _currentOp = 0;
     bool _deterministicMode = false;
+    mutable usize _deterministicIndex = 0;
 
     u32 GenerateSize() const noexcept;
     core::memory_alignment GenerateAlignment(u32 size) const noexcept;

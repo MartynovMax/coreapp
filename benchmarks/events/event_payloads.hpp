@@ -13,6 +13,10 @@ struct PhaseStats {
     u64 bytesFreed;
     u64 peakLiveCount;
     u64 peakLiveBytes;
+    u64 preReclaimLiveCount;
+    u64 preReclaimLiveBytes;
+    u64 finalLiveCount;
+    u64 finalLiveBytes;
     u64 internalFreeCount;
     u64 internalBytesFreed;
     u64 reclaimFreeCount;
@@ -37,8 +41,16 @@ struct PhaseCompletePayload {
     u64 bytesFreed;
     u64 peakLiveCount;
     u64 peakLiveBytes;
+    u64 preReclaimLiveCount;
+    u64 preReclaimLiveBytes;
     u64 finalLiveCount;
     u64 finalLiveBytes;
+    u64 internalFreeCount;
+    u64 internalBytesFreed;
+    u64 reclaimFreeCount;
+    u64 reclaimBytesFreed;
+    u64 totalFreeCount;
+    u64 totalBytesFreed;
     f64 opsPerSec;
     f64 throughput;
 };

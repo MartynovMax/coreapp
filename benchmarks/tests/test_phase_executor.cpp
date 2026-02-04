@@ -292,7 +292,9 @@ TEST(PhaseExecutorTest, WithBumpArena) {
 TEST(PhaseExecutorTest, WithPoolAllocator) {
     std::vector<uint8_t> buffer(256);
     core::PoolAllocator allocator(buffer.data(), buffer.size(), 32);
+
     SeededRNG rng(11);
+
     WorkloadParams params;
     params.seed = 11;
     params.operationCount = 4;
@@ -301,13 +303,27 @@ TEST(PhaseExecutorTest, WithPoolAllocator) {
     params.sizeDistribution = SizeDistribution{DistributionType::Uniform, 8, 16};
     params.alignmentDistribution.type = AlignmentDistributionType::Fixed;
     params.alignmentDistribution.fixedAlignment = CORE_DEFAULT_ALIGNMENT;
+
     PhaseDescriptor desc = MakeDesc("PoolAllocator", PhaseType::Steady, params);
+
+    desc.reclaimMode = ReclaimMode::None;
+
     PhaseContext ctx = MakeContext(&allocator, &rng);
+
+    core::MallocAllocator metaAlloc;
+    SeededRNG trackerRng(1111);
+    LifetimeTracker externalTracker(params.operationCount, params.lifetimeModel, trackerRng, &metaAlloc);
+    externalTracker.Clear();
+
+    ctx.externalLifetimeTracker = &externalTracker;
+
     PhaseExecutor exec(desc, ctx);
     exec.Execute();
+
     const PhaseStats& stats = exec.GetStats();
     EXPECT_EQ(stats.allocCount, 4u);
 }
+
 
 TEST(PhaseExecutorTest, WithFifoLifetimeModel) {
     MallocAllocator allocator;
@@ -461,3 +477,53 @@ TEST(PhaseExecutorTest, StressTest1MOperations) {
     EXPECT_LE(stats.allocCount + stats.freeCount, 1000000u);
     EXPECT_GT(stats.reclaimFreeCount, 0u);
 }
+
+TEST(PhaseExecutorTest, ReclaimModeNoneUsesExternalTracker) {
+    MallocAllocator allocator;
+    SeededRNG rng(42);
+    WorkloadParams params;
+    params.seed = 42;
+    params.operationCount = 0;
+    params.allocFreeRatio = 0.5f;
+    params.lifetimeModel = LifetimeModel::Fifo;
+    params.sizeDistribution = SizePresets::SmallObjects();
+
+    PhaseDescriptor desc = MakeDesc("ReclaimNoneExternal", PhaseType::Steady, params);
+    desc.reclaimMode = ReclaimMode::None;
+
+    LifetimeTracker externalTracker(4, params.lifetimeModel, rng, &allocator);
+    PhaseContext ctx = MakeContext(&allocator, &rng);
+    ctx.externalLifetimeTracker = &externalTracker;
+
+    PhaseExecutor exec(desc, ctx);
+    exec.Execute();
+
+    EXPECT_EQ(ctx.lifetimeTracker, &externalTracker);
+}
+
+TEST(PhaseExecutorTest, ReclaimModeFreeAllRejectsExternalTracker) {
+    MallocAllocator allocator;
+    SeededRNG rng(43);
+    WorkloadParams params;
+    params.seed = 43;
+    params.operationCount = 0;
+    params.allocFreeRatio = 1.0f;
+    params.lifetimeModel = LifetimeModel::Fifo;
+    params.sizeDistribution = SizePresets::SmallObjects();
+
+    PhaseDescriptor desc = MakeDesc("FreeAllExternal", PhaseType::Steady, params);
+    desc.reclaimMode = ReclaimMode::FreeAll;
+
+    LifetimeTracker externalTracker(4, params.lifetimeModel, rng, &allocator);
+    PhaseContext ctx = MakeContext(&allocator, &rng);
+    ctx.externalLifetimeTracker = &externalTracker;
+
+#if GTEST_HAS_DEATH_TEST
+    PhaseExecutor exec(desc, ctx);
+    ASSERT_DEATH({ exec.Execute(); }, ".*");
+#else
+    (void)desc;
+    (void)ctx;
+#endif
+}
+

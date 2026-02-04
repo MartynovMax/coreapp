@@ -81,7 +81,7 @@ private:
 
     void RemoveIndex(u32 idx) noexcept;
 public:
-    [[nodiscard]] bool isValid() const noexcept { return _buffer != nullptr; }
+    [[nodiscard]] bool isValid() const noexcept { return _buffer != nullptr && _capacity > 0; }
 };
 
 } // namespace core::bench

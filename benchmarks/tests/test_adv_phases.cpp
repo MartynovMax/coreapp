@@ -2,10 +2,27 @@
 #include "core/memory/malloc_allocator.hpp"
 #include <gtest/gtest.h>
 
-using namespace core;
-using namespace core::bench;
-using namespace core::bench::test;
-using namespace core::bench::test::advanced;
+namespace core::bench::test::advanced {
+
+namespace {
+
+void BulkReclaimSharedTracker(PhaseContext& ctx) noexcept {
+    auto* t = static_cast<LifetimeTracker*>(ctx.userData);
+    ASSERT(t != nullptr);
+    ASSERT(t->isValid());
+
+    u64 freedCount = 0;
+    u64 freedBytes = 0;
+    t->FreeAll(&freedCount, &freedBytes);
+
+    ctx.reclaimFreeCount += freedCount;
+    ctx.reclaimBytesFreed += freedBytes;
+
+    ASSERT(t->GetLiveCount() == 0);
+    ASSERT(t->GetLiveBytes() == 0);
+}
+
+} // namespace
 
 TEST(AdvancedWorkloadTest, FivePhaseExperimentSequence) {
     MallocAllocator allocator;
@@ -78,7 +95,9 @@ TEST(AdvancedWorkloadTest, FivePhaseExperimentSequence) {
     p5.experimentName = "Advanced";
     p5.type = PhaseType::BulkReclaim;
     p5.params = reclaim;
-    p5.reclaimMode = ReclaimMode::FreeAll;
+    p5.reclaimMode = ReclaimMode::Custom;
+    p5.reclaimCallback = BulkReclaimSharedTracker;
+    p5.userData = &tracker;
 
     RunPhaseWithTracker(p1, &allocator, &tracker, &sink);
     const u64 afterRamp1 = tracker.GetLiveCount();
@@ -123,12 +142,14 @@ TEST(AdvancedWorkloadTest, PhaseTransitionMetricsContinuity) {
     p1.experimentName = "Continuity";
     p1.type = PhaseType::RampUp;
     p1.params = ramp;
+    p1.reclaimMode = ReclaimMode::None;
 
     PhaseDescriptor p2{};
     p2.name = "Steady";
     p2.experimentName = "Continuity";
     p2.type = PhaseType::Steady;
     p2.params = steady;
+    p2.reclaimMode = ReclaimMode::None;
 
     RunPhaseWithTracker(p1, &allocator, &tracker, &sink);
     const u64 countAfterRamp = tracker.GetLiveCount();
@@ -138,3 +159,5 @@ TEST(AdvancedWorkloadTest, PhaseTransitionMetricsContinuity) {
     EXPECT_GT(countAfterRamp, 0u);
     EXPECT_GT(countAfterSteady, 0u);
 }
+
+} // namespace core::bench::test::advanced

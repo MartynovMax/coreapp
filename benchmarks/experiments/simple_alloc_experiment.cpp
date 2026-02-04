@@ -13,6 +13,7 @@
 #include "../common/seeded_rng.hpp"
 #include "core/memory/core_allocator.hpp"
 #include "core/base/core_assert.hpp"
+#include "../workload/lifetime_tracker.hpp"
 
 namespace core::bench {
 
@@ -63,6 +64,22 @@ void RunPhaseOnce(
 
     PhaseExecutor exec(desc, ctx, eventSink);
     exec.Execute();
+}
+
+void BulkReclaimFromUserData(PhaseContext& ctx) noexcept {
+    auto* tracker = static_cast<LifetimeTracker*>(ctx.userData);
+    ASSERT(tracker != nullptr);
+    ASSERT(tracker->isValid());
+
+    u64 freedCount = 0;
+    u64 freedBytes = 0;
+    tracker->FreeAll(&freedCount, &freedBytes);
+
+    ctx.reclaimFreeCount += freedCount;
+    ctx.reclaimBytesFreed += freedBytes;
+
+    ASSERT(tracker->GetLiveCount() == 0);
+    ASSERT(tracker->GetLiveBytes() == 0);
 }
 
 WorkloadParams MakeBaseParams(u32 seed) noexcept {
@@ -197,8 +214,12 @@ void SimpleAllocExperiment::RunPhases() {
         PhaseType::BulkReclaim,
         /*repetitionId=*/0,
         bulk,
-        ReclaimMode::FreeAll,
-        /*externalTracker=*/sharedTracker.get());
+        ReclaimMode::Custom,
+        /*externalTracker=*/nullptr,
+        /*reclaimCallback=*/BulkReclaimFromUserData,
+        /*customOperation=*/nullptr,
+        /*completionCheck=*/nullptr,
+        /*userData=*/sharedTracker.get());
 }
 
 void SimpleAllocExperiment::Teardown() noexcept {

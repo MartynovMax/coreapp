@@ -153,7 +153,11 @@ inline PhaseRunResult RunPhaseWithTracker(const PhaseDescriptor& desc,
     ctx.phaseType = desc.type;
     ctx.repetitionId = desc.repetitionId;
     ctx.userData = desc.userData;
-    ctx.externalLifetimeTracker = tracker;
+    if (desc.reclaimMode == ReclaimMode::None) {
+        ctx.externalLifetimeTracker = tracker;
+    } else {
+        ctx.externalLifetimeTracker = nullptr;
+    }
     PhaseExecutor exec(desc, ctx, sink);
     exec.Execute();
     PhaseRunResult result;
