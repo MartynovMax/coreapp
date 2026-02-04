@@ -27,9 +27,6 @@ PhaseExecutor::PhaseExecutor(const PhaseDescriptor& desc,
 {
     ASSERT(_ctx.rng != nullptr);
     ASSERT(_ctx.allocator != nullptr);
-
-    // Ensure RNG seed matches WorkloadParams seed
-    ASSERT(_ctx.rng->GetSeed() == _desc.params.seed && "RNG seed does not match WorkloadParams seed");
 }
 
 PhaseExecutor::~PhaseExecutor() noexcept {
@@ -50,9 +47,7 @@ void PhaseExecutor::Execute() {
 
     SetupLifetimeTracker();
 
-    if (_eventSink) {
-        _ctx.eventSink = _eventSink;
-    }
+    _ctx.eventSink = _eventSink;
     _ctx.userData = _desc.userData;
     _ctx.phaseName = _desc.name;
     _ctx.experimentName = _desc.experimentName;
@@ -78,6 +73,7 @@ void PhaseExecutor::Execute() {
         evt.timestamp = startTimestamp;
         _eventSink->OnEvent(evt);
     }
+
 
     std::unique_ptr<TickManager> tickManager;
     if (_desc.params.tickInterval > 0) {
@@ -328,11 +324,19 @@ void PhaseExecutor::SetupLifetimeTracker() noexcept {
     _ownsTracker = false;
     _ctx.lifetimeTracker = nullptr;
 
-    _needsTracker =
-        (_desc.params.allocFreeRatio < 1.0f) ||
-        (_desc.params.lifetimeModel != LifetimeModel::LongLived);
+    if (_desc.params.lifetimeModel == LifetimeModel::LongLived && 
+        _desc.params.allocFreeRatio < 1.0f) {
+        FATAL("LongLived lifetime model requires allocFreeRatio == 1.0");
+    }
 
-    const bool requiresTracker = _needsTracker || (_desc.reclaimMode == ReclaimMode::FreeAll);
+    _needsTracker =
+        (_desc.params.operationCount > 0) &&
+        ((_desc.params.allocFreeRatio < 1.0f) ||
+         (_desc.params.lifetimeModel != LifetimeModel::LongLived));
+
+   
+    const bool requiresTracker = _needsTracker || 
+                                 (_desc.reclaimMode == ReclaimMode::FreeAll);
 
     if (_desc.reclaimMode == ReclaimMode::None) {
         if (!_ctx.externalLifetimeTracker) {

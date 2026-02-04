@@ -48,8 +48,8 @@ enum class DistributionType {
 
 struct SizeDistribution {
     DistributionType type = DistributionType::Uniform;
-    u32 minSize = 0;
-    u32 maxSize = 0;
+    u32 minSize = 8;
+    u32 maxSize = 64;
 
     // For statistical distributions (Normal, LogNormal):
     f32 mean = 0.0f;

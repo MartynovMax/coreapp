@@ -34,7 +34,6 @@ void RunPhaseOnce(
     PhaseCompletionCallback completionCheck = nullptr,
     void* userData = nullptr) noexcept {
     ASSERT(allocator != nullptr);
-    ASSERT(eventSink != nullptr);
 
     PhaseDescriptor desc{};
     desc.name = phaseName;
@@ -111,7 +110,7 @@ const char* SimpleAllocExperiment::Description() const noexcept {
 const char* SimpleAllocExperiment::AllocatorName() const noexcept { return "DefaultAllocator"; }
 
 void SimpleAllocExperiment::Setup(const ExperimentParams& params) {
-    _allocator = &core::GetDefaultAllocator();
+    _allocator = _allocatorOverride ? _allocatorOverride : &core::GetDefaultAllocator();
     ASSERT(_allocator != nullptr);
 
     _seed = params.seed;

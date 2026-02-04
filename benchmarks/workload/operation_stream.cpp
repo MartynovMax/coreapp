@@ -42,6 +42,13 @@ OperationStream::OperationStream(const WorkloadParams& params, SeededRNG& rng, b
         f32 sum = 0.0f;
         for (u32 i = 0; i < _params.sizeDistribution.bucketCount; ++i) sum += _params.sizeDistribution.weights[i];
         ASSERT(sum > 0.99f && sum < 1.01f);
+        for (u32 i = 0; i < _params.sizeDistribution.bucketCount; ++i) {
+            u32 sz = _params.sizeDistribution.buckets[i];
+            ASSERT(sz > 0 && "CustomBuckets: size must be > 0");
+            ASSERT(sz >= _params.sizeDistribution.minSize && 
+                   sz <= _params.sizeDistribution.maxSize &&
+                   "CustomBuckets: size out of [minSize, maxSize] range");
+        }
     }
     if (_params.alignmentDistribution.type == AlignmentDistributionType::CustomBuckets) {
         ASSERT(_params.alignmentDistribution.bucketCount > 0);
@@ -133,8 +140,14 @@ core::memory_alignment OperationStream::GenerateAlignment(u32 size) const noexce
             return ad.fixedAlignment; // 0 allowed => allocator default
 
         case AlignmentDistributionType::PowerOfTwoRange: {
-            core::memory_alignment minA = NextPow2(ad.minAlignment);
-            core::memory_alignment maxA = NextPow2(ad.maxAlignment);
+            core::memory_alignment minA = ad.minAlignment;
+            core::memory_alignment maxA = ad.maxAlignment;
+            
+            if (minA == 0) minA = CORE_DEFAULT_ALIGNMENT;
+            if (maxA == 0) maxA = CORE_DEFAULT_ALIGNMENT;
+            
+            minA = NextPow2(minA);
+            maxA = NextPow2(maxA);
             if (maxA == 0) maxA = minA;
             if (minA > maxA) minA = maxA;
 
@@ -155,7 +168,12 @@ core::memory_alignment OperationStream::GenerateAlignment(u32 size) const noexce
             }
 
             const core::memory_alignment one = static_cast<core::memory_alignment>(1);
-            return static_cast<core::memory_alignment>(one << power);
+            core::memory_alignment result = static_cast<core::memory_alignment>(one << power);
+            
+            if (result > ad.maxAlignment && ad.maxAlignment > 0) {
+                result = ad.maxAlignment;
+            }
+            return result;
         }
 
         case AlignmentDistributionType::MatchSizePow2: {

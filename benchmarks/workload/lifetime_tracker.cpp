@@ -71,11 +71,9 @@ LifetimeTracker::TrackResult LifetimeTracker::Track(void* ptr, u32 size, core::m
             result.forcedFree = true;
             result.freedInfo = _buffer[_head];
             RemoveIndex(_head);
-        } else if (_model == LifetimeModel::Fifo) {
-            FATAL("LifetimeTracker FIFO overflow: increase capacity/maxLiveObjects or adjust workload");
-            return result; // Unreachable
         } else {
-            return result;
+            FATAL("LifetimeTracker overflow: increase maxLiveObjects or adjust workload");
+            return result; // Unreachable
         }
     }
     u32 idx = _ringMode ? _tail : _count;
@@ -127,14 +125,10 @@ bool LifetimeTracker::PopForFree(AllocInfo& out_info) noexcept {
             case LifetimeModel::Bounded:
                 idx = _head;
                 break;
-            case LifetimeModel::Lifo:
-                idx = (_tail + _capacity - 1) % _capacity;
-                break;
-            case LifetimeModel::Random:
-                idx = (_head + (_rng.NextU32() % _count)) % _capacity;
-                break;
             case LifetimeModel::LongLived:
+                return false;
             default:
+                ASSERT(false && "Unsupported lifetime model for ring mode");
                 return false;
         }
     } else {
