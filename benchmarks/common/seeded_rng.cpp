@@ -30,7 +30,17 @@ u32 SeededRNG::NextRange(u32 min, u32 max) noexcept {
     }
     
     u64 range = static_cast<u64>(max) - static_cast<u64>(min) + 1;
-    return min + static_cast<u32>(NextU32() % range);
+    
+    // Use rejection sampling to avoid modulo bias
+    // For a range that doesn't evenly divide 2^32, some values would appear more
+    // frequently than others with naive modulo. We reject values >= threshold.
+    u64 threshold = (0x100000000ULL / range) * range;
+    u32 value;
+    do {
+        value = NextU32();
+    } while (value >= threshold);
+    
+    return min + static_cast<u32>(value % range);
 }
 
 } // namespace bench

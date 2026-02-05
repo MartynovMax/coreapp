@@ -50,11 +50,14 @@ struct PhaseDescriptor {
     const char* experimentName = nullptr;
     PhaseType type = PhaseType::Steady;
     u32 repetitionId = 0;
+    
     WorkloadParams params;
+    
     ReclaimMode reclaimMode = ReclaimMode::None;
     ReclaimCallback reclaimCallback = nullptr;
     PhaseOperationCallback customOperation = nullptr;
     PhaseCompletionCallback completionCheck = nullptr;
+    
     void* userData = nullptr;
 };
 

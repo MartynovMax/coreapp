@@ -18,6 +18,14 @@ namespace {
         constexpr f64 kInv2Pow32 = 1.0 / 4294967296.0;
         return static_cast<f32>(static_cast<f64>(rng.NextU32()) * kInv2Pow32);
     }
+
+    // Normalize allocFreeRatio: handle NaN and clamp to [0, 1]
+    inline f32 NormalizeAllocFreeRatio(f32 ratio) noexcept {
+        // !(ratio >= 0.0f) catches both NaN and negative values
+        if (!(ratio >= 0.0f)) return 0.0f;
+        if (ratio > 1.0f) return 1.0f;
+        return ratio;
+    }
 }
 
 OperationStream::OperationStream(const WorkloadParams& params, SeededRNG& rng, bool deterministicMode) noexcept
@@ -95,9 +103,7 @@ Operation OperationStream::Next(u64 liveCount) noexcept {
         op.type = DecideOperation();
         if (op.type == OpType::Free) {
             // Cannot free when nothing is live; force to Alloc if possible
-            f32 ratio = _params.allocFreeRatio;
-            if (!(ratio >= 0.0f)) ratio = 0.0f;
-            if (ratio > 1.0f) ratio = 1.0f;
+            f32 ratio = NormalizeAllocFreeRatio(_params.allocFreeRatio);
             
             if (ratio > 0.0f) {
                 op.type = OpType::Alloc;
@@ -192,21 +198,18 @@ core::memory_alignment OperationStream::GenerateAlignment(u32 size) const noexce
         case AlignmentDistributionType::MatchSizePow2: {
             core::memory_alignment a = NextPow2(static_cast<core::memory_alignment>(size));
             
-            // Normalize min/max alignment
             core::memory_alignment minA = ad.minAlignment;
             core::memory_alignment maxA = ad.maxAlignment;
             
             if (minA == 0) minA = CORE_DEFAULT_ALIGNMENT;
             if (maxA == 0) maxA = CORE_DEFAULT_ALIGNMENT;
             
-            // Ensure invariant: minAlignment <= maxAlignment
             if (minA > maxA) {
                 core::memory_alignment temp = minA;
                 minA = maxA;
                 maxA = temp;
             }
             
-            // Clamp to valid range
             if (a < minA) a = minA;
             if (a > maxA) a = maxA;
             
@@ -438,11 +441,7 @@ u32 OperationStream::GenerateSize() const noexcept {
 }
 
 OpType OperationStream::DecideOperation() const noexcept {
-    f32 ratio = _params.allocFreeRatio;
-
-    // Handle NaN and clamp
-    if (!(ratio >= 0.0f)) ratio = 0.0f; // covers NaN and negatives
-    if (ratio > 1.0f) ratio = 1.0f;
+    f32 ratio = NormalizeAllocFreeRatio(_params.allocFreeRatio);
 
     // Strict endpoints
     if (ratio <= 0.0f) return OpType::Free;

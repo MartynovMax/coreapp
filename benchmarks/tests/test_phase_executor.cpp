@@ -202,6 +202,58 @@ TEST(PhaseExecutorTest, CompletionCheckCallbackTerminatesPhaseEarly) {
     EXPECT_EQ(opCount, 7);
 }
 
+// Test that custom operations are responsible for updating metrics
+TEST(PhaseExecutorTest, CustomOperationMetricsContract) {
+    // Custom operation that performs allocations and updates metrics manually
+    auto customOp = +[](PhaseContext& ctx, const Operation& op) noexcept {
+        // Perform a custom allocation
+        core::AllocationRequest req{};
+        req.size = 128;
+        req.alignment = 16;
+        req.tag = 0;
+        req.flags = core::AllocationFlags::None;
+        
+        void* ptr = ctx.allocator->Allocate(req);
+        if (ptr) {
+            // Custom operations MUST update metrics manually
+            ctx.allocCount++;
+            ctx.bytesAllocated += 128;
+            
+            // Immediately free to clean up
+            core::AllocationInfo info{};
+            info.ptr = ptr;
+            info.size = 128;
+            info.alignment = 16;
+            info.tag = 0;
+            ctx.allocator->Deallocate(info);
+            ctx.freeCount++;
+            ctx.bytesFreed += 128;
+        }
+    };
+
+    MallocAllocator allocator;
+    SeededRNG rng(999);
+    WorkloadParams params;
+    params.seed = 999;
+    params.operationCount = 10;
+    params.allocFreeRatio = 1.0f;
+    params.lifetimeModel = LifetimeModel::LongLived;
+    params.sizeDistribution = SizePresets::SmallObjects();
+    PhaseDescriptor desc = MakeDesc("CustomMetrics", PhaseType::Custom, params);
+    desc.customOperation = customOp;
+    desc.reclaimMode = ReclaimMode::None;  // No reclaim needed since we free inline
+    PhaseContext ctx = MakeContext(&allocator, &rng);
+    PhaseExecutor exec(desc, ctx);
+    exec.Execute();
+    
+    const PhaseStats& stats = exec.GetStats();
+    // Verify that our manual metric updates were captured
+    EXPECT_EQ(stats.allocCount, 10u);
+    EXPECT_EQ(stats.freeCount, 10u);
+    EXPECT_EQ(stats.bytesAllocated, 10u * 128u);
+    EXPECT_EQ(stats.bytesFreed, 10u * 128u);
+}
+
 TEST(PhaseExecutorTest, OnPhaseBeginEventEmitted) {
     MallocAllocator allocator;
     SeededRNG rng(7);

@@ -1,6 +1,7 @@
 #include "../common/seeded_rng.hpp"
 #include "core/base/core_types.hpp"
 #include <gtest/gtest.h>
+#include <cmath>
 
 using namespace core;
 using namespace core::bench;
@@ -91,5 +92,58 @@ TEST(SeededRNGTest, RangeMaxValue) {
         u32 val = rng.NextRange(0xFFFFFFF0u, 0xFFFFFFFFu);
         EXPECT_GE(val, 0xFFFFFFF0u);
         EXPECT_LE(val, 0xFFFFFFFFu);
+    }
+}
+
+// Test rejection sampling avoids modulo bias
+TEST(SeededRNGTest, UnbiasedDistribution) {
+    SeededRNG rng(12345);
+    
+    // Test with a range that doesn't evenly divide 2^32 (100 is not a power of 2)
+    // With modulo bias, some values would appear more frequently
+    constexpr u32 kRange = 100;
+    constexpr u32 kIterations = 100000;
+    u32 counts[kRange] = {0};
+    
+    for (u32 i = 0; i < kIterations; ++i) {
+        u32 val = rng.NextRange(0, kRange - 1);
+        ASSERT_LT(val, kRange);
+        counts[val]++;
+    }
+    
+    // Expected count per bucket (with uniform distribution)
+    const f64 expected = static_cast<f64>(kIterations) / static_cast<f64>(kRange);
+    
+    // Check that all buckets are reasonably close to expected
+    // Allow 20% deviation (this is a statistical test, some variance is normal)
+    const f64 tolerance = expected * 0.20;
+    
+    for (u32 i = 0; i < kRange; ++i) {
+        f64 deviation = static_cast<f64>(counts[i]) - expected;
+        EXPECT_LT(std::abs(deviation), tolerance)
+            << "Bucket " << i << " has " << counts[i] << " values, expected ~" << expected;
+    }
+}
+
+// Test NextRange determinism with rejection sampling
+TEST(SeededRNGTest, RangeDeterminism) {
+    SeededRNG rng1(789);
+    SeededRNG rng2(789);
+    
+    // Test various ranges
+    for (int i = 0; i < 100; ++i) {
+        u32 val1 = rng1.NextRange(0, 99);
+        u32 val2 = rng2.NextRange(0, 99);
+        EXPECT_EQ(val1, val2) << "Iteration " << i;
+    }
+    
+    // Test with different range
+    SeededRNG rng3(789);
+    SeededRNG rng4(789);
+    
+    for (int i = 0; i < 100; ++i) {
+        u32 val1 = rng3.NextRange(50, 150);
+        u32 val2 = rng4.NextRange(50, 150);
+        EXPECT_EQ(val1, val2) << "Iteration " << i;
     }
 }
