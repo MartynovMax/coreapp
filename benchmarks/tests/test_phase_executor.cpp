@@ -35,6 +35,11 @@ static PhaseDescriptor MakeDesc(const char* name, PhaseType type, const Workload
     return d;
 }
 
+// Helper completion check for operationCount=0 phases
+static bool ImmediateCompletion(const PhaseContext& /*ctx*/) noexcept {
+    return true;  // Immediately complete
+}
+
 TEST(PhaseExecutorTest, SinglePhaseRampUpAllocOnly) {
     MallocAllocator allocator;
     SeededRNG rng(42);
@@ -153,7 +158,7 @@ TEST(PhaseExecutorTest, PeakMetricsTrackMaxima) {
 TEST(PhaseExecutorTest, CustomOperationCallbackOverridesStandardOperation) {
     static int customCount;
     customCount = 0;
-    auto customOp = +[](PhaseContext& ctx) noexcept { customCount++; };
+    auto customOp = +[](PhaseContext& ctx, const Operation& /*op*/) noexcept { customCount++; };
 
     MallocAllocator allocator;
     SeededRNG rng(5);
@@ -175,7 +180,7 @@ TEST(PhaseExecutorTest, CompletionCheckCallbackTerminatesPhaseEarly) {
     static int opCount;
     opCount = 0;
 
-    auto customOp = +[](PhaseContext& ctx) noexcept { opCount++; };
+    auto customOp = +[](PhaseContext& ctx, const Operation& /*op*/) noexcept { opCount++; };
     auto completionCheck = +[](const PhaseContext& ctx) noexcept -> bool {
         return opCount >= 7;
     };
@@ -490,6 +495,7 @@ TEST(PhaseExecutorTest, ReclaimModeNoneUsesExternalTracker) {
 
     PhaseDescriptor desc = MakeDesc("ReclaimNoneExternal", PhaseType::Steady, params);
     desc.reclaimMode = ReclaimMode::None;
+    desc.completionCheck = ImmediateCompletion;  // Required for operationCount=0
 
     LifetimeTracker externalTracker(4, params.lifetimeModel, rng, &allocator);
     PhaseContext ctx = MakeContext(&allocator, &rng);
@@ -513,6 +519,7 @@ TEST(PhaseExecutorTest, ReclaimModeFreeAllRejectsExternalTracker) {
 
     PhaseDescriptor desc = MakeDesc("FreeAllExternal", PhaseType::Steady, params);
     desc.reclaimMode = ReclaimMode::FreeAll;
+    desc.completionCheck = ImmediateCompletion;  // Required for operationCount=0
 
     LifetimeTracker externalTracker(4, params.lifetimeModel, rng, &allocator);
     PhaseContext ctx = MakeContext(&allocator, &rng);

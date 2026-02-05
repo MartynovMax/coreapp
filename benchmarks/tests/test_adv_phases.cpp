@@ -22,6 +22,11 @@ void BulkReclaimSharedTracker(PhaseContext& ctx) noexcept {
     ASSERT(t->GetLiveBytes() == 0);
 }
 
+// Dummy completion check for operationCount=0 phases
+bool ImmediateCompletion(const PhaseContext& /*ctx*/) noexcept {
+    return true;  // Immediately complete
+}
+
 } // namespace
 
 TEST(AdvancedWorkloadTest, FivePhaseExperimentSequence) {
@@ -97,6 +102,7 @@ TEST(AdvancedWorkloadTest, FivePhaseExperimentSequence) {
     p5.params = reclaim;
     p5.reclaimMode = ReclaimMode::Custom;
     p5.reclaimCallback = BulkReclaimSharedTracker;
+    p5.completionCheck = ImmediateCompletion;  // Required for operationCount=0
     p5.userData = &tracker;
 
     RunPhaseWithTracker(p1, &allocator, &tracker, &sink);

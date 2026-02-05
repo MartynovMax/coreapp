@@ -16,6 +16,7 @@ namespace core::bench {
 
 // Forward declarations
 class PhaseExecutor;
+struct Operation;
 
 // ----------------------------------------------------------------------------
 // ReclaimMode - Memory reclaim strategies
@@ -35,7 +36,7 @@ enum class ReclaimMode {
 using ReclaimCallback = void(*)(PhaseContext& ctx) noexcept;
 
 // Callback for custom operations in phase (called each iteration)
-using PhaseOperationCallback = void(*)(PhaseContext& ctx) noexcept;
+using PhaseOperationCallback = void(*)(PhaseContext& ctx, const Operation& op) noexcept;
 
 // Callback for checking phase completion (returns true when phase should end)
 using PhaseCompletionCallback = bool(*)(const PhaseContext& ctx) noexcept;

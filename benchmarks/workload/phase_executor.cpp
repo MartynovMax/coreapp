@@ -12,7 +12,7 @@
 #include "events/event_types.hpp"
 #include "../common/high_res_timer.hpp"
 #include "lifetime_tracker.hpp"
-#include <memory>
+#include <new>
 
 namespace core::bench {
 
@@ -31,7 +31,16 @@ PhaseExecutor::PhaseExecutor(const PhaseDescriptor& desc,
 
 PhaseExecutor::~PhaseExecutor() noexcept {
     if (_ownsTracker && _tracker) {
-        delete _tracker;
+        _tracker->~LifetimeTracker();
+        
+        // Deallocate via IAllocator
+        core::AllocationInfo info{};
+        info.ptr = _tracker;
+        info.size = sizeof(LifetimeTracker);
+        info.alignment = static_cast<core::memory_alignment>(alignof(LifetimeTracker));
+        info.tag = 0;
+        _ctx.allocator->Deallocate(info);
+        
         _tracker = nullptr;
     }
     _ownsTracker = false;
@@ -74,30 +83,31 @@ void PhaseExecutor::Execute() {
         _eventSink->OnEvent(evt);
     }
 
-
-    std::unique_ptr<TickManager> tickManager;
+    // Use stack allocation for TickManager (it's very small - just a u64)
+    TickManager* tickManager = nullptr;
+    TickManager tickMgrStorage(_desc.params.tickInterval); // Stack allocation
     if (_desc.params.tickInterval > 0) {
-        tickManager = std::make_unique<TickManager>(_desc.params.tickInterval);
+        tickManager = &tickMgrStorage;
     }
 
     u64 totalIssuedOperations = 0;
     if (_desc.params.operationCount > 0) {
-        std::unique_ptr<OperationStream> opStream = std::make_unique<OperationStream>(_desc.params, *_ctx.rng);
-        ASSERT(opStream != nullptr);
+        // Use stack allocation instead of heap (OperationStream is small)
+        OperationStream opStream(_desc.params, *_ctx.rng);
 
         u64 opIndex = 0;
         const bool canAllocate = (_desc.params.allocFreeRatio > 0.0f);
-        while (opStream->HasNext()) {
+        while (opStream.HasNext()) {
             const u64 liveCount = _tracker ? _tracker->GetLiveCount() : 0;
             if (liveCount == 0 && !canAllocate) {
                 break;
             }
 
-            Operation op = opStream->Next(liveCount);
+            Operation op = opStream.Next(liveCount);
             _ctx.currentOpIndex = opIndex;
 
             if (_desc.customOperation) {
-                _desc.customOperation(_ctx);
+                _desc.customOperation(_ctx, op);
             } else {
                 if (op.type == OpType::Alloc) {
                     ExecuteOperationAlloc(op, opIndex);
@@ -126,11 +136,46 @@ void PhaseExecutor::Execute() {
             }
         }
     } else {
-        if (_desc.customOperation) {
-            _desc.customOperation(_ctx);
+
+        if (!_desc.customOperation && !_desc.completionCheck) {
+            FATAL("operationCount == 0 requires customOperation or completionCheck");
         }
-        if (_desc.completionCheck) {
-            (void)_desc.completionCheck(_ctx);
+
+        // Protection against infinite loops: max 1 billion iterations
+        constexpr u64 kMaxIterations = 1000000000ULL;
+        u64 opIndex = 0;
+
+        while (opIndex < kMaxIterations) {
+            if (_desc.completionCheck && _desc.completionCheck(_ctx)) {
+                break;
+            }
+
+            _ctx.currentOpIndex = opIndex;
+
+            if (_desc.customOperation) {
+                // Pass default-constructed Operation for operationCount == 0 case
+                Operation defaultOp{};
+                _desc.customOperation(_ctx, defaultOp);
+            }
+
+            if (tickManager) {
+                TickContext tickCtx{};
+                tickCtx.opIndex = opIndex;
+                tickCtx.allocCount = _ctx.allocCount;
+                tickCtx.freeCount = _ctx.freeCount;
+                tickCtx.bytesAllocated = _ctx.bytesAllocated;
+                tickCtx.bytesFreed = _ctx.bytesFreed;
+                tickCtx.peakLiveCount = _tracker ? _tracker->GetPeakCount() : 0;
+                tickCtx.peakLiveBytes = _tracker ? _tracker->GetPeakBytes() : 0;
+                tickManager->OnOperation(tickCtx, _ctx);
+            }
+
+            opIndex++;
+            totalIssuedOperations++;
+        }
+
+        if (opIndex >= kMaxIterations) {
+            FATAL("operationCount == 0 phase exceeded maximum iterations (infinite loop protection)");
         }
     }
 
@@ -278,7 +323,9 @@ void PhaseExecutor::ExecuteReclaim() {
         case ReclaimMode::None: {
             ASSERT(!_ownsTracker);
             ASSERT(_tracker == _ctx.externalLifetimeTracker);
-            ASSERT(_tracker && _tracker->isValid());
+            if (_tracker) {
+                ASSERT(_tracker->isValid());
+            }
             break;
         }
         case ReclaimMode::FreeAll: {
@@ -318,7 +365,15 @@ const PhaseStats& PhaseExecutor::GetStats() const noexcept {
 void PhaseExecutor::SetupLifetimeTracker() noexcept {
     // Reset tracker state for this execution.
     if (_ownsTracker && _tracker) {
-        delete _tracker;
+        _tracker->~LifetimeTracker();
+        
+        // Deallocate via IAllocator
+        core::AllocationInfo info{};
+        info.ptr = _tracker;
+        info.size = sizeof(LifetimeTracker);
+        info.alignment = static_cast<core::memory_alignment>(alignof(LifetimeTracker));
+        info.tag = 0;
+        _ctx.allocator->Deallocate(info);
     }
     _tracker = nullptr;
     _ownsTracker = false;
@@ -339,8 +394,8 @@ void PhaseExecutor::SetupLifetimeTracker() noexcept {
                                  (_desc.reclaimMode == ReclaimMode::FreeAll);
 
     if (_desc.reclaimMode == ReclaimMode::None) {
-        if (!_ctx.externalLifetimeTracker) {
-            FATAL("ReclaimMode::None requires externalLifetimeTracker");
+        if (!_ctx.externalLifetimeTracker && requiresTracker) {
+            FATAL("ReclaimMode::None requires externalLifetimeTracker when tracker is needed");
         }
     } else {
         if (_ctx.externalLifetimeTracker) {
@@ -349,14 +404,20 @@ void PhaseExecutor::SetupLifetimeTracker() noexcept {
     }
 
     if (_desc.reclaimMode == ReclaimMode::None) {
-        // Contract: external tracker must already be fully configured; isValid() == ready.
-        if (!_ctx.externalLifetimeTracker->isValid()) {
-            FATAL("externalLifetimeTracker is invalid (allocation failed?)");
-        }
+        if (_ctx.externalLifetimeTracker) {
+            // Contract: external tracker must already be fully configured; isValid() == ready.
+            if (!_ctx.externalLifetimeTracker->isValid()) {
+                FATAL("externalLifetimeTracker is invalid (allocation failed?)");
+            }
 
-        _tracker = _ctx.externalLifetimeTracker;
-        _ownsTracker = false;
-        _ctx.lifetimeTracker = _tracker;
+            _tracker = _ctx.externalLifetimeTracker;
+            _ownsTracker = false;
+            _ctx.lifetimeTracker = _tracker;
+        } else {
+            _tracker = nullptr;
+            _ownsTracker = false;
+            _ctx.lifetimeTracker = nullptr;
+        }
     } else {
         // Non-None reclaim modes: tracker is per-phase and owned here if needed.
         if (requiresTracker) {
@@ -372,8 +433,25 @@ void PhaseExecutor::SetupLifetimeTracker() noexcept {
                 trackerCapacity = 1;
             }
 
-            _tracker = new LifetimeTracker(trackerCapacity, _desc.params.lifetimeModel, *_ctx.rng, _ctx.allocator);
+            core::AllocationRequest req{};
+            req.size = sizeof(LifetimeTracker);
+            req.alignment = static_cast<core::memory_alignment>(alignof(LifetimeTracker));
+            req.tag = 0;
+            req.flags = core::AllocationFlags::None;
+
+            void* mem = _ctx.allocator->Allocate(req);
+            if (!mem) {
+                FATAL("Failed to allocate memory for LifetimeTracker");
+            }
+
+            _tracker = new (mem) LifetimeTracker(trackerCapacity, _desc.params.lifetimeModel, *_ctx.rng, _ctx.allocator);
             if (!_tracker || !_tracker->isValid()) {
+                core::AllocationInfo info{};
+                info.ptr = mem;
+                info.size = sizeof(LifetimeTracker);
+                info.alignment = static_cast<core::memory_alignment>(alignof(LifetimeTracker));
+                info.tag = 0;
+                _ctx.allocator->Deallocate(info);
                 FATAL("phase requires LifetimeTracker, but allocation/initialization failed");
             }
 

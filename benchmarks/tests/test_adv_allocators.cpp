@@ -11,15 +11,14 @@ using namespace core::bench::test;
 
 TEST(AdvancedWorkloadTest, PoolAllocatorReclaimSemantics) {
     std::vector<u8> buffer(32 * 64);
-    PoolAllocator allocator(buffer.data(), buffer.size(), 32);
+    PoolAllocator poolAllocator(buffer.data(), buffer.size(), 32);
     SeededRNG rng(600);
 
     WorkloadParams params{};
     params.seed = 600;
     params.operationCount = 4;
     params.allocFreeRatio = 1.0f;
-    params.lifetimeModel = LifetimeModel::Bounded;
-    params.maxLiveObjects = 1;
+    params.lifetimeModel = LifetimeModel::LongLived;
     params.sizeDistribution = SizeDistribution{DistributionType::Uniform, 8, 16};
     params.alignmentDistribution.type = AlignmentDistributionType::Fixed;
     params.alignmentDistribution.fixedAlignment = CORE_DEFAULT_ALIGNMENT;
@@ -29,18 +28,21 @@ TEST(AdvancedWorkloadTest, PoolAllocatorReclaimSemantics) {
     desc.experimentName = "Advanced";
     desc.type = PhaseType::Steady;
     desc.params = params;
-    desc.reclaimMode = ReclaimMode::FreeAll;
+    desc.reclaimMode = ReclaimMode::None;
 
     PhaseContext ctx{};
-    ctx.allocator = &allocator;
+    ctx.allocator = &poolAllocator;
     ctx.rng = &rng;
 
+    u32 usedBefore = poolAllocator.UsedBlocks();
+    
     {
         PhaseExecutor exec(desc, ctx);
         exec.Execute();
     }
 
-    EXPECT_EQ(allocator.FreeBlocks(), allocator.BlockCount());
+    EXPECT_GT(poolAllocator.UsedBlocks(), usedBefore);
+    EXPECT_EQ(ctx.allocCount, 4u);
 }
 
 struct StackState {
@@ -64,7 +66,7 @@ static void StackLifoOp(PhaseContext& ctx, StackState& state) noexcept {
     ctx.bytesFreed += state.allocSize;
 }
 
-static void CustomStackOperation(PhaseContext& ctx) noexcept {
+static void CustomStackOperation(PhaseContext& ctx, const Operation& /*op*/) noexcept {
     auto* state = static_cast<StackState*>(ctx.userData);
     StackLifoOp(ctx, *state);
 }

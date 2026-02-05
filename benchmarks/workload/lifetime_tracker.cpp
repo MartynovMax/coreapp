@@ -140,7 +140,7 @@ bool LifetimeTracker::PopForFree(AllocInfo& out_info) noexcept {
                 idx = 0;
                 break;
             case LifetimeModel::Random:
-                idx = _rng.NextU32() % _count;
+                idx = _rng.NextRange(0u, _count - 1);
                 break;
             case LifetimeModel::Bounded:
                 if (_capacity > 0 && _count >= _capacity) {

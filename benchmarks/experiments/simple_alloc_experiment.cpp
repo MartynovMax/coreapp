@@ -19,6 +19,11 @@ namespace core::bench {
 
 namespace {
 
+// Helper completion check for operationCount=0 phases
+bool ImmediateCompletion(const PhaseContext& /*ctx*/) noexcept {
+    return true;  // Immediately complete
+}
+
 void RunPhaseOnce(
     IAllocator* allocator,
     IEventSink* eventSink,
@@ -217,7 +222,7 @@ void SimpleAllocExperiment::RunPhases() {
         /*externalTracker=*/nullptr,
         /*reclaimCallback=*/BulkReclaimFromUserData,
         /*customOperation=*/nullptr,
-        /*completionCheck=*/nullptr,
+        /*completionCheck=*/ImmediateCompletion,  // Required for operationCount=0
         /*userData=*/sharedTracker.get());
 }
 

@@ -34,6 +34,8 @@ OperationStream::OperationStream(const WorkloadParams& params, SeededRNG& rng, b
         ASSERT(_params.sizeDistribution.peak1Max <= _params.sizeDistribution.maxSize);
         ASSERT(_params.sizeDistribution.peak2Min >= _params.sizeDistribution.minSize);
         ASSERT(_params.sizeDistribution.peak2Max <= _params.sizeDistribution.maxSize);
+        ASSERT(_params.sizeDistribution.peak1Min <= _params.sizeDistribution.peak1Max);
+        ASSERT(_params.sizeDistribution.peak2Min <= _params.sizeDistribution.peak2Max);
     }
     if (_params.sizeDistribution.type == DistributionType::CustomBuckets) {
         ASSERT(_params.sizeDistribution.bucketCount > 0);
@@ -89,7 +91,18 @@ Operation OperationStream::Next(u64 liveCount) noexcept {
 
     // Decide operation based on liveCount and allocFreeRatio
     if (liveCount == 0) {
-        op.type = (_params.allocFreeRatio > 0.0f) ? OpType::Alloc : OpType::Free;
+        // When nothing is live, we can only allocate if ratio allows it
+        op.type = DecideOperation();
+        if (op.type == OpType::Free) {
+            // Cannot free when nothing is live; force to Alloc if possible
+            f32 ratio = _params.allocFreeRatio;
+            if (!(ratio >= 0.0f)) ratio = 0.0f;
+            if (ratio > 1.0f) ratio = 1.0f;
+            
+            if (ratio > 0.0f) {
+                op.type = OpType::Alloc;
+            }
+        }
     } else {
         op.type = DecideOperation();
     }
@@ -178,9 +191,25 @@ core::memory_alignment OperationStream::GenerateAlignment(u32 size) const noexce
 
         case AlignmentDistributionType::MatchSizePow2: {
             core::memory_alignment a = NextPow2(static_cast<core::memory_alignment>(size));
-            if (a < ad.minAlignment) a = ad.minAlignment;
-            if (a > ad.maxAlignment) a = ad.maxAlignment;
-            if (a == 0) a = CORE_DEFAULT_ALIGNMENT;
+            
+            // Normalize min/max alignment
+            core::memory_alignment minA = ad.minAlignment;
+            core::memory_alignment maxA = ad.maxAlignment;
+            
+            if (minA == 0) minA = CORE_DEFAULT_ALIGNMENT;
+            if (maxA == 0) maxA = CORE_DEFAULT_ALIGNMENT;
+            
+            // Ensure invariant: minAlignment <= maxAlignment
+            if (minA > maxA) {
+                core::memory_alignment temp = minA;
+                minA = maxA;
+                maxA = temp;
+            }
+            
+            // Clamp to valid range
+            if (a < minA) a = minA;
+            if (a > maxA) a = maxA;
+            
             return a;
         }
 

@@ -36,7 +36,7 @@ struct ThresholdState {
 
 static ThresholdState* gThresholdState = nullptr;
 
-static void ThresholdOp(PhaseContext& ctx) noexcept {
+static void ThresholdOp(PhaseContext& ctx, const Operation& /*op*/) noexcept {
     if (!gThresholdState) return;
     AllocationRequest req{};
     req.size = gThresholdState->allocSize;
@@ -105,7 +105,7 @@ struct BatchState {
 
 static BatchState* gBatchState = nullptr;
 
-static void BatchAllocOp(PhaseContext& ctx) noexcept {
+static void BatchAllocOp(PhaseContext& ctx, const Operation& /*op*/) noexcept {
     if (!gBatchState) return;
     for (u32 i = 0; i < gBatchState->batchSize; ++i) {
         AllocationRequest req{};
@@ -173,7 +173,7 @@ struct UserDataState {
 
 static UserDataState* gUserDataState = nullptr;
 
-static void UserDataOp(PhaseContext& ctx) noexcept {
+static void UserDataOp(PhaseContext& ctx, const Operation& /*op*/) noexcept {
     if (!gUserDataState) return;
     gUserDataState->opCalls += 1;
     gUserDataState->opOk = (ctx.userData == gUserDataState->expected);
