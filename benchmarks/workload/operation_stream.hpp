@@ -72,6 +72,10 @@ private:
     WorkloadParams _params;
     SeededRNG _ownedRng;
     u64 _currentOp = 0;
+    
+    static constexpr u32 kMaxAlignmentBuckets = 16;
+    core::memory_alignment _normalizedAlignmentBuckets[kMaxAlignmentBuckets];
+    u32 _normalizedAlignmentBucketCount = 0;
 
     u32 GenerateSize() noexcept;
     core::memory_alignment GenerateAlignment(u32 size) noexcept;

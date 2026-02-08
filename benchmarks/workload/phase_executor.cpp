@@ -197,9 +197,6 @@ void PhaseExecutor::Execute() {
         _stats.issuedOpCount = totalIssuedOperations;
     }
 
-    u64 endTimestamp = timer.Now();
-    u64 durationNs = endTimestamp - startTimestamp;
-
     LifetimeTracker* effectiveTracker = GetEffectiveTracker();
     u64 peakLiveCount = effectiveTracker ? effectiveTracker->GetPeakCount() : 0;
     u64 peakLiveBytes = effectiveTracker ? effectiveTracker->GetPeakBytes() : 0;
@@ -209,8 +206,12 @@ void PhaseExecutor::Execute() {
 
     ExecuteReclaim();
 
+    effectiveTracker = GetEffectiveTracker();
     u64 finalLiveCount = effectiveTracker ? effectiveTracker->GetLiveCount() : 0;
     u64 finalLiveBytes = effectiveTracker ? effectiveTracker->GetLiveBytes() : 0;
+
+    u64 endTimestamp = timer.Now();
+    u64 durationNs = endTimestamp - startTimestamp;
 
     _stats.allocCount = _ctx.allocCount;
     _stats.freeCount = _ctx.freeCount;

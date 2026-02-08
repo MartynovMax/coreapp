@@ -42,6 +42,7 @@ OperationStream::OperationStream(const WorkloadParams& params) noexcept
     : _params(params)
     , _ownedRng(params.seed)
     , _currentOp(0)
+    , _normalizedAlignmentBucketCount(0)
 {
     _params.allocFreeRatio = NormalizeAllocFreeRatio(_params.allocFreeRatio);
 
@@ -69,11 +70,23 @@ OperationStream::OperationStream(const WorkloadParams& params) noexcept
         
         if (sd.peak1Min < sd.minSize) sd.peak1Min = sd.minSize;
         if (sd.peak1Max > sd.maxSize) sd.peak1Max = sd.maxSize;
-        if (sd.peak1Max < sd.peak1Min) sd.peak1Max = sd.peak1Min;
+        if (sd.peak1Min > sd.maxSize) sd.peak1Min = sd.maxSize;
+        if (sd.peak1Max < sd.minSize) sd.peak1Max = sd.minSize;
+        if (sd.peak1Max < sd.peak1Min) {
+            u32 temp = sd.peak1Min;
+            sd.peak1Min = sd.peak1Max;
+            sd.peak1Max = temp;
+        }
         
         if (sd.peak2Min < sd.minSize) sd.peak2Min = sd.minSize;
         if (sd.peak2Max > sd.maxSize) sd.peak2Max = sd.maxSize;
-        if (sd.peak2Max < sd.peak2Min) sd.peak2Max = sd.peak2Min;
+        if (sd.peak2Min > sd.maxSize) sd.peak2Min = sd.maxSize;
+        if (sd.peak2Max < sd.minSize) sd.peak2Max = sd.minSize;
+        if (sd.peak2Max < sd.peak2Min) {
+            u32 temp = sd.peak2Min;
+            sd.peak2Min = sd.peak2Max;
+            sd.peak2Max = temp;
+        }
 
         ASSERT(_params.sizeDistribution.peak1Min >= _params.sizeDistribution.minSize);
         ASSERT(_params.sizeDistribution.peak1Max <= _params.sizeDistribution.maxSize);
@@ -104,12 +117,18 @@ OperationStream::OperationStream(const WorkloadParams& params) noexcept
         ASSERT(_params.alignmentDistribution.buckets != nullptr);
         ASSERT(_params.alignmentDistribution.weights != nullptr);
         
-        for (u32 i = 0; i < _params.alignmentDistribution.bucketCount; ++i) {
-            core::memory_alignment& a = const_cast<core::memory_alignment&>(_params.alignmentDistribution.buckets[i]);
-            if (!IsPowerOfTwo(a)) {
+        _normalizedAlignmentBucketCount = _params.alignmentDistribution.bucketCount;
+        if (_normalizedAlignmentBucketCount > kMaxAlignmentBuckets) {
+            _normalizedAlignmentBucketCount = kMaxAlignmentBuckets;
+        }
+        
+        for (u32 i = 0; i < _normalizedAlignmentBucketCount; ++i) {
+            core::memory_alignment a = _params.alignmentDistribution.buckets[i];
+            if (!IsPowerOfTwo(a) || a == 0) {
                 a = NextPow2Align(a);
+                if (a == 0) a = CORE_DEFAULT_ALIGNMENT;
             }
-            if (a == 0) a = CORE_DEFAULT_ALIGNMENT;
+            _normalizedAlignmentBuckets[i] = a;
         }
 
         f32 sum = 0.0f;
@@ -268,28 +287,18 @@ core::memory_alignment OperationStream::GenerateAlignment(u32 size) noexcept {
             return result;
         }
         case AlignmentDistributionType::CustomBuckets: {
-            if (ad.buckets == nullptr || ad.weights == nullptr || ad.bucketCount == 0) {
+            if (_normalizedAlignmentBucketCount == 0) {
                 return ad.fixedAlignment ? ad.fixedAlignment : CORE_DEFAULT_ALIGNMENT;
             }
             f32 r = NextUnitFloat01();
             f32 cumulative = 0.0f;
-            for (u32 i = 0; i < ad.bucketCount; i++) {
+            for (u32 i = 0; i < _normalizedAlignmentBucketCount; i++) {
                 cumulative += ad.weights[i];
                 if (r < cumulative) {
-                    core::memory_alignment result = ad.buckets[i];
-                    if (!IsPowerOfTwo(result) || result == 0) {
-                        result = NextPow2Align(result);
-                        if (result == 0) result = CORE_DEFAULT_ALIGNMENT;
-                    }
-                    return result;
+                    return _normalizedAlignmentBuckets[i];
                 }
             }
-            core::memory_alignment result = ad.buckets[ad.bucketCount - 1];
-            if (!IsPowerOfTwo(result) || result == 0) {
-                result = NextPow2Align(result);
-                if (result == 0) result = CORE_DEFAULT_ALIGNMENT;
-            }
-            return result;
+            return _normalizedAlignmentBuckets[_normalizedAlignmentBucketCount - 1];
         }
 
         default:
