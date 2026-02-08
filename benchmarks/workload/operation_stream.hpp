@@ -75,6 +75,7 @@ private:
     
     static constexpr u32 kMaxAlignmentBuckets = 16;
     core::memory_alignment _normalizedAlignmentBuckets[kMaxAlignmentBuckets];
+    f32 _normalizedAlignmentWeights[kMaxAlignmentBuckets];
     u32 _normalizedAlignmentBucketCount = 0;
 
     u32 GenerateSize() noexcept;

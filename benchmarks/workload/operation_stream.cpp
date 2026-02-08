@@ -46,16 +46,21 @@ OperationStream::OperationStream(const WorkloadParams& params) noexcept
 {
     _params.allocFreeRatio = NormalizeAllocFreeRatio(_params.allocFreeRatio);
 
+    if (_params.sizeDistribution.maxSize < _params.sizeDistribution.minSize) {
+        u32 temp = _params.sizeDistribution.minSize;
+        _params.sizeDistribution.minSize = _params.sizeDistribution.maxSize;
+        _params.sizeDistribution.maxSize = temp;
+    }
+    
     if (_params.sizeDistribution.minSize == 0) {
         _params.sizeDistribution.minSize = 1;
     }
     if (_params.sizeDistribution.maxSize == 0) {
         _params.sizeDistribution.maxSize = 1;
     }
-    if (_params.sizeDistribution.maxSize < _params.sizeDistribution.minSize) {
-        u32 temp = _params.sizeDistribution.minSize;
-        _params.sizeDistribution.minSize = _params.sizeDistribution.maxSize;
-        _params.sizeDistribution.maxSize = temp;
+    
+    if (_params.sizeDistribution.minSize == 0) {
+        _params.sizeDistribution.minSize = 1;
     }
 
     ASSERT(_params.sizeDistribution.minSize > 0);
@@ -119,29 +124,38 @@ OperationStream::OperationStream(const WorkloadParams& params) noexcept
         if (_params.alignmentDistribution.buckets == nullptr || 
             _params.alignmentDistribution.weights == nullptr || 
             _params.alignmentDistribution.bucketCount == 0) {
-            FATAL("CustomBuckets requires non-null buckets/weights and count > 0");
-        }
-        
-        if (_params.alignmentDistribution.bucketCount > kMaxAlignmentBuckets) {
-            FATAL("CustomBuckets: bucketCount exceeds maximum (16)");
-        }
-        
-        _normalizedAlignmentBucketCount = _params.alignmentDistribution.bucketCount;
-        
-        for (u32 i = 0; i < _normalizedAlignmentBucketCount; ++i) {
-            core::memory_alignment a = _params.alignmentDistribution.buckets[i];
-            if (!IsPowerOfTwo(a) || a == 0) {
-                a = NextPow2Align(a);
-                if (a == 0) a = CORE_DEFAULT_ALIGNMENT;
+            _params.alignmentDistribution.type = AlignmentDistributionType::Fixed;
+            _params.alignmentDistribution.fixedAlignment = CORE_DEFAULT_ALIGNMENT;
+            _normalizedAlignmentBucketCount = 0;
+        } else {
+            u32 effectiveCount = _params.alignmentDistribution.bucketCount;
+            if (effectiveCount > kMaxAlignmentBuckets) {
+                effectiveCount = kMaxAlignmentBuckets;
             }
-            _normalizedAlignmentBuckets[i] = a;
+            
+            f32 weightSum = 0.0f;
+            for (u32 i = 0; i < effectiveCount; ++i) {
+                weightSum += _params.alignmentDistribution.weights[i];
+            }
+            
+            if (weightSum <= 0.0f) {
+                _params.alignmentDistribution.type = AlignmentDistributionType::Fixed;
+                _params.alignmentDistribution.fixedAlignment = CORE_DEFAULT_ALIGNMENT;
+                _normalizedAlignmentBucketCount = 0;
+            } else {
+                _normalizedAlignmentBucketCount = effectiveCount;
+                
+                for (u32 i = 0; i < effectiveCount; ++i) {
+                    core::memory_alignment a = _params.alignmentDistribution.buckets[i];
+                    if (!IsPowerOfTwo(a) || a == 0) {
+                        a = NextPow2Align(a);
+                        if (a == 0) a = CORE_DEFAULT_ALIGNMENT;
+                    }
+                    _normalizedAlignmentBuckets[i] = a;
+                    _normalizedAlignmentWeights[i] = _params.alignmentDistribution.weights[i] / weightSum;
+                }
+            }
         }
-
-        f32 sum = 0.0f;
-        for (u32 i = 0; i < _normalizedAlignmentBucketCount; ++i) {
-            sum += _params.alignmentDistribution.weights[i];
-        }
-        ASSERT(sum > 0.99f && sum < 1.01f);
     }
     
     if (_params.alignmentDistribution.type == AlignmentDistributionType::PowerOfTwoRange) {
@@ -153,10 +167,20 @@ OperationStream::OperationStream(const WorkloadParams& params) noexcept
 }
 
 Operation OperationStream::Next(u64 liveCount) noexcept {
-    if (_currentOp >= _params.operationCount) {
-        FATAL("OperationStream::Next called past end");
-    }
     ASSERT(_currentOp < _params.operationCount);
+    
+    if (_currentOp >= _params.operationCount) {
+        Operation noop{};
+        noop.type = OpType::Free;
+        noop.reason = OpReason::NoopFreeEmptyLive;
+        noop.size = 0;
+        noop.alignment = 0;
+        noop.tag = 0;
+        noop.flags = core::AllocationFlags::None;
+        noop.ptr = nullptr;
+        return noop;
+    }
+    
     Operation op{};
     op.reason = OpReason::Normal;
 
@@ -304,7 +328,7 @@ core::memory_alignment OperationStream::GenerateAlignment(u32 size) noexcept {
             f32 r = NextUnitFloat01();
             f32 cumulative = 0.0f;
             for (u32 i = 0; i < _normalizedAlignmentBucketCount; i++) {
-                cumulative += ad.weights[i];
+                cumulative += _normalizedAlignmentWeights[i];
                 if (r < cumulative) {
                     return _normalizedAlignmentBuckets[i];
                 }

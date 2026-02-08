@@ -121,6 +121,9 @@ Executes a benchmark phase using OperationStream and LifetimeTracker. Handles th
 
 ### 6. TickManager
 Manages periodic tick events for progress reporting and metrics collection during phase execution.
+- **Tick Trigger**: Ticks are triggered based on 1-based operation indexing: `(opIndex + 1) % tickInterval == 0`.
+- **Tick Payload**: `TickPayload::opIndex` is 0-based (the actual operation index).
+- Example: With `tickInterval = 1000`, ticks fire at operations 1000, 2000, 3000, etc., with `opIndex` values 999, 1999, 2999 in the payload.
 
 ## Extensibility
 - All distributions and models are extensible via enums and parameter structs.
@@ -232,7 +235,10 @@ See `workload/workload_params.hpp` for all available presets and parameter optio
 - **Exponential distribution**: Values are clamped to `[minSize, maxSize]`, not scaled. This may result in a truncated distribution.
 - **LogNormal distribution**: If `meanInLogSpace == false`, parameters are treated as linear-space and converted internally.
 - **allocFreeRatio**: Always normalized to [0,1]. NaN and negative values are treated as 0.0.
+- **minSize/maxSize normalization**: After all swaps and adjustments, `minSize` is guaranteed to be >= 1 in both debug and release builds to prevent zero-size allocations.
 - **Alignment buckets** (Typical64, CustomBuckets): Non-power-of-2 values are automatically rounded up to the next power-of-2 at construction.
+  - **CustomBuckets**: If `bucketCount > 16`, only the first 16 buckets are used, with weights renormalized to sum to 1.0.
+  - **CustomBuckets fallback**: If buckets/weights are null, count is 0, or weightSum <= 0, the distribution falls back to `Fixed` with `CORE_DEFAULT_ALIGNMENT`.
 
 ### customOperation Semantics
 - The `customOperation` callback receives `PhaseContext&` and `const Operation&`.

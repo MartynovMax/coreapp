@@ -230,9 +230,9 @@ void PhaseExecutor::Execute() {
     _stats.failedAllocCount = _ctx.failedAllocCount;
 
     _stats.totalFreeCount =
-        _stats.freeCount + _stats.internalFreeCount + _stats.reclaimFreeCount;
+        SaturatingAdd(_stats.freeCount, SaturatingAdd(_stats.internalFreeCount, _stats.reclaimFreeCount));
     _stats.totalBytesFreed =
-        _stats.bytesFreed + _stats.internalBytesFreed + _stats.reclaimBytesFreed;
+        SaturatingAdd(_stats.bytesFreed, SaturatingAdd(_stats.internalBytesFreed, _stats.reclaimBytesFreed));
 
     if (_eventSink) {
         Event evt{};
