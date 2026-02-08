@@ -49,6 +49,9 @@ OperationStream::OperationStream(const WorkloadParams& params) noexcept
     if (_params.sizeDistribution.minSize == 0) {
         _params.sizeDistribution.minSize = 1;
     }
+    if (_params.sizeDistribution.maxSize == 0) {
+        _params.sizeDistribution.maxSize = 1;
+    }
     if (_params.sizeDistribution.maxSize < _params.sizeDistribution.minSize) {
         u32 temp = _params.sizeDistribution.minSize;
         _params.sizeDistribution.minSize = _params.sizeDistribution.maxSize;
@@ -113,14 +116,17 @@ OperationStream::OperationStream(const WorkloadParams& params) noexcept
     }
 
     if (_params.alignmentDistribution.type == AlignmentDistributionType::CustomBuckets) {
-        ASSERT(_params.alignmentDistribution.bucketCount > 0);
-        ASSERT(_params.alignmentDistribution.buckets != nullptr);
-        ASSERT(_params.alignmentDistribution.weights != nullptr);
+        if (_params.alignmentDistribution.buckets == nullptr || 
+            _params.alignmentDistribution.weights == nullptr || 
+            _params.alignmentDistribution.bucketCount == 0) {
+            FATAL("CustomBuckets requires non-null buckets/weights and count > 0");
+        }
+        
+        if (_params.alignmentDistribution.bucketCount > kMaxAlignmentBuckets) {
+            FATAL("CustomBuckets: bucketCount exceeds maximum (16)");
+        }
         
         _normalizedAlignmentBucketCount = _params.alignmentDistribution.bucketCount;
-        if (_normalizedAlignmentBucketCount > kMaxAlignmentBuckets) {
-            _normalizedAlignmentBucketCount = kMaxAlignmentBuckets;
-        }
         
         for (u32 i = 0; i < _normalizedAlignmentBucketCount; ++i) {
             core::memory_alignment a = _params.alignmentDistribution.buckets[i];
@@ -132,7 +138,9 @@ OperationStream::OperationStream(const WorkloadParams& params) noexcept
         }
 
         f32 sum = 0.0f;
-        for (u32 i = 0; i < _params.alignmentDistribution.bucketCount; ++i) sum += _params.alignmentDistribution.weights[i];
+        for (u32 i = 0; i < _normalizedAlignmentBucketCount; ++i) {
+            sum += _params.alignmentDistribution.weights[i];
+        }
         ASSERT(sum > 0.99f && sum < 1.01f);
     }
     
@@ -145,6 +153,9 @@ OperationStream::OperationStream(const WorkloadParams& params) noexcept
 }
 
 Operation OperationStream::Next(u64 liveCount) noexcept {
+    if (_currentOp >= _params.operationCount) {
+        FATAL("OperationStream::Next called past end");
+    }
     ASSERT(_currentOp < _params.operationCount);
     Operation op{};
     op.reason = OpReason::Normal;

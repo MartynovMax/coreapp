@@ -148,3 +148,42 @@ TEST(RegressionFixes, BimodalPeakRangesNormalized) {
         }
     }
 }
+
+TEST(RegressionFixes, MinSizeZeroNormalizedToOne) {
+    WorkloadParams params;
+    params.seed = 42;
+    params.operationCount = 50;
+    params.sizeDistribution.type = DistributionType::Uniform;
+    params.sizeDistribution.minSize = 0;
+    params.sizeDistribution.maxSize = 0;
+    params.allocFreeRatio = 1.0f;
+    
+    OperationStream stream(params);
+    
+    for (u32 i = 0; i < 50; ++i) {
+        Operation op = stream.Next(0);
+        if (op.type == OpType::Alloc) {
+            EXPECT_GE(op.size, 1u);
+        }
+    }
+}
+
+TEST(RegressionFixes, MinSizeMaxSizeSwapped) {
+    WorkloadParams params;
+    params.seed = 42;
+    params.operationCount = 50;
+    params.sizeDistribution.type = DistributionType::Uniform;
+    params.sizeDistribution.minSize = 128;
+    params.sizeDistribution.maxSize = 16;
+    params.allocFreeRatio = 1.0f;
+    
+    OperationStream stream(params);
+    
+    for (u32 i = 0; i < 50; ++i) {
+        Operation op = stream.Next(0);
+        if (op.type == OpType::Alloc) {
+            EXPECT_GE(op.size, 16u);
+            EXPECT_LE(op.size, 128u);
+        }
+    }
+}
