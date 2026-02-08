@@ -25,11 +25,22 @@ enum class OpType {
 };
 
 // ----------------------------------------------------------------------------
+// OpReason - Operation generation reason
+// ----------------------------------------------------------------------------
+
+enum class OpReason {
+    Normal,                  // Normal operation based on ratio
+    ForcedAllocEmptyLive,   // Forced alloc when live-set empty
+    NoopFreeEmptyLive,      // No-op free when live-set empty
+};
+
+// ----------------------------------------------------------------------------
 // Operation - Single operation in the workload
 // ----------------------------------------------------------------------------
 
 struct Operation {
     OpType type;
+    OpReason reason = OpReason::Normal;
     u32 size = 0;
     core::memory_alignment alignment = 0;
     core::memory_tag tag = 0;
@@ -43,26 +54,29 @@ struct Operation {
 
 class OperationStream {
 public:
-    OperationStream(const WorkloadParams& params, SeededRNG& rng, bool deterministicMode = false) noexcept;
+    explicit OperationStream(const WorkloadParams& params) noexcept;
     ~OperationStream() noexcept = default;
+
+    OperationStream(const OperationStream&) = delete;
+    OperationStream& operator=(const OperationStream&) = delete;
+
+    OperationStream(OperationStream&&) noexcept = default;
+    OperationStream& operator=(OperationStream&&) noexcept = default;
 
     Operation Next(u64 liveCount) noexcept;
 
     // Check if more operations available
     bool HasNext() const noexcept;
 
-    // Generate next unit float in [0, 1)
-    f32 NextUnitFloat01() noexcept;
 private:
     WorkloadParams _params;
-    SeededRNG& _rng;
+    SeededRNG _ownedRng;
     u64 _currentOp = 0;
-    bool _deterministicMode = false;
-    mutable usize _deterministicIndex = 0;
 
     u32 GenerateSize() noexcept;
     core::memory_alignment GenerateAlignment(u32 size) noexcept;
     OpType DecideOperation() noexcept;
+    f32 NextUnitFloat01() noexcept;
 
     static core::memory_alignment NextPow2(core::memory_alignment v) noexcept;
 };

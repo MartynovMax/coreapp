@@ -32,7 +32,7 @@ TEST(AdvancedWorkloadTest, PoolAllocatorReclaimSemantics) {
 
     PhaseContext ctx{};
     ctx.allocator = &poolAllocator;
-    ctx.rng = &rng;
+    ctx.callbackRng = &rng;
 
     u32 usedBefore = poolAllocator.UsedBlocks();
     
@@ -98,7 +98,7 @@ TEST(AdvancedWorkloadTest, StackAllocatorBoundedArena) {
 
     PhaseContext ctx{};
     ctx.allocator = &allocator;
-    ctx.rng = &rng;
+    ctx.callbackRng = &rng;
 
     {
         PhaseExecutor exec(desc, ctx);

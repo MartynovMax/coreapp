@@ -179,7 +179,7 @@ static void ResetArenaCallback(void* userData) {
 }
 
 TEST(SimpleAllocExperimentTest, BumpArenaResetCallbackWorks) {
-    std::vector<u8> buffer(1024 * 1024);
+    std::vector<u8> buffer(16 * 1024 * 1024);  // Increased from 1MB to 16MB for large experiments
     BumpArena arena(buffer.data(), buffer.size());
     ArenaAllocatorAdapter adapter(arena);
 
@@ -290,7 +290,8 @@ TEST(SimpleAllocExperimentTest, PhaseStatsMatchExpectedValues) {
     EXPECT_EQ(ramp.data.phaseComplete.peakLiveCount, 10000u);
     EXPECT_EQ(ramp.data.phaseComplete.finalLiveCount, 10000u);
 
-    EXPECT_EQ(bulk.data.phaseComplete.totalOperations, 0u);
+    EXPECT_EQ(bulk.data.phaseComplete.totalOperations, 1u);  // operationCount=0 executes 1 iteration (do-while)
+    EXPECT_EQ(bulk.data.phaseComplete.issuedOpCount, 1u);   // NEW: strict intensity invariant
     EXPECT_EQ(bulk.data.phaseComplete.finalLiveCount, 0u);
     EXPECT_EQ(bulk.data.phaseComplete.finalLiveBytes, 0u);
 }

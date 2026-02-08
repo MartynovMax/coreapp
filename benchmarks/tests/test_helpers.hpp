@@ -146,7 +146,7 @@ inline PhaseRunResult RunPhaseWithTracker(const PhaseDescriptor& desc,
     SeededRNG rng(desc.params.seed);
     PhaseContext ctx{};
     ctx.allocator = allocator;
-    ctx.rng = &rng;
+    ctx.callbackRng = &rng;
     ctx.eventSink = sink;
     ctx.phaseName = desc.name;
     ctx.experimentName = desc.experimentName;
@@ -170,8 +170,7 @@ inline PhaseRunResult RunPhaseWithTracker(const PhaseDescriptor& desc,
 }
 
 inline std::vector<u32> SampleSizes(const WorkloadParams& params, u32 count, u64 seed) {
-    SeededRNG rng(seed);
-    OperationStream stream(params, rng);
+    OperationStream stream(params);
     std::vector<u32> sizes;
     sizes.reserve(count);
     for (u32 i = 0; i < count && stream.HasNext(); ++i) {

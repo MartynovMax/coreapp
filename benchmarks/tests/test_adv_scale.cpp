@@ -27,7 +27,7 @@ TEST(AdvancedWorkloadTest, OneMillionOperationsExperiment) {
 
     PhaseContext ctx{};
     ctx.allocator = &allocator;
-    ctx.rng = &rng;
+    ctx.callbackRng = &rng;
 
     PhaseExecutor exec(desc, ctx);
     exec.Execute();
@@ -56,7 +56,7 @@ TEST(AdvancedWorkloadTest, TickEventsEvery10KOperations) {
 
     PhaseContext ctx{};
     ctx.allocator = &allocator;
-    ctx.rng = &rng;
+    ctx.callbackRng = &rng;
 
     MockEventSink sink;
     PhaseExecutor exec(desc, ctx, &sink);
@@ -92,7 +92,7 @@ TEST(AdvancedWorkloadTest, LongRunningNoLeaks) {
         SeededRNG runRng(params.seed + i);
         PhaseContext ctx{};
         ctx.allocator = &allocator;
-        ctx.rng = &runRng;
+        ctx.callbackRng = &runRng;
         PhaseExecutor exec(desc, ctx);
         exec.Execute();
         const PhaseStats& stats = exec.GetStats();
@@ -120,7 +120,7 @@ TEST(AdvancedWorkloadTest, LongRunningNoPerformanceRegression) {
 
     PhaseContext ctx1{};
     ctx1.allocator = &allocator;
-    ctx1.rng = &rng1;
+    ctx1.callbackRng = &rng1;
     PhaseExecutor exec1(desc, ctx1, &sink1);
     exec1.Execute();
 
@@ -128,7 +128,7 @@ TEST(AdvancedWorkloadTest, LongRunningNoPerformanceRegression) {
     SeededRNG rng2(1300);
     PhaseContext ctx2{};
     ctx2.allocator = &allocator;
-    ctx2.rng = &rng2;
+    ctx2.callbackRng = &rng2;
     PhaseExecutor exec2(desc, ctx2, &sink2);
     exec2.Execute();
 
@@ -170,7 +170,7 @@ TEST(AdvancedWorkloadTest, DeterminismTenRunsSameSeed) {
     SeededRNG baseRng(1400);
     PhaseContext baseCtx{};
     baseCtx.allocator = &allocator;
-    baseCtx.rng = &baseRng;
+    baseCtx.callbackRng = &baseRng;
     PhaseExecutor baseExec(desc, baseCtx, &baseSink);
     baseExec.Execute();
     const PhaseStats baseStats = baseExec.GetStats();
@@ -186,7 +186,7 @@ TEST(AdvancedWorkloadTest, DeterminismTenRunsSameSeed) {
         SeededRNG rng(1400);
         PhaseContext ctx{};
         ctx.allocator = &allocator;
-        ctx.rng = &rng;
+        ctx.callbackRng = &rng;
         PhaseExecutor exec(desc, ctx, &sink);
         exec.Execute();
         const PhaseStats stats = exec.GetStats();

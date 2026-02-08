@@ -27,6 +27,11 @@ bool ImmediateCompletion(const PhaseContext& /*ctx*/) noexcept {
     return true;  // Immediately complete
 }
 
+// No-op custom operation for operationCount=0 phases
+void NoOpCustomOperation(PhaseContext& /*ctx*/, const Operation& /*op*/) noexcept {
+    // Do nothing - phase logic is handled by reclaim callback
+}
+
 } // namespace
 
 TEST(AdvancedWorkloadTest, FivePhaseExperimentSequence) {
@@ -102,6 +107,7 @@ TEST(AdvancedWorkloadTest, FivePhaseExperimentSequence) {
     p5.params = reclaim;
     p5.reclaimMode = ReclaimMode::Custom;
     p5.reclaimCallback = BulkReclaimSharedTracker;
+    p5.customOperation = NoOpCustomOperation;  // Required for operationCount=0
     p5.completionCheck = ImmediateCompletion;  // Required for operationCount=0
     p5.userData = &tracker;
 

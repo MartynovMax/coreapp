@@ -9,6 +9,9 @@ namespace bench {
 struct PhaseStats {
     u64 allocCount;
     u64 freeCount;
+    u64 issuedOpCount;      
+    u64 forcedAllocCount; 
+    u64 noopFreeCount;    
     u64 bytesAllocated;
     u64 bytesFreed;
     u64 peakLiveCount;
@@ -26,7 +29,6 @@ struct PhaseStats {
     u64 failedAllocCount;
 };
 
-// PhaseCompletePayload - full phase completion metrics for event sink
 struct PhaseCompletePayload {
     const char* experimentName;
     const char* phaseName;
@@ -38,6 +40,9 @@ struct PhaseCompletePayload {
     u64 allocCount;
     u64 freeCount;
     u64 totalOperations;
+    u64 issuedOpCount; 
+    u64 forcedAllocCount;
+    u64 noopFreeCount;
     u64 bytesAllocated;
     u64 bytesFreed;
     u64 peakLiveCount;

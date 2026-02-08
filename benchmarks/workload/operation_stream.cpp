@@ -7,18 +7,6 @@
 namespace core::bench {
 
 namespace {
-    // Updated deterministic table to avoid bias
-    constexpr f32 kDeterministicTable[] = {
-        0.05f, 0.15f, 0.25f, 0.35f, 0.45f, 0.55f, 0.65f, 0.75f, 0.85f, 0.95f
-    };
-    constexpr usize kTableSize = sizeof(kDeterministicTable) / sizeof(kDeterministicTable[0]);
-
-    // Renamed helper function to avoid naming clash
-    inline f32 NextUnitFloat01_Rng(SeededRNG& rng) noexcept {
-        constexpr f64 kInv2Pow32 = 1.0 / 4294967296.0;
-        return static_cast<f32>(static_cast<f64>(rng.NextU32()) * kInv2Pow32);
-    }
-
     // Normalize allocFreeRatio: handle NaN and clamp to [0, 1]
     inline f32 NormalizeAllocFreeRatio(f32 ratio) noexcept {
         // !(ratio >= 0.0f) catches both NaN and negative values
@@ -38,11 +26,10 @@ namespace {
     }
 }
 
-OperationStream::OperationStream(const WorkloadParams& params, SeededRNG& rng, bool deterministicMode) noexcept
+OperationStream::OperationStream(const WorkloadParams& params) noexcept
     : _params(params)
-    , _rng(rng)
+    , _ownedRng(params.seed)
     , _currentOp(0)
-    , _deterministicMode(deterministicMode)
 {
     ASSERT(_params.sizeDistribution.minSize > 0);
     ASSERT(_params.sizeDistribution.maxSize >= _params.sizeDistribution.minSize);
@@ -90,17 +77,23 @@ OperationStream::OperationStream(const WorkloadParams& params, SeededRNG& rng, b
 Operation OperationStream::Next(u64 liveCount) noexcept {
     ASSERT(_currentOp < _params.operationCount);
     Operation op{};
+    op.reason = OpReason::Normal;
 
     // Decide operation based on liveCount and allocFreeRatio
     if (liveCount == 0) {
         // When nothing is live, we can only allocate if ratio allows it
         op.type = DecideOperation();
         if (op.type == OpType::Free) {
-            // Cannot free when nothing is live; force to Alloc if possible
+            // Cannot free when nothing is live
             f32 ratio = NormalizeAllocFreeRatio(_params.allocFreeRatio);
             
             if (ratio > 0.0f) {
+                // Force to Alloc because live-set is empty but ratio allows alloc
                 op.type = OpType::Alloc;
+                op.reason = OpReason::ForcedAllocEmptyLive;
+            } else {
+                // ratio == 0.0 (free-only), but nothing live → noop
+                op.reason = OpReason::NoopFreeEmptyLive;
             }
         }
     } else {
@@ -168,7 +161,7 @@ core::memory_alignment OperationStream::GenerateAlignment(u32 size) noexcept {
             t = maxA;
             while (t > 1) { t >>= 1; maxPower++; }
 
-            u32 power = _rng.NextRange(minPower, maxPower);
+            u32 power = _ownedRng.NextRange(minPower, maxPower);
 
             constexpr u32 kBitWidth = static_cast<u32>(sizeof(core::memory_alignment) * 8u);
             ASSERT(kBitWidth > 0);
@@ -251,7 +244,7 @@ u32 OperationStream::GenerateSize() noexcept {
 
     switch (dist.type) {
         case DistributionType::Uniform:
-            return _rng.NextRange(dist.minSize, dist.maxSize);
+            return _ownedRng.NextRange(dist.minSize, dist.maxSize);
 
         case DistributionType::PowerOfTwo: {
             u32 minPower = 0;
@@ -266,7 +259,7 @@ u32 OperationStream::GenerateSize() noexcept {
             temp = dist.maxSize;
             while (temp > 1) { temp >>= 1; maxPower++; }
 
-            u32 power = _rng.NextRange(minPower, maxPower);
+            u32 power = _ownedRng.NextRange(minPower, maxPower);
 
             ASSERT(power < kBitWidthU32);
             if (power >= kBitWidthU32) {
@@ -345,10 +338,10 @@ u32 OperationStream::GenerateSize() noexcept {
             f32 r = NextUnitFloat01();
             if (r < 0.9f) {
                 u32 smallMax = (dist.minSize + 56 < dist.maxSize) ? (dist.minSize + 56) : dist.maxSize;
-                return _rng.NextRange(dist.minSize, smallMax);
+                return _ownedRng.NextRange(dist.minSize, smallMax);
             } else {
                 u32 largeMin = (dist.minSize + 64 < dist.maxSize) ? (dist.minSize + 64) : dist.minSize;
-                return _rng.NextRange(largeMin, dist.maxSize);
+                return _ownedRng.NextRange(largeMin, dist.maxSize);
             }
         }
 
@@ -356,10 +349,10 @@ u32 OperationStream::GenerateSize() noexcept {
             f32 r = NextUnitFloat01();
             if (r < 0.9f) {
                 u32 largeMin = (dist.minSize + 64 < dist.maxSize) ? (dist.minSize + 64) : dist.minSize;
-                return _rng.NextRange(largeMin, dist.maxSize);
+                return _ownedRng.NextRange(largeMin, dist.maxSize);
             } else {
                 u32 smallMax = (dist.minSize + 56 < dist.maxSize) ? (dist.minSize + 56) : dist.maxSize;
-                return _rng.NextRange(dist.minSize, smallMax);
+                return _ownedRng.NextRange(dist.minSize, smallMax);
             }
         }
 
@@ -369,8 +362,8 @@ u32 OperationStream::GenerateSize() noexcept {
             u32 peak2Min = dist.peak2Min < dist.minSize ? dist.minSize : dist.peak2Min;
             u32 peak2Max = dist.peak2Max > dist.maxSize ? dist.maxSize : dist.peak2Max;
             f32 r = NextUnitFloat01();
-            if (r < dist.peak1Weight) return _rng.NextRange(peak1Min, peak1Max);
-            return _rng.NextRange(peak2Min, peak2Max);
+            if (r < dist.peak1Weight) return _ownedRng.NextRange(peak1Min, peak1Max);
+            return _ownedRng.NextRange(peak2Min, peak2Max);
         }
 
         case DistributionType::WebServerAlloc: {
@@ -390,8 +383,8 @@ u32 OperationStream::GenerateSize() noexcept {
             u32 peak2Min = dist.peak2Min < dist.minSize ? dist.minSize : dist.peak2Min;
             u32 peak2Max = dist.peak2Max > dist.maxSize ? dist.maxSize : dist.peak2Max;
             f32 r = NextUnitFloat01();
-            if (r < dist.peak1Weight) return _rng.NextRange(peak1Min, peak1Max);
-            return _rng.NextRange(peak2Min, peak2Max);
+            if (r < dist.peak1Weight) return _ownedRng.NextRange(peak1Min, peak1Max);
+            return _ownedRng.NextRange(peak2Min, peak2Max);
         }
 
         case DistributionType::DatabaseCache: {
@@ -407,7 +400,7 @@ u32 OperationStream::GenerateSize() noexcept {
             temp = dist.maxSize;
             while (temp > 1) { temp >>= 1; maxPower++; }
 
-            u32 power = _rng.NextRange(minPower, maxPower);
+            u32 power = _ownedRng.NextRange(minPower, maxPower);
 
             ASSERT(power < kBitWidthU32);
             if (power >= kBitWidthU32) {
@@ -422,7 +415,7 @@ u32 OperationStream::GenerateSize() noexcept {
 
         case DistributionType::CustomBuckets: {
             if (dist.buckets == nullptr || dist.weights == nullptr || dist.bucketCount == 0) {
-                return _rng.NextRange(dist.minSize, dist.maxSize);
+                return _ownedRng.NextRange(dist.minSize, dist.maxSize);
             }
             f32 r = NextUnitFloat01();
             f32 cumulative = 0.0f;
@@ -434,7 +427,7 @@ u32 OperationStream::GenerateSize() noexcept {
         }
 
         default:
-            return _rng.NextRange(dist.minSize, dist.maxSize);
+            return _ownedRng.NextRange(dist.minSize, dist.maxSize);
     }
 }
 
@@ -450,13 +443,8 @@ OpType OperationStream::DecideOperation() noexcept {
 }
 
 f32 OperationStream::NextUnitFloat01() noexcept {
-    if (_deterministicMode) {
-        const f32 value = kDeterministicTable[_deterministicIndex];
-        _deterministicIndex = (_deterministicIndex + 1) % kTableSize;
-        return value;
-    }
     constexpr f64 kInv2Pow32 = 1.0 / 4294967296.0;
-    return static_cast<f32>(static_cast<f64>(_rng.NextU32()) * kInv2Pow32);
+    return static_cast<f32>(static_cast<f64>(_ownedRng.NextU32()) * kInv2Pow32);
 }
 
 } // namespace core::bench

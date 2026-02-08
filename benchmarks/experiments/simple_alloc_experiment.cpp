@@ -24,6 +24,11 @@ bool ImmediateCompletion(const PhaseContext& /*ctx*/) noexcept {
     return true;  // Immediately complete
 }
 
+// Helper no-op operation for operationCount=0 phases
+void NoOpOperation(PhaseContext& /*ctx*/, const Operation& /*op*/) noexcept {
+    // No-op: used when phase logic is handled elsewhere (e.g., reclaim callback)
+}
+
 void RunPhaseOnce(
     IAllocator* allocator,
     IEventSink* eventSink,
@@ -55,7 +60,7 @@ void RunPhaseOnce(
     SeededRNG rng(params.seed);
     PhaseContext ctx{};
     ctx.allocator = allocator;
-    ctx.rng = &rng;
+    ctx.callbackRng = &rng;
     ctx.eventSink = eventSink;
 
     ctx.phaseName = phaseName;
@@ -64,7 +69,8 @@ void RunPhaseOnce(
     ctx.repetitionId = repetitionId;
     ctx.userData = userData;
 
-    ctx.externalLifetimeTracker = externalTracker;
+    // Use liveSetTracker for external tracker (source of truth for metrics)
+    ctx.liveSetTracker = externalTracker;
 
     PhaseExecutor exec(desc, ctx, eventSink);
     exec.Execute();
@@ -86,7 +92,7 @@ void BulkReclaimFromUserData(PhaseContext& ctx) noexcept {
     ASSERT(tracker->GetLiveBytes() == 0);
 }
 
-WorkloadParams MakeBaseParams(u32 seed) noexcept {
+WorkloadParams MakeBaseParams(u64 seed) noexcept {
     WorkloadParams p{};
     p.seed = seed;
     p.sizeDistribution = SizePresets::SmallObjects();
@@ -124,7 +130,7 @@ void SimpleAllocExperiment::Setup(const ExperimentParams& params) {
     _params = MakeBaseParams(_seed);
     _phaseCtx = {};
     _phaseCtx.allocator = _allocator;
-    _phaseCtx.rng = &_rng;
+    _phaseCtx.callbackRng = &_rng;
     _phaseCtx.eventSink = _eventSink;
     _phaseCtx.experimentName = Name();
 
@@ -230,7 +236,7 @@ void SimpleAllocExperiment::RunPhases() {
         ReclaimMode::Custom,
         /*externalTracker=*/nullptr,
         /*reclaimCallback=*/BulkReclaimFromUserData,
-        /*customOperation=*/nullptr,
+        /*customOperation=*/NoOpOperation,          // Required for operationCount=0
         /*completionCheck=*/ImmediateCompletion,  // Required for operationCount=0
         /*userData=*/sharedTracker);
     

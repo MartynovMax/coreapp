@@ -25,8 +25,7 @@ TEST(EdgeCases, AllocFreeRatio_Zero) {
     params.sizeDistribution = SizePresets::SmallObjects();
     params.allocFreeRatio = 0.0f;  // All frees
     
-    SeededRNG rng(params.seed);
-    OperationStream stream(params, rng);
+    OperationStream stream(params);
     
     u32 freeCount = 0;
     for (u32 i = 0; i < params.operationCount && stream.HasNext(); ++i) {
@@ -44,8 +43,7 @@ TEST(EdgeCases, AllocFreeRatio_One) {
     params.sizeDistribution = SizePresets::SmallObjects();
     params.allocFreeRatio = 1.0f;  // All allocs
     
-    SeededRNG rng(params.seed);
-    OperationStream stream(params, rng);
+    OperationStream stream(params);
     
     u32 allocCount = 0;
     for (u32 i = 0; i < params.operationCount && stream.HasNext(); ++i) {
@@ -63,8 +61,7 @@ TEST(EdgeCases, AllocFreeRatio_NaN) {
     params.sizeDistribution = SizePresets::SmallObjects();
     params.allocFreeRatio = std::numeric_limits<f32>::quiet_NaN();
     
-    SeededRNG rng(params.seed);
-    OperationStream stream(params, rng);
+    OperationStream stream(params);
     
     // Should normalize to 0.0 and generate all frees
     u32 freeCount = 0;
@@ -83,8 +80,7 @@ TEST(EdgeCases, AllocFreeRatio_Negative) {
     params.sizeDistribution = SizePresets::SmallObjects();
     params.allocFreeRatio = -1.0f;
     
-    SeededRNG rng(params.seed);
-    OperationStream stream(params, rng);
+    OperationStream stream(params);
     
     // Should clamp to 0.0 and generate all frees
     u32 freeCount = 0;
@@ -103,8 +99,7 @@ TEST(EdgeCases, AllocFreeRatio_OverOne) {
     params.sizeDistribution = SizePresets::SmallObjects();
     params.allocFreeRatio = 2.0f;
     
-    SeededRNG rng(params.seed);
-    OperationStream stream(params, rng);
+    OperationStream stream(params);
     
     // Should clamp to 1.0 and generate all allocs
     u32 allocCount = 0;
@@ -129,11 +124,9 @@ TEST(EdgeCases, Alignment_PowerOfTwoRange_Valid) {
     params.alignmentDistribution.minAlignment = 8;
     params.alignmentDistribution.maxAlignment = 64;
     
-    SeededRNG rng(params.seed);
-    
     // Should not assert - valid power-of-2 values
     ASSERT_NO_FATAL_FAILURE({
-        OperationStream stream(params, rng);
+        OperationStream stream(params);
     });
 }
 
@@ -145,8 +138,7 @@ TEST(EdgeCases, Alignment_Zero) {
     params.alignmentDistribution.type = AlignmentDistributionType::Fixed;
     params.alignmentDistribution.fixedAlignment = 0;  // 0 means allocator default
     
-    SeededRNG rng(params.seed);
-    OperationStream stream(params, rng);
+    OperationStream stream(params);
     
     for (u32 i = 0; i < params.operationCount && stream.HasNext(); ++i) {
         Operation op = stream.Next(0);
@@ -167,7 +159,7 @@ TEST(EdgeCases, Distribution_MinEqualsMax) {
     params.sizeDistribution.maxSize = 64;  // Same as min
     
     SeededRNG rng(params.seed);
-    OperationStream stream(params, rng);
+    OperationStream stream(params);
     
     for (u32 i = 0; i < params.operationCount && stream.HasNext(); ++i) {
         Operation op = stream.Next(0);
@@ -189,7 +181,7 @@ TEST(EdgeCases, Distribution_LogNormal_ZeroMean) {
     params.sizeDistribution.meanInLogSpace = false;
     
     SeededRNG rng(params.seed);
-    OperationStream stream(params, rng);
+    OperationStream stream(params);
     
     // Should handle gracefully without division by zero
     for (u32 i = 0; i < params.operationCount && stream.HasNext(); ++i) {
@@ -212,8 +204,7 @@ TEST(EdgeCases, Distribution_LogNormal_VerySmallMean) {
     params.sizeDistribution.stddev = 1.0f;
     params.sizeDistribution.meanInLogSpace = false;
     
-    SeededRNG rng(params.seed);
-    OperationStream stream(params, rng);
+    OperationStream stream(params);
     
     // Should handle without division issues
     for (u32 i = 0; i < params.operationCount && stream.HasNext(); ++i) {
@@ -326,8 +317,7 @@ TEST(EdgeCases, OperationStream_NextWithZeroLiveCount) {
     params.sizeDistribution = SizePresets::SmallObjects();
     params.allocFreeRatio = 0.5f;
     
-    SeededRNG rng(params.seed);
-    OperationStream stream(params, rng);
+    OperationStream stream(params);
     
     // When liveCount is 0, should never generate Free
     for (u32 i = 0; i < 50 && stream.HasNext(); ++i) {

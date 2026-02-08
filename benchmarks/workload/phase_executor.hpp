@@ -33,6 +33,8 @@ private:
     void ExecuteOperationFree(u64 opIndex) const;
     void ExecuteReclaim();
     [[nodiscard]] bool IsPhaseComplete() const;
+    
+    [[nodiscard]] LifetimeTracker* GetEffectiveTracker() const noexcept;
 
     const PhaseDescriptor& _desc;
     PhaseContext& _ctx;

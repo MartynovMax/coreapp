@@ -25,7 +25,7 @@ PhaseExecutor::PhaseExecutor(const PhaseDescriptor& desc,
                              IEventSink* eventSink) noexcept
     : _desc(desc), _ctx(ctx), _eventSink(eventSink), _stats{}, _tracker(nullptr), _ownsTracker(false), _needsTracker(false)
 {
-    ASSERT(_ctx.rng != nullptr);
+    ASSERT(_ctx.callbackRng != nullptr);
     ASSERT(_ctx.allocator != nullptr);
 }
 
@@ -47,7 +47,7 @@ PhaseExecutor::~PhaseExecutor() noexcept {
 }
 
 void PhaseExecutor::Execute() {
-    ASSERT(_ctx.rng != nullptr);
+    ASSERT(_ctx.callbackRng != nullptr);
     ASSERT(_ctx.allocator != nullptr);
     HighResTimer timer;
     u64 startTimestamp = timer.Now();
@@ -93,16 +93,11 @@ void PhaseExecutor::Execute() {
 
     u64 totalIssuedOperations = 0;
     if (_desc.params.operationCount > 0) {
-        // Use stack allocation instead of heap (OperationStream is small)
-        OperationStream opStream(_desc.params, *_ctx.rng);
+        OperationStream opStream(_desc.params);
 
         u64 opIndex = 0;
-        const bool canAllocate = (_desc.params.allocFreeRatio > 0.0f);
         while (opStream.HasNext()) {
             const u64 liveCount = _tracker ? _tracker->GetLiveCount() : 0;
-            if (liveCount == 0 && !canAllocate) {
-                break;
-            }
 
             Operation op = opStream.Next(liveCount);
             _ctx.currentOpIndex = opIndex;
@@ -110,10 +105,21 @@ void PhaseExecutor::Execute() {
             if (_desc.customOperation) {
                 _desc.customOperation(_ctx, op);
             } else {
-                if (op.type == OpType::Alloc) {
-                    ExecuteOperationAlloc(op, opIndex);
-                } else { // OpType::Free
-                    ExecuteOperationFree(opIndex);
+                switch (op.reason) {
+                    case OpReason::ForcedAllocEmptyLive:
+                        _stats.forcedAllocCount++;
+                        ExecuteOperationAlloc(op, opIndex);
+                        break;
+                    case OpReason::NoopFreeEmptyLive:
+                        _stats.noopFreeCount++;
+                        break;
+                    case OpReason::Normal:
+                        if (op.type == OpType::Alloc) {
+                            ExecuteOperationAlloc(op, opIndex);
+                        } else { // OpType::Free
+                            ExecuteOperationFree(opIndex);
+                        }
+                        break;
                 }
             }
 
@@ -136,27 +142,26 @@ void PhaseExecutor::Execute() {
                 break;
             }
         }
+        _stats.issuedOpCount = totalIssuedOperations;
     } else {
-
-        if (!_desc.customOperation && !_desc.completionCheck) {
-            FATAL("operationCount == 0 requires customOperation or completionCheck");
+        // operationCount == 0: loop-until-complete mode (do-while)
+        if (!_desc.customOperation) {
+            FATAL("operationCount == 0 requires customOperation callback");
+        }
+        if (!_desc.completionCheck) {
+            FATAL("operationCount == 0 requires completionCheck callback");
         }
 
         const u64 maxIters = _desc.maxIterations;
         u64 opIndex = 0;
+        bool completed = false;
 
-        while (opIndex < maxIters) {
-            if (_desc.completionCheck && _desc.completionCheck(_ctx)) {
-                break;
-            }
-
+        do {
             _ctx.currentOpIndex = opIndex;
 
-            if (_desc.customOperation) {
-                // Pass default-constructed Operation for operationCount == 0 case
-                Operation defaultOp{};
-                _desc.customOperation(_ctx, defaultOp);
-            }
+            Operation defaultOp{};
+            _desc.customOperation(_ctx, defaultOp);
+            completed = _desc.completionCheck(_ctx);
 
             if (tickManager) {
                 TickContext tickCtx{};
@@ -172,26 +177,28 @@ void PhaseExecutor::Execute() {
 
             opIndex++;
             totalIssuedOperations++;
-        }
+        } while (!completed && opIndex < maxIters);
 
-        if (opIndex >= maxIters) {
+        if (opIndex >= maxIters && !completed) {
             FATAL("operationCount == 0 phase exceeded maxIterations (infinite loop protection)");
         }
+        _stats.issuedOpCount = totalIssuedOperations;
     }
 
     u64 endTimestamp = timer.Now();
     u64 durationNs = endTimestamp - startTimestamp;
 
-    u64 peakLiveCount = _tracker ? _tracker->GetPeakCount() : 0;
-    u64 peakLiveBytes = _tracker ? _tracker->GetPeakBytes() : 0;
+    LifetimeTracker* effectiveTracker = GetEffectiveTracker();
+    u64 peakLiveCount = effectiveTracker ? effectiveTracker->GetPeakCount() : 0;
+    u64 peakLiveBytes = effectiveTracker ? effectiveTracker->GetPeakBytes() : 0;
 
-    u64 preReclaimLiveCount = _tracker ? _tracker->GetLiveCount() : 0;
-    u64 preReclaimLiveBytes = _tracker ? _tracker->GetLiveBytes() : 0;
+    u64 preReclaimLiveCount = effectiveTracker ? effectiveTracker->GetLiveCount() : 0;
+    u64 preReclaimLiveBytes = effectiveTracker ? effectiveTracker->GetLiveBytes() : 0;
 
     ExecuteReclaim();
 
-    u64 finalLiveCount = _tracker ? _tracker->GetLiveCount() : 0;
-    u64 finalLiveBytes = _tracker ? _tracker->GetLiveBytes() : 0;
+    u64 finalLiveCount = effectiveTracker ? effectiveTracker->GetLiveCount() : 0;
+    u64 finalLiveBytes = effectiveTracker ? effectiveTracker->GetLiveBytes() : 0;
 
     _stats.allocCount = _ctx.allocCount;
     _stats.freeCount = _ctx.freeCount;
@@ -230,7 +237,10 @@ void PhaseExecutor::Execute() {
         evt.data.phaseComplete.durationNs = durationNs;
         evt.data.phaseComplete.allocCount = _stats.allocCount;
         evt.data.phaseComplete.freeCount = _stats.freeCount;
-        evt.data.phaseComplete.totalOperations = totalIssuedOperations; // Use issued ops, not alloc+free
+        evt.data.phaseComplete.totalOperations = _stats.issuedOpCount;
+        evt.data.phaseComplete.issuedOpCount = _stats.issuedOpCount;
+        evt.data.phaseComplete.forcedAllocCount = _stats.forcedAllocCount;
+        evt.data.phaseComplete.noopFreeCount = _stats.noopFreeCount;
         evt.data.phaseComplete.bytesAllocated = _stats.bytesAllocated;
         evt.data.phaseComplete.bytesFreed = _stats.bytesFreed;
         evt.data.phaseComplete.peakLiveCount = _stats.peakLiveCount;
@@ -246,7 +256,7 @@ void PhaseExecutor::Execute() {
         evt.data.phaseComplete.totalFreeCount = _stats.totalFreeCount;
         evt.data.phaseComplete.totalBytesFreed = _stats.totalBytesFreed;
         evt.data.phaseComplete.failedAllocCount = _stats.failedAllocCount;
-        evt.data.phaseComplete.opsPerSec = durationNs > 0 ? static_cast<f64>(totalIssuedOperations) * 1e9 / static_cast<f64>(durationNs) : 0.0;
+        evt.data.phaseComplete.opsPerSec = durationNs > 0 ? static_cast<f64>(_stats.issuedOpCount) * 1e9 / static_cast<f64>(durationNs) : 0.0;
         evt.data.phaseComplete.throughput = durationNs > 0 ? static_cast<f64>(_stats.bytesAllocated) * 1e9 / static_cast<f64>(durationNs) : 0.0;
         _eventSink->OnEvent(evt);
     }
@@ -260,6 +270,13 @@ void PhaseExecutor::Execute() {
         evt.timestamp = endTimestamp;
         _eventSink->OnEvent(evt);
     }
+}
+
+LifetimeTracker* PhaseExecutor::GetEffectiveTracker() const noexcept {
+    if (_tracker) return _tracker;
+    if (_ctx.liveSetTracker) return _ctx.liveSetTracker;
+    if (_ctx.externalLifetimeTracker) return _ctx.externalLifetimeTracker;
+    return nullptr;
 }
 
 void PhaseExecutor::ExecuteOperationAlloc(const Operation& op, u64 opIndex) const {
@@ -325,7 +342,6 @@ void PhaseExecutor::ExecuteOperationFree(u64 /*opIndex*/) const {
     _ctx.bytesFreed += info.size;
 }
 
-// Reclaim phase: handle according to ReclaimMode
 void PhaseExecutor::ExecuteReclaim() {
     switch (_desc.reclaimMode) {
         case ReclaimMode::None: {
@@ -371,11 +387,12 @@ const PhaseStats& PhaseExecutor::GetStats() const noexcept {
 }
 
 void PhaseExecutor::SetupLifetimeTracker() noexcept {
-    // Reset tracker state for this execution.
+    if (_ctx.liveSetTracker && _ctx.externalLifetimeTracker) {
+        FATAL("PhaseContext violation: both liveSetTracker and externalLifetimeTracker are set.");
+    }
+
     if (_ownsTracker && _tracker) {
         _tracker->~LifetimeTracker();
-        
-        // Deallocate via IAllocator
         core::AllocationInfo info{};
         info.ptr = _tracker;
         info.size = sizeof(LifetimeTracker);
@@ -385,7 +402,6 @@ void PhaseExecutor::SetupLifetimeTracker() noexcept {
     }
     _tracker = nullptr;
     _ownsTracker = false;
-    _ctx.lifetimeTracker = nullptr;
 
     if (_desc.params.lifetimeModel == LifetimeModel::LongLived && 
         _desc.params.allocFreeRatio < 1.0f) {
@@ -397,37 +413,34 @@ void PhaseExecutor::SetupLifetimeTracker() noexcept {
         ((_desc.params.allocFreeRatio < 1.0f) ||
          (_desc.params.lifetimeModel != LifetimeModel::LongLived));
 
-   
     const bool requiresTracker = _needsTracker || 
                                  (_desc.reclaimMode == ReclaimMode::FreeAll);
 
     if (_desc.reclaimMode == ReclaimMode::None) {
-        if (!_ctx.externalLifetimeTracker && requiresTracker) {
-            FATAL("ReclaimMode::None requires externalLifetimeTracker when tracker is needed");
+        const bool hasExternalTracker = (_ctx.liveSetTracker != nullptr) || (_ctx.externalLifetimeTracker != nullptr);
+        if (requiresTracker && !hasExternalTracker) {
+            FATAL("ReclaimMode::None with operationCount>0 and allocFreeRatio<1.0 requires external tracker");
         }
     } else {
-        if (_ctx.externalLifetimeTracker) {
-            FATAL("externalLifetimeTracker is only allowed with ReclaimMode::None");
+        if (_ctx.liveSetTracker || _ctx.externalLifetimeTracker) {
+            FATAL("liveSetTracker/externalLifetimeTracker are only allowed with ReclaimMode::None");
         }
     }
 
     if (_desc.reclaimMode == ReclaimMode::None) {
-        if (_ctx.externalLifetimeTracker) {
-            // Contract: external tracker must already be fully configured; isValid() == ready.
-            if (!_ctx.externalLifetimeTracker->isValid()) {
-                FATAL("externalLifetimeTracker is invalid (allocation failed?)");
+        LifetimeTracker* externalTracker = _ctx.liveSetTracker ? _ctx.liveSetTracker : _ctx.externalLifetimeTracker;
+        
+        if (externalTracker) {
+            if (!externalTracker->isValid()) {
+                FATAL("External tracker is invalid (allocation failed?)");
             }
-
-            _tracker = _ctx.externalLifetimeTracker;
+            _tracker = externalTracker;
             _ownsTracker = false;
-            _ctx.lifetimeTracker = _tracker;
         } else {
             _tracker = nullptr;
             _ownsTracker = false;
-            _ctx.lifetimeTracker = nullptr;
         }
     } else {
-        // Non-None reclaim modes: tracker is per-phase and owned here if needed.
         if (requiresTracker) {
             u32 trackerCapacity = 0;
             if (_desc.params.maxLiveObjects > 0) {
@@ -452,7 +465,7 @@ void PhaseExecutor::SetupLifetimeTracker() noexcept {
                 FATAL("Failed to allocate memory for LifetimeTracker");
             }
 
-            _tracker = new (mem) LifetimeTracker(trackerCapacity, _desc.params.lifetimeModel, *_ctx.rng, _ctx.allocator);
+            _tracker = new (mem) LifetimeTracker(trackerCapacity, _desc.params.lifetimeModel, *_ctx.callbackRng, _ctx.allocator);
             if (!_tracker || !_tracker->isValid()) {
                 core::AllocationInfo info{};
                 info.ptr = mem;
@@ -465,11 +478,9 @@ void PhaseExecutor::SetupLifetimeTracker() noexcept {
 
             _tracker->Clear(); // ensure empty live-set for this phase
             _ownsTracker = true;
-            _ctx.lifetimeTracker = _tracker;
         } else {
             _tracker = nullptr;
             _ownsTracker = false;
-            _ctx.lifetimeTracker = nullptr;
         }
     }
 }

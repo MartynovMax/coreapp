@@ -79,7 +79,7 @@ TEST(AdvancedWorkloadTest, ConditionalPhaseCompletionMemoryThreshold) {
 
     PhaseContext ctx{};
     ctx.allocator = &allocator;
-    ctx.rng = &rng;
+    ctx.callbackRng = &rng;
 
     PhaseExecutor exec(desc, ctx);
     exec.Execute();
@@ -145,7 +145,7 @@ TEST(AdvancedWorkloadTest, CustomOperationBatchedAllocations) {
 
     PhaseContext ctx{};
     ctx.allocator = &allocator;
-    ctx.rng = &rng;
+    ctx.callbackRng = &rng;
 
     PhaseExecutor exec(desc, ctx);
     exec.Execute();
@@ -212,7 +212,7 @@ TEST(AdvancedWorkloadTest, UserDataPropagationThroughCallbacks) {
 
     PhaseContext ctx{};
     ctx.allocator = &allocator;
-    ctx.rng = &rng;
+    ctx.callbackRng = &rng;
 
     PhaseExecutor exec(desc, ctx);
     exec.Execute();

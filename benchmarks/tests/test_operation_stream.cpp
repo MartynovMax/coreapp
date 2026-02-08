@@ -15,10 +15,8 @@ TEST(OperationStream, Determinism_SameSeed) {
     params.sizeDistribution = SizePresets::SmallObjects();
     params.allocFreeRatio = 0.5f;
 
-    SeededRNG rng1(params.seed);
-    SeededRNG rng2(params.seed);
-    OperationStream s1(params, rng1);
-    OperationStream s2(params, rng2);
+    OperationStream s1(params);
+    OperationStream s2(params);
 
     for (core::usize i = 0; i < params.operationCount; ++i) {
         auto op1 = s1.Next(0);
@@ -29,19 +27,20 @@ TEST(OperationStream, Determinism_SameSeed) {
 }
 
 TEST(OperationStream, Determinism_DifferentSeeds) {
-    WorkloadParams params;
-    params.seed = 1;
-    params.operationCount = 100;
-    params.sizeDistribution = SizePresets::SmallObjects();
-    params.allocFreeRatio = 0.5f;
+    WorkloadParams params1;
+    params1.seed = 1;
+    params1.operationCount = 100;
+    params1.sizeDistribution = SizePresets::SmallObjects();
+    params1.allocFreeRatio = 0.5f;
 
-    SeededRNG rng1(1);
-    SeededRNG rng2(2);
-    OperationStream s1(params, rng1);
-    OperationStream s2(params, rng2);
+    WorkloadParams params2 = params1;
+    params2.seed = 2;
+
+    OperationStream s1(params1);
+    OperationStream s2(params2);
 
     bool any_diff = false;
-    for (core::usize i = 0; i < params.operationCount; ++i) {
+    for (core::usize i = 0; i < params1.operationCount; ++i) {
         const auto op1 = s1.Next(0);
         const auto op2 = s2.Next(0);
         if (op1.type != op2.type || op1.size != op2.size)
@@ -57,8 +56,7 @@ TEST(OperationStream, AllocFreeRatio_OnlyAlloc) {
     params.sizeDistribution = SizePresets::SmallObjects();
     params.allocFreeRatio = 1.0f;
 
-    SeededRNG rng(params.seed);
-    OperationStream s(params, rng);
+    OperationStream s(params);
     for (core::usize i = 0; i < params.operationCount; ++i)
         ASSERT_EQ(s.Next(0).type, OpType::Alloc);
 }
@@ -70,8 +68,7 @@ TEST(OperationStream, AllocFreeRatio_OnlyFree) {
     params.sizeDistribution = SizePresets::SmallObjects();
     params.allocFreeRatio = 0.0f;
 
-    SeededRNG rng(params.seed);
-    OperationStream s(params, rng);
+    OperationStream s(params);
     for (core::usize i = 0; i < params.operationCount; ++i)
         ASSERT_EQ(s.Next(0).type, OpType::Free);
 }
@@ -83,8 +80,7 @@ TEST(OperationStream, AllocFreeRatio_Half) {
     params.sizeDistribution = SizePresets::SmallObjects();
     params.allocFreeRatio = 0.5f;
 
-    SeededRNG rng(params.seed);
-    OperationStream s(params, rng);
+    OperationStream s(params);
     int allocs = 0, frees = 0;
     u64 liveCount = 0;
     for (core::usize i = 0; i < params.operationCount; ++i) {
@@ -108,8 +104,7 @@ TEST(OperationStream, OperationCount_Limit) {
     params.sizeDistribution = SizePresets::SmallObjects();
     params.allocFreeRatio = 0.5f;
 
-    SeededRNG rng(params.seed);
-    OperationStream s(params, rng);
+    OperationStream s(params);
     int count = 0;
     while (s.HasNext()) {
         s.Next(0);
@@ -127,8 +122,7 @@ TEST(OperationStream, UniformDistribution_Range) {
     params.sizeDistribution.maxSize = 64;
     params.allocFreeRatio = 1.0f;
 
-    SeededRNG rng(params.seed);
-    OperationStream s(params, rng);
+    OperationStream s(params);
     for (core::usize i = 0; i < params.operationCount; ++i) {
         auto sz = s.Next(0).size;
         ASSERT_GE(sz, 8);
@@ -145,8 +139,7 @@ TEST(OperationStream, PowerOfTwoDistribution_OnlyPowersOfTwo) {
     params.sizeDistribution.maxSize = 1024;
     params.allocFreeRatio = 1.0f;
 
-    SeededRNG rng(params.seed);
-    OperationStream s(params, rng);
+    OperationStream s(params);
     for (core::usize i = 0; i < params.operationCount; ++i) {
         auto sz = s.Next(0).size;
         ASSERT_TRUE((sz & (sz - 1)) == 0);
@@ -166,8 +159,7 @@ TEST(OperationStream, NormalDistribution_Stats) {
     params.sizeDistribution.maxSize = 256;
     params.allocFreeRatio = 1.0f;
 
-    SeededRNG rng(params.seed);
-    OperationStream s(params, rng);
+    OperationStream s(params);
     core::f64 sum = 0, sum2 = 0;
     for (core::usize i = 0; i < params.operationCount; ++i) {
         auto sz = s.Next(0).size;
@@ -193,8 +185,7 @@ TEST(OperationStream, LogNormalDistribution_Shape) {
     params.sizeDistribution.maxSize = 4096;
     params.allocFreeRatio = 1.0f;
 
-    SeededRNG rng(params.seed);
-    OperationStream s(params, rng);
+    OperationStream s(params);
     int small = 0, large = 0;
     for (core::usize i = 0; i < params.operationCount; ++i) {
         const auto sz = s.Next(0).size;
@@ -215,8 +206,7 @@ TEST(OperationStream, ParetoDistribution_8020) {
     params.sizeDistribution.shape = 2.0f;
     params.allocFreeRatio = 1.0f;
 
-    SeededRNG rng(params.seed);
-    OperationStream s(params, rng);
+    OperationStream s(params);
     int small = 0, large = 0;
     for (core::usize i = 0; i < params.operationCount; ++i) {
         const auto sz = s.Next(0).size;
@@ -236,8 +226,7 @@ TEST(OperationStream, SmallBiasedDistribution_MostlySmall) {
     params.sizeDistribution.maxSize = 1024;
     params.allocFreeRatio = 1.0f;
 
-    SeededRNG rng(params.seed);
-    OperationStream s(params, rng);
+    OperationStream s(params);
     int small = 0;
     for (core::usize i = 0; i < params.operationCount; ++i) {
         if (s.Next(0).size <= 64) ++small;
@@ -254,8 +243,7 @@ TEST(OperationStream, LargeBiasedDistribution_MostlyLarge) {
     params.sizeDistribution.maxSize = 1024;
     params.allocFreeRatio = 1.0f;
 
-    SeededRNG rng(params.seed);
-    OperationStream s(params, rng);
+    OperationStream s(params);
 
     const u32 largeMin = (params.sizeDistribution.minSize + 64 < params.sizeDistribution.maxSize)
         ? (params.sizeDistribution.minSize + 64)
@@ -282,8 +270,7 @@ TEST(OperationStream, BimodalDistribution_TwoPeaks) {
     params.sizeDistribution.peak2Max = 2048;
     params.allocFreeRatio = 1.0f;
 
-    SeededRNG rng(params.seed);
-    OperationStream s(params, rng);
+    OperationStream s(params);
     int peak1 = 0, peak2 = 0;
     for (core::usize i = 0; i < params.operationCount; ++i) {
         const auto sz = s.Next(0).size;
@@ -306,8 +293,7 @@ TEST(OperationStream, CustomBuckets_ExactMatch) {
     params.sizeDistribution.bucketCount = 3;
     params.allocFreeRatio = 1.0f;
 
-    SeededRNG rng(params.seed);
-    OperationStream s(params, rng);
+    OperationStream s(params);
     std::set<u32> seen;
     for (core::usize i = 0; i < params.operationCount; ++i) {
         auto sz = s.Next(0).size;
@@ -326,8 +312,7 @@ TEST(OperationStream, EdgeCase_MinEqualsMax) {
     params.sizeDistribution.maxSize = 42;
     params.allocFreeRatio = 1.0f;
 
-    SeededRNG rng(params.seed);
-    OperationStream s(params, rng);
+    OperationStream s(params);
     for (core::usize i = 0; i < params.operationCount; ++i)
         ASSERT_EQ(s.Next(0).size, 42);
 }
@@ -339,8 +324,7 @@ TEST(OperationStream, EdgeCase_SingleOperation) {
     params.sizeDistribution = SizePresets::SmallObjects();
     params.allocFreeRatio = 1.0f;
 
-    SeededRNG rng(params.seed);
-    OperationStream s(params, rng);
+    OperationStream s(params);
     ASSERT_TRUE(s.HasNext());
     s.Next(0);
     ASSERT_FALSE(s.HasNext());
@@ -357,8 +341,7 @@ TEST(OperationStream, StressTest_1M_Complex) {
     params.sizeDistribution.maxSize = 8192;
     params.allocFreeRatio = 0.6f;
 
-    SeededRNG rng(params.seed);
-    OperationStream s(params, rng);
+    OperationStream s(params);
     core::usize count = 0;
     while (s.HasNext()) {
         s.Next(0);

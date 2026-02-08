@@ -107,7 +107,7 @@ TEST(EventTypesTest, MockEventSinkCapturesPhaseEvents) {
 
     PhaseContext ctx{};
     ctx.allocator = &allocator;
-    ctx.rng = &rng;
+    ctx.callbackRng = &rng;
 
     MockEventSink sink;
     PhaseExecutor exec(desc, ctx, &sink);
@@ -142,7 +142,7 @@ TEST(EventTypesTest, MockEventSinkCapturesTickEvents) {
 
     PhaseContext ctx{};
     ctx.allocator = &allocator;
-    ctx.rng = &rng;
+    ctx.callbackRng = &rng;
 
     MockEventSink sink;
     PhaseExecutor exec(desc, ctx, &sink);
@@ -174,7 +174,7 @@ TEST(EventTypesTest, EventOrderingPhaseBeginTickPhaseComplete) {
 
     PhaseContext ctx{};
     ctx.allocator = &allocator;
-    ctx.rng = &rng;
+    ctx.callbackRng = &rng;
 
     MockEventSink sink;
     PhaseExecutor exec(desc, ctx, &sink);

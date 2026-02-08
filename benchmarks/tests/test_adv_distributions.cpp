@@ -28,7 +28,7 @@ static void RunDistributionPhase(const SizeDistribution& dist, DistributionType 
 
     PhaseContext ctx{};
     ctx.allocator = &allocator;
-    ctx.rng = &rng;
+    ctx.callbackRng = &rng;
 
     PhaseExecutor exec(desc, ctx);
     exec.Execute();
