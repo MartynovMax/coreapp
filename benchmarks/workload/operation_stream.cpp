@@ -7,9 +7,7 @@
 namespace core::bench {
 
 namespace {
-    // Normalize allocFreeRatio: handle NaN and clamp to [0, 1]
     inline f32 NormalizeAllocFreeRatio(f32 ratio) noexcept {
-        // !(ratio >= 0.0f) catches both NaN and negative values
         if (!(ratio >= 0.0f)) return 0.0f;
         if (ratio > 1.0f) return 1.0f;
         return ratio;
@@ -24,6 +22,20 @@ namespace {
         if (value > static_cast<f32>(dist.maxSize)) return dist.maxSize;
         return static_cast<u32>(value);
     }
+
+    inline core::memory_alignment NextPow2Align(core::memory_alignment v) noexcept {
+        if (v == 0) return 1;
+        if ((v & (v - 1)) == 0) return v;
+        v--;
+        v |= v >> 1;
+        v |= v >> 2;
+        v |= v >> 4;
+        if constexpr (sizeof(core::memory_alignment) >= 2) v |= v >> 8;
+        if constexpr (sizeof(core::memory_alignment) >= 4) v |= v >> 16;
+        if constexpr (sizeof(core::memory_alignment) >= 8) v |= v >> 32;
+        v++;
+        return v;
+    }
 }
 
 OperationStream::OperationStream(const WorkloadParams& params) noexcept
@@ -31,10 +43,38 @@ OperationStream::OperationStream(const WorkloadParams& params) noexcept
     , _ownedRng(params.seed)
     , _currentOp(0)
 {
+    _params.allocFreeRatio = NormalizeAllocFreeRatio(_params.allocFreeRatio);
+
+    if (_params.sizeDistribution.minSize == 0) {
+        _params.sizeDistribution.minSize = 1;
+    }
+    if (_params.sizeDistribution.maxSize < _params.sizeDistribution.minSize) {
+        u32 temp = _params.sizeDistribution.minSize;
+        _params.sizeDistribution.minSize = _params.sizeDistribution.maxSize;
+        _params.sizeDistribution.maxSize = temp;
+    }
+
     ASSERT(_params.sizeDistribution.minSize > 0);
     ASSERT(_params.sizeDistribution.maxSize >= _params.sizeDistribution.minSize);
+
+    if (_params.alignmentDistribution.maxAlignment < _params.alignmentDistribution.minAlignment) {
+        core::memory_alignment temp = _params.alignmentDistribution.minAlignment;
+        _params.alignmentDistribution.minAlignment = _params.alignmentDistribution.maxAlignment;
+        _params.alignmentDistribution.maxAlignment = temp;
+    }
     ASSERT(_params.alignmentDistribution.maxAlignment >= _params.alignmentDistribution.minAlignment);
+
     if (_params.sizeDistribution.type == DistributionType::Bimodal || _params.sizeDistribution.type == DistributionType::GameEngine) {
+        auto& sd = _params.sizeDistribution;
+        
+        if (sd.peak1Min < sd.minSize) sd.peak1Min = sd.minSize;
+        if (sd.peak1Max > sd.maxSize) sd.peak1Max = sd.maxSize;
+        if (sd.peak1Max < sd.peak1Min) sd.peak1Max = sd.peak1Min;
+        
+        if (sd.peak2Min < sd.minSize) sd.peak2Min = sd.minSize;
+        if (sd.peak2Max > sd.maxSize) sd.peak2Max = sd.maxSize;
+        if (sd.peak2Max < sd.peak2Min) sd.peak2Max = sd.peak2Min;
+
         ASSERT(_params.sizeDistribution.peak1Min >= _params.sizeDistribution.minSize);
         ASSERT(_params.sizeDistribution.peak1Max <= _params.sizeDistribution.maxSize);
         ASSERT(_params.sizeDistribution.peak2Min >= _params.sizeDistribution.minSize);
@@ -42,6 +82,7 @@ OperationStream::OperationStream(const WorkloadParams& params) noexcept
         ASSERT(_params.sizeDistribution.peak1Min <= _params.sizeDistribution.peak1Max);
         ASSERT(_params.sizeDistribution.peak2Min <= _params.sizeDistribution.peak2Max);
     }
+
     if (_params.sizeDistribution.type == DistributionType::CustomBuckets) {
         ASSERT(_params.sizeDistribution.bucketCount > 0);
         ASSERT(_params.sizeDistribution.buckets != nullptr);
@@ -57,10 +98,20 @@ OperationStream::OperationStream(const WorkloadParams& params) noexcept
                    "CustomBuckets: size out of [minSize, maxSize] range");
         }
     }
+
     if (_params.alignmentDistribution.type == AlignmentDistributionType::CustomBuckets) {
         ASSERT(_params.alignmentDistribution.bucketCount > 0);
         ASSERT(_params.alignmentDistribution.buckets != nullptr);
         ASSERT(_params.alignmentDistribution.weights != nullptr);
+        
+        for (u32 i = 0; i < _params.alignmentDistribution.bucketCount; ++i) {
+            core::memory_alignment& a = const_cast<core::memory_alignment&>(_params.alignmentDistribution.buckets[i]);
+            if (!IsPowerOfTwo(a)) {
+                a = NextPow2Align(a);
+            }
+            if (a == 0) a = CORE_DEFAULT_ALIGNMENT;
+        }
+
         f32 sum = 0.0f;
         for (u32 i = 0; i < _params.alignmentDistribution.bucketCount; ++i) sum += _params.alignmentDistribution.weights[i];
         ASSERT(sum > 0.99f && sum < 1.01f);
@@ -79,20 +130,13 @@ Operation OperationStream::Next(u64 liveCount) noexcept {
     Operation op{};
     op.reason = OpReason::Normal;
 
-    // Decide operation based on liveCount and allocFreeRatio
     if (liveCount == 0) {
-        // When nothing is live, we can only allocate if ratio allows it
         op.type = DecideOperation();
         if (op.type == OpType::Free) {
-            // Cannot free when nothing is live
-            f32 ratio = NormalizeAllocFreeRatio(_params.allocFreeRatio);
-            
-            if (ratio > 0.0f) {
-                // Force to Alloc because live-set is empty but ratio allows alloc
+            if (_params.allocFreeRatio > 0.0f) {
                 op.type = OpType::Alloc;
                 op.reason = OpReason::ForcedAllocEmptyLive;
             } else {
-                // ratio == 0.0 (free-only), but nothing live → noop
                 op.reason = OpReason::NoopFreeEmptyLive;
             }
         }
@@ -178,7 +222,6 @@ core::memory_alignment OperationStream::GenerateAlignment(u32 size) noexcept {
 
         case AlignmentDistributionType::MatchSizePow2: {
             core::memory_alignment a = NextPow2(static_cast<core::memory_alignment>(size));
-            
             core::memory_alignment minA = ad.minAlignment;
             core::memory_alignment maxA = ad.maxAlignment;
             
@@ -198,7 +241,7 @@ core::memory_alignment OperationStream::GenerateAlignment(u32 size) noexcept {
         }
 
         case AlignmentDistributionType::Typical64: {
-            static const core::memory_alignment defBuckets[4] = {8, 16, 32, 64};
+            static core::memory_alignment defBuckets[4] = {8, 16, 32, 64};
             static const f32 defWeights[4] = {0.2f, 0.6f, 0.15f, 0.05f};
             const core::memory_alignment* buckets = ad.buckets ? ad.buckets : defBuckets;
             const f32* weights = ad.weights ? ad.weights : defWeights;
@@ -208,23 +251,45 @@ core::memory_alignment OperationStream::GenerateAlignment(u32 size) noexcept {
             f32 cumulative = 0.0f;
             for (u32 i = 0; i < count; i++) {
                 cumulative += weights[i];
-                if (r < cumulative) return buckets[i];
+                if (r < cumulative) {
+                    core::memory_alignment result = buckets[i];
+                    if (!IsPowerOfTwo(result) || result == 0) {
+                        result = NextPow2Align(result);
+                        if (result == 0) result = CORE_DEFAULT_ALIGNMENT;
+                    }
+                    return result;
+                }
             }
-            return buckets[count - 1];
+            core::memory_alignment result = buckets[count - 1];
+            if (!IsPowerOfTwo(result) || result == 0) {
+                result = NextPow2Align(result);
+                if (result == 0) result = CORE_DEFAULT_ALIGNMENT;
+            }
+            return result;
         }
         case AlignmentDistributionType::CustomBuckets: {
             if (ad.buckets == nullptr || ad.weights == nullptr || ad.bucketCount == 0) {
-                return ad.fixedAlignment; // fallback, can be 0
+                return ad.fixedAlignment ? ad.fixedAlignment : CORE_DEFAULT_ALIGNMENT;
             }
             f32 r = NextUnitFloat01();
             f32 cumulative = 0.0f;
             for (u32 i = 0; i < ad.bucketCount; i++) {
                 cumulative += ad.weights[i];
                 if (r < cumulative) {
-                    return ad.buckets[i];
+                    core::memory_alignment result = ad.buckets[i];
+                    if (!IsPowerOfTwo(result) || result == 0) {
+                        result = NextPow2Align(result);
+                        if (result == 0) result = CORE_DEFAULT_ALIGNMENT;
+                    }
+                    return result;
                 }
             }
-            return ad.buckets[ad.bucketCount - 1];
+            core::memory_alignment result = ad.buckets[ad.bucketCount - 1];
+            if (!IsPowerOfTwo(result) || result == 0) {
+                result = NextPow2Align(result);
+                if (result == 0) result = CORE_DEFAULT_ALIGNMENT;
+            }
+            return result;
         }
 
         default:
@@ -432,13 +497,12 @@ u32 OperationStream::GenerateSize() noexcept {
 }
 
 OpType OperationStream::DecideOperation() noexcept {
-    f32 ratio = NormalizeAllocFreeRatio(_params.allocFreeRatio);
+    f32 ratio = _params.allocFreeRatio;
 
-    // Strict endpoints
     if (ratio <= 0.0f) return OpType::Free;
     if (ratio >= 1.0f) return OpType::Alloc;
 
-    const f32 r = NextUnitFloat01(); // [0,1)
+    const f32 r = NextUnitFloat01();
     return (r < ratio) ? OpType::Alloc : OpType::Free;
 }
 

@@ -18,6 +18,18 @@ namespace core::bench {
 
 namespace {
 constexpr u32 kMaxTrackerCapacity = 1000000;
+
+inline u64 SaturatingAdd(u64 a, u64 b) noexcept {
+    u64 result = a + b;
+    if (result < a) return UINT64_MAX;
+    return result;
+}
+
+inline f32 NormalizeAllocFreeRatio(f32 ratio) noexcept {
+    if (!(ratio >= 0.0f)) return 0.0f;
+    if (ratio > 1.0f) return 1.0f;
+    return ratio;
+}
 }
 
 PhaseExecutor::PhaseExecutor(const PhaseDescriptor& desc,
@@ -304,7 +316,7 @@ void PhaseExecutor::ExecuteOperationAlloc(const Operation& op, u64 opIndex) cons
     }
 
     _ctx.allocCount++;
-    _ctx.bytesAllocated += op.size;
+    _ctx.bytesAllocated = SaturatingAdd(_ctx.bytesAllocated, op.size);
 
     if (_tracker && _tracker->isValid()) {
         auto result = _tracker->Track(ptr, op.size, op.alignment, op.tag, opIndex);
@@ -319,11 +331,11 @@ void PhaseExecutor::ExecuteOperationAlloc(const Operation& op, u64 opIndex) cons
             info.tag = op.tag;
             _ctx.allocator->Deallocate(info);
             _ctx.internalFreeCount++;
-            _ctx.internalBytesFreed += op.size;
+            _ctx.internalBytesFreed = SaturatingAdd(_ctx.internalBytesFreed, op.size);
         }
         if (result.forcedFree) {
             _ctx.internalFreeCount++;
-            _ctx.internalBytesFreed += result.freedInfo.size;
+            _ctx.internalBytesFreed = SaturatingAdd(_ctx.internalBytesFreed, result.freedInfo.size);
         }
     }
 }
@@ -339,14 +351,15 @@ void PhaseExecutor::ExecuteOperationFree(u64 /*opIndex*/) const {
     deallocInfo.tag = info.tag;
     _ctx.allocator->Deallocate(deallocInfo);
     _ctx.freeCount++;
-    _ctx.bytesFreed += info.size;
+    _ctx.bytesFreed = SaturatingAdd(_ctx.bytesFreed, info.size);
 }
 
 void PhaseExecutor::ExecuteReclaim() {
     switch (_desc.reclaimMode) {
         case ReclaimMode::None: {
             ASSERT(!_ownsTracker);
-            ASSERT(_tracker == _ctx.externalLifetimeTracker);
+            LifetimeTracker* effectiveExternal = _ctx.liveSetTracker ? _ctx.liveSetTracker : _ctx.externalLifetimeTracker;
+            ASSERT(_tracker == effectiveExternal);
             if (_tracker) {
                 ASSERT(_tracker->isValid());
             }
@@ -358,7 +371,7 @@ void PhaseExecutor::ExecuteReclaim() {
             u64 freedBytes = 0;
             _tracker->FreeAll(&freedCount, &freedBytes);
             _ctx.reclaimFreeCount += freedCount;
-            _ctx.reclaimBytesFreed += freedBytes;
+            _ctx.reclaimBytesFreed = SaturatingAdd(_ctx.reclaimBytesFreed, freedBytes);
             ASSERT(_tracker->GetLiveCount() == 0);
             ASSERT(_tracker->GetLiveBytes() == 0);
             break;
@@ -403,14 +416,16 @@ void PhaseExecutor::SetupLifetimeTracker() noexcept {
     _tracker = nullptr;
     _ownsTracker = false;
 
+    f32 normalizedRatio = NormalizeAllocFreeRatio(_desc.params.allocFreeRatio);
+
     if (_desc.params.lifetimeModel == LifetimeModel::LongLived && 
-        _desc.params.allocFreeRatio < 1.0f) {
+        normalizedRatio < 1.0f) {
         FATAL("LongLived lifetime model requires allocFreeRatio == 1.0");
     }
 
     _needsTracker =
         (_desc.params.operationCount > 0) &&
-        ((_desc.params.allocFreeRatio < 1.0f) ||
+        ((normalizedRatio < 1.0f) ||
          (_desc.params.lifetimeModel != LifetimeModel::LongLived));
 
     const bool requiresTracker = _needsTracker || 

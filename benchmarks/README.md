@@ -192,9 +192,17 @@ See `workload/workload_params.hpp` for all available presets and parameter optio
   - Total bytes freed are reported as `totalBytesFreed = bytesFreed + internalBytesFreed + reclaimBytesFreed`.
   - The time spent in bulk reclaim (FreeAll) is included in the phase duration and performance metrics (ops/sec, throughput).
 
+- **operationCount == 0 (Do-While Semantics):**
+  - When `operationCount == 0`, the phase executes in loop-until-complete mode (do-while).
+  - **REQUIRED**: Both `customOperation` and `completionCheck` callbacks MUST be provided.
+  - **Guarantee**: At least 1 iteration is executed, even if `completionCheck` returns true immediately.
+  - **Safety**: Maximum iterations (default: 10M) prevents infinite loops.
+  - Use case: Time-based phases, memory-threshold phases, or custom termination logic.
+
 - **Time-based Completion:**
-  - The main operation loop is limited by `operationCount`. If you want to use a time-based completion callback, you must set a sufficiently large `operationCount` to allow the callback to trigger. If `operationCount` is zero, the phase will terminate immediately and the callback will not be called.
-  - This is by design for determinism and reproducibility. If you need unlimited or time-based phases, set `operationCount` to a large value and use a custom completion callback.
+  - For deterministic phases with `operationCount > 0`, the operation loop will execute exactly that many operations.
+  - Time-based completion can be achieved via `completionCheck` callback, but the phase will never exceed `operationCount`.
+  - For truly time-driven phases, use `operationCount = 0` with custom callbacks.
 
 ## Workload Model and Phase Semantics
 
@@ -209,8 +217,22 @@ See `workload/workload_params.hpp` for all available presets and parameter optio
 - **ReclaimMode::Custom**: Uses a custom `reclaimCallback` for phase cleanup. LifetimeTracker is optional - can be used via external tracker, passed through userData, or not needed at all depending on the cleanup strategy.
 
 ### Phases with Zero Operations
-- If `operationCount == 0`, the phase will not create a LifetimeTracker and will only call `completionCheck` and/or `customOperation` once if provided.
-- This allows for time-based or callback-only phases without dummy operations.
+- If `operationCount == 0`, the phase enters **loop-until-complete (do-while) mode**.
+- **Contract**: Both `customOperation` and `completionCheck` MUST be provided, or the phase will fail with FATAL.
+- **Guarantee**: Minimum 1 iteration, even if `completionCheck` immediately returns true.
+- Useful for callback-driven or time-based phases without predetermined operation counts.
+
+### callbackRng Lifetime and Usage
+- `PhaseContext::callbackRng` is provided for use within callbacks (`customOperation`, `reclaimCallback`, `completionCheck`).
+- **CRITICAL**: `callbackRng` is execution-scoped and MUST NOT be stored beyond the callback lifetime.
+- **Workload Determinism**: OperationStream owns its own RNG (seeded from `WorkloadParams::seed`). Using `callbackRng` for workload generation breaks reproducibility.
+- Use `callbackRng` only for callback-specific randomness (e.g., selecting which object to free in custom reclaim).
+
+### Distribution Behavior
+- **Exponential distribution**: Values are clamped to `[minSize, maxSize]`, not scaled. This may result in a truncated distribution.
+- **LogNormal distribution**: If `meanInLogSpace == false`, parameters are treated as linear-space and converted internally.
+- **allocFreeRatio**: Always normalized to [0,1]. NaN and negative values are treated as 0.0.
+- **Alignment buckets** (Typical64, CustomBuckets): Non-power-of-2 values are automatically rounded up to the next power-of-2 at construction.
 
 ### customOperation Semantics
 - The `customOperation` callback receives `PhaseContext&` and `const Operation&`.
@@ -223,14 +245,20 @@ See `workload/workload_params.hpp` for all available presets and parameter optio
 - If metrics are not updated, phase statistics will be incomplete and misleading.
 - The standard operation path (`Alloc`/`Free`) automatically updates these metrics. Custom operations bypass this automation.
 
-### Parameter Validation
-- `allocFreeRatio` is always clamped to [0,1].
-- For `AlignmentDistributionType::Typical64`, bucketCount is clamped to 4 if using defaults.
-- All size/alignment distributions are clamped to valid ranges.
+### Parameter Validation and Normalization
+- **allocFreeRatio**: Normalized to [0,1] at construction. NaN → 0.0, negative → 0.0, >1.0 → 1.0.
+- **Size ranges**: If `minSize > maxSize`, they are swapped. If `minSize == 0`, it's set to 1.
+- **Alignment ranges**: If `minAlignment > maxAlignment`, they are swapped.
+- **Peak ranges** (Bimodal, GameEngine): Automatically clamped to `[minSize, maxSize]`.
+- **Alignment buckets** (CustomBuckets, Typical64): Non-power-of-2 values → next power-of-2. Zero → default alignment.
+- All normalizations happen in `OperationStream` constructor for consistent, release-safe behavior.
 
 ### API Invariants
-- All operations are counted and validated. If a buffer cannot be allocated for LifetimeTracker, the phase will not track allocations and will free untracked allocations immediately.
-- For Bounded/FIFO, ring buffer is used for O(1) performance. For large live-sets, this avoids O(n) shifts.
+- **Determinism**: Same `WorkloadParams` (including `seed`) → identical operation stream.
+- **Strict Intensity**: `operationCount > 0` → exactly `operationCount` operations issued (including forced/noop).
+- **Byte Counter Safety**: All byte counters use saturating addition (clamp to UINT64_MAX on overflow).
+- **Tracker Contract**: At most ONE of `liveSetTracker` or `externalLifetimeTracker` can be set in `PhaseContext`.
+- **Buffer Allocation**: If LifetimeTracker buffer allocation fails, the phase will FATAL (not silently degrade).
 
 ### Responsibility for Metrics
 - If you override operation flow with customOperation, you are responsible for updating all phase metrics in PhaseContext.
