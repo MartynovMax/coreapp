@@ -176,12 +176,17 @@ void SimpleAllocExperiment::RunPhases() {
     WorkloadParams steady = MakeBaseParams(_seed + 100);
     steady.operationCount = 20000;
     steady.lifetimeModel = LifetimeModel::Fifo;
-    steady.maxLiveObjects = 20000; // Allow headroom for allocs
+    steady.maxLiveObjects = 20000;
     steady.allocFreeRatio = 0.5f;
     steady.tickInterval = 1000;
 
     SeededRNG sharedRng(_seed + 100);
-    const u32 sharedCapacity = steady.maxLiveObjects;
+    
+    u32 rampMaxLive = ramp.maxLiveObjects;
+    u32 steadyMaxLive = steady.maxLiveObjects;
+    u32 maxLiveAcrossPhases = (rampMaxLive > steadyMaxLive) ? rampMaxLive : steadyMaxLive;
+    u32 safetyMargin = maxLiveAcrossPhases / 2;
+    const u32 sharedCapacity = maxLiveAcrossPhases + safetyMargin;
 
     void* trackerMem = _allocator->Allocate(core::AllocationRequest{
         .size = sizeof(LifetimeTracker),
@@ -197,6 +202,11 @@ void SimpleAllocExperiment::RunPhases() {
         LifetimeModel::Fifo,
         sharedRng,
         _allocator);
+    
+    if (!sharedTracker->isValid()) {
+        FATAL("Failed to initialize shared LifetimeTracker - insufficient capacity or allocation failure");
+    }
+    
     sharedTracker->Clear();
 
     RunPhaseOnce(
