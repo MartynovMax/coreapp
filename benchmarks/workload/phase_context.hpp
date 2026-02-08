@@ -41,8 +41,9 @@ struct PhaseContext {
     u64 internalBytesFreed = 0;     // Bytes freed internally
     u64 reclaimFreeCount = 0;       // Frees during reclaim phase
     u64 reclaimBytesFreed = 0;      // Bytes freed during reclaim
+    u64 failedAllocCount = 0;       // Failed allocation attempts
 
-    // User data for callbacks:
+    // User data for callbacks (mutable):
     void* userData = nullptr;
 
 

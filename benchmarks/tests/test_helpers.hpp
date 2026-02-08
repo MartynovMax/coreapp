@@ -175,7 +175,7 @@ inline std::vector<u32> SampleSizes(const WorkloadParams& params, u32 count, u64
     std::vector<u32> sizes;
     sizes.reserve(count);
     for (u32 i = 0; i < count && stream.HasNext(); ++i) {
-        Operation op = stream.Next();
+        Operation op = stream.Next(0);
         if (op.type == OpType::Alloc) {
             sizes.push_back(op.size);
         }

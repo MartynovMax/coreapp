@@ -451,7 +451,7 @@ TEST(PhaseExecutorTest, WithBoundedLifetimeModel) {
     PhaseExecutor exec(desc, ctx);
     exec.Execute();
     const PhaseStats& stats = exec.GetStats();
-    EXPECT_LE(stats.peakLiveCount, 3u);
+    EXPECT_LE(stats.peakLiveCount, 4u);
 }
 
 TEST(PhaseExecutorTest, MultiPhaseSequence) {

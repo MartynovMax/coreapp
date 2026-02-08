@@ -21,8 +21,8 @@ TEST(OperationStream, Determinism_SameSeed) {
     OperationStream s2(params, rng2);
 
     for (core::usize i = 0; i < params.operationCount; ++i) {
-        auto op1 = s1.Next();
-        auto op2 = s2.Next();
+        auto op1 = s1.Next(0);
+        auto op2 = s2.Next(0);
         ASSERT_EQ(op1.type, op2.type);
         ASSERT_EQ(op1.size, op2.size);
     }
@@ -42,8 +42,8 @@ TEST(OperationStream, Determinism_DifferentSeeds) {
 
     bool any_diff = false;
     for (core::usize i = 0; i < params.operationCount; ++i) {
-        const auto op1 = s1.Next();
-        const auto op2 = s2.Next();
+        const auto op1 = s1.Next(0);
+        const auto op2 = s2.Next(0);
         if (op1.type != op2.type || op1.size != op2.size)
             any_diff = true;
     }
@@ -60,7 +60,7 @@ TEST(OperationStream, AllocFreeRatio_OnlyAlloc) {
     SeededRNG rng(params.seed);
     OperationStream s(params, rng);
     for (core::usize i = 0; i < params.operationCount; ++i)
-        ASSERT_EQ(s.Next().type, OpType::Alloc);
+        ASSERT_EQ(s.Next(0).type, OpType::Alloc);
 }
 
 TEST(OperationStream, AllocFreeRatio_OnlyFree) {
@@ -73,7 +73,7 @@ TEST(OperationStream, AllocFreeRatio_OnlyFree) {
     SeededRNG rng(params.seed);
     OperationStream s(params, rng);
     for (core::usize i = 0; i < params.operationCount; ++i)
-        ASSERT_EQ(s.Next().type, OpType::Free);
+        ASSERT_EQ(s.Next(0).type, OpType::Free);
 }
 
 TEST(OperationStream, AllocFreeRatio_Half) {
@@ -86,9 +86,16 @@ TEST(OperationStream, AllocFreeRatio_Half) {
     SeededRNG rng(params.seed);
     OperationStream s(params, rng);
     int allocs = 0, frees = 0;
+    u64 liveCount = 0;
     for (core::usize i = 0; i < params.operationCount; ++i) {
-        if (const auto t = s.Next().type; t == OpType::Alloc) ++allocs;
-        else if (t == OpType::Free) ++frees;
+        const auto t = s.Next(liveCount).type;
+        if (t == OpType::Alloc) {
+            ++allocs;
+            ++liveCount;
+        } else if (t == OpType::Free) {
+            ++frees;
+            if (liveCount > 0) --liveCount;
+        }
     }
     const core::f64 ratio = static_cast<core::f64>(allocs) / static_cast<core::f64>(allocs + frees);
     ASSERT_NEAR(ratio, 0.5, 0.1);
@@ -105,7 +112,7 @@ TEST(OperationStream, OperationCount_Limit) {
     OperationStream s(params, rng);
     int count = 0;
     while (s.HasNext()) {
-        s.Next();
+        s.Next(0);
         ++count;
     }
     ASSERT_EQ(count, 123);
@@ -123,7 +130,7 @@ TEST(OperationStream, UniformDistribution_Range) {
     SeededRNG rng(params.seed);
     OperationStream s(params, rng);
     for (core::usize i = 0; i < params.operationCount; ++i) {
-        auto sz = s.Next().size;
+        auto sz = s.Next(0).size;
         ASSERT_GE(sz, 8);
         ASSERT_LE(sz, 64);
     }
@@ -141,7 +148,7 @@ TEST(OperationStream, PowerOfTwoDistribution_OnlyPowersOfTwo) {
     SeededRNG rng(params.seed);
     OperationStream s(params, rng);
     for (core::usize i = 0; i < params.operationCount; ++i) {
-        auto sz = s.Next().size;
+        auto sz = s.Next(0).size;
         ASSERT_TRUE((sz & (sz - 1)) == 0);
         ASSERT_GE(sz, 8);
         ASSERT_LE(sz, 1024);
@@ -163,7 +170,7 @@ TEST(OperationStream, NormalDistribution_Stats) {
     OperationStream s(params, rng);
     core::f64 sum = 0, sum2 = 0;
     for (core::usize i = 0; i < params.operationCount; ++i) {
-        auto sz = s.Next().size;
+        auto sz = s.Next(0).size;
         sum += static_cast<core::f64>(sz);
         sum2 += static_cast<core::f64>(sz) * static_cast<core::f64>(sz);
         ASSERT_GE(sz, 32);
@@ -190,7 +197,7 @@ TEST(OperationStream, LogNormalDistribution_Shape) {
     OperationStream s(params, rng);
     int small = 0, large = 0;
     for (core::usize i = 0; i < params.operationCount; ++i) {
-        const auto sz = s.Next().size;
+        const auto sz = s.Next(0).size;
         if (sz < 256) ++small;
         if (sz > 1024) ++large;
     }
@@ -212,7 +219,7 @@ TEST(OperationStream, ParetoDistribution_8020) {
     OperationStream s(params, rng);
     int small = 0, large = 0;
     for (core::usize i = 0; i < params.operationCount; ++i) {
-        const auto sz = s.Next().size;
+        const auto sz = s.Next(0).size;
         if (sz < 128) ++small;
         if (sz > 1024) ++large;
     }
@@ -233,7 +240,7 @@ TEST(OperationStream, SmallBiasedDistribution_MostlySmall) {
     OperationStream s(params, rng);
     int small = 0;
     for (core::usize i = 0; i < params.operationCount; ++i) {
-        if (s.Next().size <= 64) ++small;
+        if (s.Next(0).size <= 64) ++small;
     }
     ASSERT_GT(small, 800);
 }
@@ -256,7 +263,7 @@ TEST(OperationStream, LargeBiasedDistribution_MostlyLarge) {
 
     int large = 0;
     for (core::usize i = 0; i < params.operationCount; ++i) {
-        if (s.Next().size >= largeMin) ++large;
+        if (s.Next(0).size >= largeMin) ++large;
     }
     ASSERT_GT(large, params.operationCount * 0.85);
 }
@@ -279,7 +286,7 @@ TEST(OperationStream, BimodalDistribution_TwoPeaks) {
     OperationStream s(params, rng);
     int peak1 = 0, peak2 = 0;
     for (core::usize i = 0; i < params.operationCount; ++i) {
-        const auto sz = s.Next().size;
+        const auto sz = s.Next(0).size;
         if (sz >= 16 && sz <= 64) ++peak1;
         if (sz >= 1024 && sz <= 2048) ++peak2;
     }
@@ -303,7 +310,7 @@ TEST(OperationStream, CustomBuckets_ExactMatch) {
     OperationStream s(params, rng);
     std::set<u32> seen;
     for (core::usize i = 0; i < params.operationCount; ++i) {
-        auto sz = s.Next().size;
+        auto sz = s.Next(0).size;
         seen.insert(sz);
         ASSERT_TRUE(sz == 16 || sz == 64 || sz == 256);
     }
@@ -322,7 +329,7 @@ TEST(OperationStream, EdgeCase_MinEqualsMax) {
     SeededRNG rng(params.seed);
     OperationStream s(params, rng);
     for (core::usize i = 0; i < params.operationCount; ++i)
-        ASSERT_EQ(s.Next().size, 42);
+        ASSERT_EQ(s.Next(0).size, 42);
 }
 
 TEST(OperationStream, EdgeCase_SingleOperation) {
@@ -335,7 +342,7 @@ TEST(OperationStream, EdgeCase_SingleOperation) {
     SeededRNG rng(params.seed);
     OperationStream s(params, rng);
     ASSERT_TRUE(s.HasNext());
-    s.Next();
+    s.Next(0);
     ASSERT_FALSE(s.HasNext());
 }
 
@@ -354,7 +361,7 @@ TEST(OperationStream, StressTest_1M_Complex) {
     OperationStream s(params, rng);
     core::usize count = 0;
     while (s.HasNext()) {
-        s.Next();
+        s.Next(0);
         ++count;
     }
     ASSERT_EQ(count, 1000000);

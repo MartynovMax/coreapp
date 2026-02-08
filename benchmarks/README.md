@@ -145,7 +145,7 @@ The workload model provides a set of ready-to-use preset distributions for both 
 - `SmallObjects()` — Uniform [8, 64] bytes
 - `MediumObjects()` — Uniform [64, 512] bytes
 - `LargeObjects()` — Uniform [512, 4096] bytes
-- `WebServer()` — LogNormal, mean=256, stddev=512, [16, 4096]
+- `WebServer()` — LogNormal with parameters in log-space (μ, σ), [16, 4096]. For correct usage with linear-space parameters, set `meanInLogSpace = false` and provide mean/stddev in bytes.
 - `GameEntityPool()` — Bimodal: 85% [16,64], 15% [1024,2048], [8,8192]
 - `DatabasePages()` — PowerOfTwo [4096, 16384]
 
@@ -186,7 +186,10 @@ See `workload/workload_params.hpp` for all available presets and parameter optio
 ## Important Notes on Phase Metrics and Completion
 
 - **Bulk Reclaim (FreeAll):**
-  - All live allocations are actually freed and their sizes are included in `freeCount` and `bytesFreed` metrics. This ensures that phase statistics reflect the true number of deallocations and bytes freed, even for phases with mass reclamation.
+  - All live allocations are actually freed during bulk reclaim (FreeAll).
+  - The freed objects and bytes are tracked separately in `reclaimFreeCount` and `reclaimBytesFreed` metrics.
+  - Total deallocations are reported as `totalFreeCount = freeCount + internalFreeCount + reclaimFreeCount`.
+  - Total bytes freed are reported as `totalBytesFreed = bytesFreed + internalBytesFreed + reclaimBytesFreed`.
   - The time spent in bulk reclaim (FreeAll) is included in the phase duration and performance metrics (ops/sec, throughput).
 
 - **Time-based Completion:**
@@ -200,13 +203,25 @@ See `workload/workload_params.hpp` for all available presets and parameter optio
 - **Bounded**: When the buffer is full, the oldest allocation is forcibly freed (forcedFree). Free operations before reaching capacity are ignored. This matches a true bounded live-set.
 - **Peaks**: Peak live count/bytes are reset on Clear()/FreeAll(), so shared trackers between phases do not leak peak stats.
 
+### ReclaimMode and LifetimeTracker Requirements
+- **ReclaimMode::None**: No automatic reclaim. Typically used with `externalLifetimeTracker` for multi-phase experiments.
+- **ReclaimMode::FreeAll**: Automatically frees all tracked allocations at phase end. **Requires LifetimeTracker**.
+- **ReclaimMode::Custom**: Uses a custom `reclaimCallback` for phase cleanup. LifetimeTracker is optional - can be used via external tracker, passed through userData, or not needed at all depending on the cleanup strategy.
+
 ### Phases with Zero Operations
 - If `operationCount == 0`, the phase will not create a LifetimeTracker and will only call `completionCheck` and/or `customOperation` once if provided.
 - This allows for time-based or callback-only phases without dummy operations.
 
 ### customOperation Semantics
-- The `customOperation` callback now only receives `PhaseContext` (not Operation). It is responsible for updating all relevant metrics in the context.
-- If you use customOperation, you must update allocCount, freeCount, bytesAllocated, bytesFreed, etc. in PhaseContext yourself.
+- The `customOperation` callback receives `PhaseContext&` and `const Operation&`.
+- **CRITICAL**: When using `customOperation`, you are **fully responsible** for updating ALL relevant metrics in `PhaseContext`:
+  - `ctx.allocCount` - increment for each allocation
+  - `ctx.freeCount` - increment for each deallocation
+  - `ctx.bytesAllocated` - add allocated bytes
+  - `ctx.bytesFreed` - add freed bytes
+  - Update the `LifetimeTracker` if using one
+- If metrics are not updated, phase statistics will be incomplete and misleading.
+- The standard operation path (`Alloc`/`Free`) automatically updates these metrics. Custom operations bypass this automation.
 
 ### Parameter Validation
 - `allocFreeRatio` is always clamped to [0,1].

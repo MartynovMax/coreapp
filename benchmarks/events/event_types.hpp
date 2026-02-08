@@ -12,6 +12,7 @@
 #include "workload/phase_descriptor.hpp"
 #include "event_payloads.hpp"
 #include "core/memory/memory_ops.hpp"
+#include "core/memory/memory_traits.hpp"
 
 namespace core {
 namespace bench {
@@ -42,6 +43,14 @@ struct Event {
           repetitionId(0),
           timestamp(0)
     {
+        // Ensure the union contains only trivial types to allow safe zero-initialization
+        static_assert(core::is_trivially_copyable_v<PhaseCompletePayload>(), 
+                      "PhaseCompletePayload must be trivially copyable for union safety");
+        static_assert(core::is_trivially_copyable_v<TickPayload>(), 
+                      "TickPayload must be trivially copyable for union safety");
+        static_assert(core::is_trivially_copyable_v<decltype(data)>(), 
+                      "Event::data union must be trivially copyable");
+        
         core::memory_zero(&data, sizeof(data));
     }
 };

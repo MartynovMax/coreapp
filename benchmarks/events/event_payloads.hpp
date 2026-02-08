@@ -23,6 +23,7 @@ struct PhaseStats {
     u64 reclaimBytesFreed;
     u64 totalFreeCount;
     u64 totalBytesFreed;
+    u64 failedAllocCount;
 };
 
 // PhaseCompletePayload - full phase completion metrics for event sink
@@ -51,6 +52,7 @@ struct PhaseCompletePayload {
     u64 reclaimBytesFreed;
     u64 totalFreeCount;
     u64 totalBytesFreed;
+    u64 failedAllocCount;
     f64 opsPerSec;
     f64 throughput;
 };

@@ -46,27 +46,23 @@ public:
     OperationStream(const WorkloadParams& params, SeededRNG& rng, bool deterministicMode = false) noexcept;
     ~OperationStream() noexcept = default;
 
-    // Generate next operation
-    Operation Next() noexcept;
-
-    // Generate next operation with live count awareness
     Operation Next(u64 liveCount) noexcept;
 
     // Check if more operations available
     bool HasNext() const noexcept;
 
     // Generate next unit float in [0, 1)
-    f32 NextUnitFloat01() const noexcept;
+    f32 NextUnitFloat01() noexcept;
 private:
-    const WorkloadParams& _params;
+    WorkloadParams _params;
     SeededRNG& _rng;
     u64 _currentOp = 0;
     bool _deterministicMode = false;
     mutable usize _deterministicIndex = 0;
 
-    u32 GenerateSize() const noexcept;
-    core::memory_alignment GenerateAlignment(u32 size) const noexcept;
-    OpType DecideOperation() const noexcept;
+    u32 GenerateSize() noexcept;
+    core::memory_alignment GenerateAlignment(u32 size) noexcept;
+    OpType DecideOperation() noexcept;
 
     static core::memory_alignment NextPow2(core::memory_alignment v) noexcept;
 };

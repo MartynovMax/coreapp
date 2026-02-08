@@ -58,6 +58,8 @@ struct PhaseDescriptor {
     PhaseOperationCallback customOperation = nullptr;
     PhaseCompletionCallback completionCheck = nullptr;
     
+    u64 maxIterations = 100000;
+    
     void* userData = nullptr;
 };
 

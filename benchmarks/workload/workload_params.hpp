@@ -55,6 +55,8 @@ struct SizeDistribution {
     f32 mean = 0.0f;
     f32 stddev = 0.0f;
 
+    bool meanInLogSpace = true;
+
     // For shape-based distributions (Pareto, Exponential):
     f32 shape = 0.0f;
 

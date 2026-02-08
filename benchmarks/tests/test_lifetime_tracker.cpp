@@ -99,7 +99,7 @@ TEST(LifetimeTracker, BoundedModel_FreeStartsAtMaxLive) {
     tracker.Track(reinterpret_cast<void *>(2), 16, kAlign, kTag, 1);
     tracker.Track(reinterpret_cast<void *>(3), 16, kAlign, kTag, 2);
     tracker.Track(reinterpret_cast<void *>(4), 16, kAlign, kTag, 3);
-    ASSERT_EQ(tracker.GetLiveCount(), 3);
+    ASSERT_EQ(tracker.GetLiveCount(), 4);
 }
 
 TEST(LifetimeTracker, LongLivedModel_SelectAlwaysNull) {

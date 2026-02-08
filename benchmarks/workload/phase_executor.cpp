@@ -71,6 +71,7 @@ void PhaseExecutor::Execute() {
     _ctx.internalBytesFreed = 0;
     _ctx.reclaimFreeCount = 0;
     _ctx.reclaimBytesFreed = 0;
+    _ctx.failedAllocCount = 0;
 
     // Emit OnPhaseBegin event if event sink exists
     if (_eventSink) {
@@ -141,11 +142,10 @@ void PhaseExecutor::Execute() {
             FATAL("operationCount == 0 requires customOperation or completionCheck");
         }
 
-        // Protection against infinite loops: max 1 billion iterations
-        constexpr u64 kMaxIterations = 1000000000ULL;
+        const u64 maxIters = _desc.maxIterations;
         u64 opIndex = 0;
 
-        while (opIndex < kMaxIterations) {
+        while (opIndex < maxIters) {
             if (_desc.completionCheck && _desc.completionCheck(_ctx)) {
                 break;
             }
@@ -174,8 +174,8 @@ void PhaseExecutor::Execute() {
             totalIssuedOperations++;
         }
 
-        if (opIndex >= kMaxIterations) {
-            FATAL("operationCount == 0 phase exceeded maximum iterations (infinite loop protection)");
+        if (opIndex >= maxIters) {
+            FATAL("operationCount == 0 phase exceeded maxIterations (infinite loop protection)");
         }
     }
 
@@ -207,6 +207,7 @@ void PhaseExecutor::Execute() {
     _stats.internalBytesFreed = _ctx.internalBytesFreed;
     _stats.reclaimFreeCount = _ctx.reclaimFreeCount;
     _stats.reclaimBytesFreed = _ctx.reclaimBytesFreed;
+    _stats.failedAllocCount = _ctx.failedAllocCount;
 
     _stats.totalFreeCount =
         _stats.freeCount + _stats.internalFreeCount + _stats.reclaimFreeCount;
@@ -244,6 +245,7 @@ void PhaseExecutor::Execute() {
         evt.data.phaseComplete.reclaimBytesFreed = _stats.reclaimBytesFreed;
         evt.data.phaseComplete.totalFreeCount = _stats.totalFreeCount;
         evt.data.phaseComplete.totalBytesFreed = _stats.totalBytesFreed;
+        evt.data.phaseComplete.failedAllocCount = _stats.failedAllocCount;
         evt.data.phaseComplete.opsPerSec = durationNs > 0 ? static_cast<f64>(totalIssuedOperations) * 1e9 / static_cast<f64>(durationNs) : 0.0;
         evt.data.phaseComplete.throughput = durationNs > 0 ? static_cast<f64>(_stats.bytesAllocated) * 1e9 / static_cast<f64>(durationNs) : 0.0;
         _eventSink->OnEvent(evt);
@@ -268,7 +270,10 @@ void PhaseExecutor::ExecuteOperationAlloc(const Operation& op, u64 opIndex) cons
     req.flags = op.flags;
 
     void* ptr = _ctx.allocator->Allocate(req);
-    if (!ptr) return;
+    if (!ptr) {
+        _ctx.failedAllocCount++;
+        return;
+    }
 
     if (_needsTracker && (!_tracker || !_tracker->isValid())) {
         core::AllocationInfo info{};
@@ -287,6 +292,9 @@ void PhaseExecutor::ExecuteOperationAlloc(const Operation& op, u64 opIndex) cons
     if (_tracker && _tracker->isValid()) {
         auto result = _tracker->Track(ptr, op.size, op.alignment, op.tag, opIndex);
         if (!result.tracked) {
+            if (result.error == TrackError::TrackerInvalid) {
+                FATAL("Invariant violated: tracker became invalid during execution");
+            }
             core::AllocationInfo info{};
             info.ptr = ptr;
             info.size = op.size;

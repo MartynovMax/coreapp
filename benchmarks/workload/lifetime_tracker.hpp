@@ -22,9 +22,17 @@ struct AllocInfo {
     u64 allocTime = 0; // Operation index when allocated
 };
 
+enum class TrackError {
+    None,           // Success
+    InvalidInput,   // ptr==null or size==0
+    TrackerInvalid, // !isValid()
+    TrackerFull     // _count >= _capacity (for non-Bounded)
+};
+
 struct TrackResult {
     bool tracked = false;
     bool forcedFree = false;
+    TrackError error = TrackError::None;
     AllocInfo freedInfo{};
 };
 
@@ -70,6 +78,7 @@ private:
     IAllocator* _allocator;
 
     AllocInfo* _buffer = nullptr;
+    core::memory_tag _bufferTag = 0;
     u32 _count = 0;
     u32 _head = 0;
     u32 _tail = 0;
@@ -80,6 +89,11 @@ private:
     u32 _peakLiveCount = 0;
 
     void RemoveIndex(u32 idx) noexcept;
+    [[nodiscard]] inline u32 WrapIndex(u32 idx) const noexcept {
+        ASSERT((_capacity & (_capacity - 1)) == 0 && "Capacity must be power of 2");
+        return idx & (_capacity - 1);
+    }
+    
 public:
     [[nodiscard]] bool isValid() const noexcept { return _buffer != nullptr && _capacity > 0; }
 };

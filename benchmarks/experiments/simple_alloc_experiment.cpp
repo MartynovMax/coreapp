@@ -5,7 +5,7 @@
 
 #include "simple_alloc_experiment.hpp"
 
-#include <memory> // Ensure make_unique is available
+#include <new> // For placement new
 
 #include "../runner/experiment_params.hpp"
 #include "../workload/phase_descriptor.hpp"
@@ -177,7 +177,16 @@ void SimpleAllocExperiment::RunPhases() {
     SeededRNG sharedRng(_seed + 100);
     const u32 sharedCapacity = steady.maxLiveObjects;
 
-    auto sharedTracker = std::make_unique<LifetimeTracker>(
+    void* trackerMem = _allocator->Allocate(core::AllocationRequest{
+        .size = sizeof(LifetimeTracker),
+        .alignment = static_cast<memory_alignment>(alignof(LifetimeTracker))
+    });
+    
+    if (!trackerMem) {
+        FATAL("Failed to allocate LifetimeTracker");
+    }
+    
+    LifetimeTracker* sharedTracker = new (trackerMem) LifetimeTracker(
         sharedCapacity,
         LifetimeModel::Fifo,
         sharedRng,
@@ -193,7 +202,7 @@ void SimpleAllocExperiment::RunPhases() {
         /*repetitionId=*/0,
         ramp,
         ReclaimMode::None,
-        /*externalTracker=*/sharedTracker.get());
+        /*externalTracker=*/sharedTracker);
 
     RunPhaseOnce(
         _allocator,
@@ -204,7 +213,7 @@ void SimpleAllocExperiment::RunPhases() {
         /*repetitionId=*/0,
         steady,
         ReclaimMode::None,
-        /*externalTracker=*/sharedTracker.get());
+        /*externalTracker=*/sharedTracker);
 
     WorkloadParams bulk = MakeBaseParams(_seed + 200);
     bulk.operationCount = 0;
@@ -223,7 +232,15 @@ void SimpleAllocExperiment::RunPhases() {
         /*reclaimCallback=*/BulkReclaimFromUserData,
         /*customOperation=*/nullptr,
         /*completionCheck=*/ImmediateCompletion,  // Required for operationCount=0
-        /*userData=*/sharedTracker.get());
+        /*userData=*/sharedTracker);
+    
+    // Manual cleanup
+    sharedTracker->~LifetimeTracker();
+    _allocator->Deallocate(core::AllocationInfo{
+        .ptr = trackerMem,
+        .size = sizeof(LifetimeTracker),
+        .alignment = static_cast<memory_alignment>(alignof(LifetimeTracker))
+    });
 }
 
 void SimpleAllocExperiment::Teardown() noexcept {

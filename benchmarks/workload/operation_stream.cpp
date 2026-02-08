@@ -26,6 +26,16 @@ namespace {
         if (ratio > 1.0f) return 1.0f;
         return ratio;
     }
+    inline bool IsPowerOfTwo(core::memory_alignment v) noexcept {
+        if (v == 0) return true;
+        return (v & (v - 1)) == 0;
+    }
+    
+    inline u32 ClampSize(f32 value, const SizeDistribution& dist) noexcept {
+        if (value < static_cast<f32>(dist.minSize)) return dist.minSize;
+        if (value > static_cast<f32>(dist.maxSize)) return dist.maxSize;
+        return static_cast<u32>(value);
+    }
 }
 
 OperationStream::OperationStream(const WorkloadParams& params, SeededRNG& rng, bool deterministicMode) noexcept
@@ -68,29 +78,13 @@ OperationStream::OperationStream(const WorkloadParams& params, SeededRNG& rng, b
         for (u32 i = 0; i < _params.alignmentDistribution.bucketCount; ++i) sum += _params.alignmentDistribution.weights[i];
         ASSERT(sum > 0.99f && sum < 1.01f);
     }
-}
-
-Operation OperationStream::Next() noexcept {
-    ASSERT(_currentOp < _params.operationCount);
-    Operation op{};
-    op.type = DecideOperation();
-
-    if (op.type == OpType::Alloc) {
-        op.size = GenerateSize();
-        op.alignment = GenerateAlignment(op.size);
-        op.tag = _params.tag;
-        op.flags = _params.flags;
-        op.ptr = nullptr;
-    } else {
-        op.size = 0;
-        op.alignment = 0;
-        op.tag = 0;
-        op.flags = core::AllocationFlags::None;
-        op.ptr = nullptr;
+    
+    if (_params.alignmentDistribution.type == AlignmentDistributionType::PowerOfTwoRange) {
+        ASSERT(IsPowerOfTwo(_params.alignmentDistribution.minAlignment) && 
+               "PowerOfTwoRange requires minAlignment to be power-of-2 (or 0)");
+        ASSERT(IsPowerOfTwo(_params.alignmentDistribution.maxAlignment) && 
+               "PowerOfTwoRange requires maxAlignment to be power-of-2 (or 0)");
     }
-
-    _currentOp++;
-    return op;
 }
 
 Operation OperationStream::Next(u64 liveCount) noexcept {
@@ -151,7 +145,7 @@ core::memory_alignment OperationStream::NextPow2(core::memory_alignment v) noexc
     return v;
 }
 
-core::memory_alignment OperationStream::GenerateAlignment(u32 size) const noexcept {
+core::memory_alignment OperationStream::GenerateAlignment(u32 size) noexcept {
     const AlignmentDistribution& ad = _params.alignmentDistribution;
 
     switch (ad.type) {
@@ -165,9 +159,7 @@ core::memory_alignment OperationStream::GenerateAlignment(u32 size) const noexce
             if (minA == 0) minA = CORE_DEFAULT_ALIGNMENT;
             if (maxA == 0) maxA = CORE_DEFAULT_ALIGNMENT;
             
-            minA = NextPow2(minA);
-            maxA = NextPow2(maxA);
-            if (maxA == 0) maxA = minA;
+            // Both are guaranteed to be pow2 already
             if (minA > maxA) minA = maxA;
 
             u32 minPower = 0, maxPower = 0;
@@ -175,7 +167,6 @@ core::memory_alignment OperationStream::GenerateAlignment(u32 size) const noexce
             while (t > 1) { t >>= 1; minPower++; }
             t = maxA;
             while (t > 1) { t >>= 1; maxPower++; }
-            if (minPower > maxPower) minPower = maxPower;
 
             u32 power = _rng.NextRange(minPower, maxPower);
 
@@ -189,9 +180,6 @@ core::memory_alignment OperationStream::GenerateAlignment(u32 size) const noexce
             const core::memory_alignment one = static_cast<core::memory_alignment>(1);
             core::memory_alignment result = static_cast<core::memory_alignment>(one << power);
             
-            if (result > ad.maxAlignment && ad.maxAlignment > 0) {
-                result = ad.maxAlignment;
-            }
             return result;
         }
 
@@ -251,7 +239,7 @@ core::memory_alignment OperationStream::GenerateAlignment(u32 size) const noexce
     }
 }
 
-u32 OperationStream::GenerateSize() const noexcept {
+u32 OperationStream::GenerateSize() noexcept {
     const SizeDistribution& dist = _params.sizeDistribution;
 
     // Clamp min/max for all distributions
@@ -298,10 +286,7 @@ u32 OperationStream::GenerateSize() const noexcept {
             }
             f32 z = sum - 6.0f;
             f32 value = dist.mean + z * dist.stddev;
-
-            if (value < static_cast<f32>(dist.minSize)) return dist.minSize;
-            if (value > static_cast<f32>(dist.maxSize)) return dist.maxSize;
-            return static_cast<u32>(value);
+            return ClampSize(value, dist);
         }
 
         case DistributionType::LogNormal: {
@@ -310,12 +295,34 @@ u32 OperationStream::GenerateSize() const noexcept {
                 sum += NextUnitFloat01();
             }
             f32 z = sum - 6.0f;
-            f32 logValue = dist.mean + z * dist.stddev;
+            
+            f32 mu, sigma;
+            if (dist.meanInLogSpace) {
+                // Parameters already in log-space
+                mu = dist.mean;
+                sigma = dist.stddev;
+            } else {
+                f32 meanLin = dist.mean;
+                f32 stddevLin = dist.stddev;
+                
+                constexpr f32 kEpsilon = 1e-6f;
+                if (meanLin < kEpsilon) meanLin = 1.0f;
+                if (stddevLin < 0.0f) stddevLin = 0.0f;
+                
+                f32 cv = stddevLin / meanLin; // Coefficient of variation
+                
+                if (!(cv >= 0.0f && cv < 1e6f)) { 
+                    cv = 0.0f;
+                }
+                
+                f32 sigmaSquared = logf(1.0f + cv * cv);
+                sigma = sqrtf(sigmaSquared);
+                mu = logf(meanLin) - 0.5f * sigmaSquared;
+            }
+            
+            f32 logValue = mu + z * sigma;
             f32 value = expf(logValue);
-
-            if (value < static_cast<f32>(dist.minSize)) return dist.minSize;
-            if (value > static_cast<f32>(dist.maxSize)) return dist.maxSize;
-            return static_cast<u32>(value);
+            return ClampSize(value, dist);
         }
 
         case DistributionType::Exponential: {
@@ -323,10 +330,7 @@ u32 OperationStream::GenerateSize() const noexcept {
             if (u == 0.0f) u = 1e-8f;
             f32 lambda = (dist.shape > 0.0f) ? dist.shape : 1.0f;
             f32 value = -logf(u) / lambda;
-
-            if (value < static_cast<f32>(dist.minSize)) return dist.minSize;
-            if (value > static_cast<f32>(dist.maxSize)) return dist.maxSize;
-            return static_cast<u32>(value);
+            return ClampSize(value, dist);
         }
 
         case DistributionType::Pareto: {
@@ -334,10 +338,7 @@ u32 OperationStream::GenerateSize() const noexcept {
             if (u == 0.0f) u = 1e-8f;
             f32 alpha = (dist.shape > 0.0f) ? dist.shape : 1.5f;
             f32 value = static_cast<f32>(dist.minSize) * powf(1.0f / u, 1.0f / alpha);
-
-            if (value < static_cast<f32>(dist.minSize)) return dist.minSize;
-            if (value > static_cast<f32>(dist.maxSize)) return dist.maxSize;
-            return static_cast<u32>(value);
+            return ClampSize(value, dist);
         }
 
         case DistributionType::SmallBiased: {
@@ -380,10 +381,7 @@ u32 OperationStream::GenerateSize() const noexcept {
             f32 z = sum - 6.0f;
             f32 logValue = dist.mean + z * dist.stddev;
             f32 value = expf(logValue);
-
-            if (value < static_cast<f32>(dist.minSize)) return dist.minSize;
-            if (value > static_cast<f32>(dist.maxSize)) return dist.maxSize;
-            return static_cast<u32>(value);
+            return ClampSize(value, dist);
         }
 
         case DistributionType::GameEngine: {
@@ -440,7 +438,7 @@ u32 OperationStream::GenerateSize() const noexcept {
     }
 }
 
-OpType OperationStream::DecideOperation() const noexcept {
+OpType OperationStream::DecideOperation() noexcept {
     f32 ratio = NormalizeAllocFreeRatio(_params.allocFreeRatio);
 
     // Strict endpoints
@@ -451,13 +449,14 @@ OpType OperationStream::DecideOperation() const noexcept {
     return (r < ratio) ? OpType::Alloc : OpType::Free;
 }
 
-f32 OperationStream::NextUnitFloat01() const noexcept {
+f32 OperationStream::NextUnitFloat01() noexcept {
     if (_deterministicMode) {
         const f32 value = kDeterministicTable[_deterministicIndex];
         _deterministicIndex = (_deterministicIndex + 1) % kTableSize;
         return value;
     }
-    return ::core::bench::NextUnitFloat01_Rng(_rng);
+    constexpr f64 kInv2Pow32 = 1.0 / 4294967296.0;
+    return static_cast<f32>(static_cast<f64>(_rng.NextU32()) * kInv2Pow32);
 }
 
 } // namespace core::bench
