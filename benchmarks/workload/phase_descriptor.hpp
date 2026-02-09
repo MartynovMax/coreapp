@@ -60,6 +60,11 @@ struct PhaseDescriptor {
     
     u64 maxIterations = 100000;
     
+    // Strict metrics validation for customOperation callbacks
+    // When enabled, framework verifies that callbacks properly update metrics
+    // Enable in tests to enforce correct metric handling
+    bool strictMetricsValidation = false;
+    
     void* userData = nullptr;
 };
 

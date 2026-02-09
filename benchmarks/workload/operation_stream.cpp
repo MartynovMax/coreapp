@@ -42,16 +42,12 @@ OperationStream::OperationStream(const WorkloadParams& params) noexcept
     : _params(params)
     , _ownedRng(params.seed)
     , _currentOp(0)
+    , _normalizedSizeBucketCount(0)
     , _normalizedAlignmentBucketCount(0)
 {
     _params.allocFreeRatio = NormalizeAllocFreeRatio(_params.allocFreeRatio);
 
-    if (_params.sizeDistribution.maxSize < _params.sizeDistribution.minSize) {
-        u32 temp = _params.sizeDistribution.minSize;
-        _params.sizeDistribution.minSize = _params.sizeDistribution.maxSize;
-        _params.sizeDistribution.maxSize = temp;
-    }
-    
+    // Normalize size distribution parameters
     if (_params.sizeDistribution.minSize == 0) {
         _params.sizeDistribution.minSize = 1;
     }
@@ -59,8 +55,10 @@ OperationStream::OperationStream(const WorkloadParams& params) noexcept
         _params.sizeDistribution.maxSize = 1;
     }
     
-    if (_params.sizeDistribution.minSize == 0) {
-        _params.sizeDistribution.minSize = 1;
+    if (_params.sizeDistribution.maxSize < _params.sizeDistribution.minSize) {
+        u32 temp = _params.sizeDistribution.minSize;
+        _params.sizeDistribution.minSize = _params.sizeDistribution.maxSize;
+        _params.sizeDistribution.maxSize = temp;
     }
 
     ASSERT(_params.sizeDistribution.minSize > 0);
@@ -104,24 +102,55 @@ OperationStream::OperationStream(const WorkloadParams& params) noexcept
         ASSERT(_params.sizeDistribution.peak2Min <= _params.sizeDistribution.peak2Max);
     }
 
+    // Normalize CustomBuckets for size distribution
     if (_params.sizeDistribution.type == DistributionType::CustomBuckets) {
         if (_params.sizeDistribution.buckets == nullptr || 
             _params.sizeDistribution.weights == nullptr || 
             _params.sizeDistribution.bucketCount == 0) {
             _params.sizeDistribution.type = DistributionType::Uniform;
+            _normalizedSizeBucketCount = 0;
         } else {
-            ASSERT(_params.sizeDistribution.bucketCount > 0);
-            ASSERT(_params.sizeDistribution.buckets != nullptr);
-            ASSERT(_params.sizeDistribution.weights != nullptr);
-            f32 sum = 0.0f;
-            for (u32 i = 0; i < _params.sizeDistribution.bucketCount; ++i) sum += _params.sizeDistribution.weights[i];
-            ASSERT(sum > 0.99f && sum < 1.01f);
-            for (u32 i = 0; i < _params.sizeDistribution.bucketCount; ++i) {
-                u32 sz = _params.sizeDistribution.buckets[i];
-                ASSERT(sz > 0 && "CustomBuckets: size must be > 0");
-                ASSERT(sz >= _params.sizeDistribution.minSize && 
-                       sz <= _params.sizeDistribution.maxSize &&
-                       "CustomBuckets: size out of [minSize, maxSize] range");
+            u32 effectiveCount = _params.sizeDistribution.bucketCount;
+            if (effectiveCount > kMaxSizeBuckets) {
+                effectiveCount = kMaxSizeBuckets;
+            }
+            
+            // Compute weight sum for normalization
+            f32 weightSum = 0.0f;
+            for (u32 i = 0; i < effectiveCount; ++i) {
+                weightSum += _params.sizeDistribution.weights[i];
+            }
+            
+            if (weightSum <= 0.0f) {
+                // Invalid weights, fallback to uniform
+                _params.sizeDistribution.type = DistributionType::Uniform;
+                _normalizedSizeBucketCount = 0;
+            } else {
+                // Normalize weights and expand size range to encompass buckets
+                _normalizedSizeBucketCount = effectiveCount;
+                
+                // Expand minSize/maxSize to encompass all buckets
+                for (u32 i = 0; i < effectiveCount; ++i) {
+                    u32 sz = _params.sizeDistribution.buckets[i];
+                    if (sz > 0) {
+                        if (sz < _params.sizeDistribution.minSize) {
+                            _params.sizeDistribution.minSize = sz;
+                        }
+                        if (sz > _params.sizeDistribution.maxSize) {
+                            _params.sizeDistribution.maxSize = sz;
+                        }
+                    }
+                }
+                
+                // Store normalized buckets and weights
+                for (u32 i = 0; i < effectiveCount; ++i) {
+                    u32 sz = _params.sizeDistribution.buckets[i];
+                    // Fix invalid sizes
+                    if (sz == 0) sz = 1;
+                    
+                    _normalizedSizeBuckets[i] = sz;
+                    _normalizedSizeWeights[i] = _params.sizeDistribution.weights[i] / weightSum;
+                }
             }
         }
     }
@@ -541,16 +570,17 @@ u32 OperationStream::GenerateSize() noexcept {
         }
 
         case DistributionType::CustomBuckets: {
-            if (dist.buckets == nullptr || dist.weights == nullptr || dist.bucketCount == 0) {
+            if (_normalizedSizeBucketCount == 0) {
+                // Fallback if normalization failed
                 return _ownedRng.NextRange(dist.minSize, dist.maxSize);
             }
             f32 r = NextUnitFloat01();
             f32 cumulative = 0.0f;
-            for (u32 i = 0; i < dist.bucketCount; i++) {
-                cumulative += dist.weights[i];
-                if (r < cumulative) return dist.buckets[i];
+            for (u32 i = 0; i < _normalizedSizeBucketCount; i++) {
+                cumulative += _normalizedSizeWeights[i];
+                if (r < cumulative) return _normalizedSizeBuckets[i];
             }
-            return dist.buckets[dist.bucketCount - 1];
+            return _normalizedSizeBuckets[_normalizedSizeBucketCount - 1];
         }
 
         default:

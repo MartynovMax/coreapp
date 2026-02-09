@@ -115,7 +115,25 @@ void PhaseExecutor::Execute() {
             _ctx.currentOpIndex = opIndex;
 
             if (_desc.customOperation) {
+                u64 allocCountBefore = _ctx.allocCount;
+                u64 freeCountBefore = _ctx.freeCount;
+                u64 bytesAllocatedBefore = _ctx.bytesAllocated;
+                u64 bytesFreedBefore = _ctx.bytesFreed;
+                
                 _desc.customOperation(_ctx, op);
+                
+                // Strict validation: verify metrics were updated
+                if (_desc.strictMetricsValidation) {
+                    bool metricsChanged = (_ctx.allocCount != allocCountBefore) ||
+                                         (_ctx.freeCount != freeCountBefore) ||
+                                         (_ctx.bytesAllocated != bytesAllocatedBefore) ||
+                                         (_ctx.bytesFreed != bytesFreedBefore);
+                    
+                    if (!metricsChanged && opIndex < _desc.params.operationCount - 1) {
+                        ASSERT(metricsChanged && 
+                               "strictMetricsValidation: customOperation should update metrics");
+                    }
+                }
             } else {
                 switch (op.reason) {
                     case OpReason::ForcedAllocEmptyLive:
@@ -168,8 +186,25 @@ void PhaseExecutor::Execute() {
             _ctx.currentOpIndex = opIndex;
 
             Operation defaultOp{};
+            
+            u64 allocCountBefore = _ctx.allocCount;
+            u64 freeCountBefore = _ctx.freeCount;
+            u64 bytesAllocatedBefore = _ctx.bytesAllocated;
+            u64 bytesFreedBefore = _ctx.bytesFreed;
+            
             _desc.customOperation(_ctx, defaultOp);
             completed = _desc.completionCheck(_ctx);
+            
+            // Strict validation: verify metrics were updated
+            if (_desc.strictMetricsValidation && !completed) {
+                bool metricsChanged = (_ctx.allocCount != allocCountBefore) ||
+                                     (_ctx.freeCount != freeCountBefore) ||
+                                     (_ctx.bytesAllocated != bytesAllocatedBefore) ||
+                                     (_ctx.bytesFreed != bytesFreedBefore);
+                
+                ASSERT(metricsChanged && 
+                       "strictMetricsValidation: customOperation in loop mode should update metrics");
+            }
 
             if (tickManager) {
                 TickContext tickCtx{};

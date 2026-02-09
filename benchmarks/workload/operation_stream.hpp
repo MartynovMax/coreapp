@@ -73,7 +73,14 @@ private:
     SeededRNG _ownedRng;
     u64 _currentOp = 0;
     
+    // Normalized storage for custom buckets
+    static constexpr u32 kMaxSizeBuckets = 32;
     static constexpr u32 kMaxAlignmentBuckets = 16;
+    
+    u32 _normalizedSizeBuckets[kMaxSizeBuckets];
+    f32 _normalizedSizeWeights[kMaxSizeBuckets];
+    u32 _normalizedSizeBucketCount = 0;
+    
     core::memory_alignment _normalizedAlignmentBuckets[kMaxAlignmentBuckets];
     f32 _normalizedAlignmentWeights[kMaxAlignmentBuckets];
     u32 _normalizedAlignmentBucketCount = 0;

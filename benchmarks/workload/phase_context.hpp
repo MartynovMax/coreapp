@@ -49,6 +49,29 @@ struct PhaseContext {
 
     // User data for callbacks
     void* userData = nullptr;
+    
+    // Helper methods for customOperation callbacks
+    // These centralize metric updates to ensure consistency
+    
+    /// Record an allocation operation
+    /// @param ptr The allocated pointer (nullptr indicates failure)
+    /// @param size The size of the allocation
+    /// @param alignment The alignment of the allocation (optional)
+    void RecordAlloc(void* ptr, u32 size, memory_alignment alignment = 0) noexcept {
+        if (ptr) {
+            allocCount++;
+            bytesAllocated += size;
+        } else {
+            failedAllocCount++;
+        }
+    }
+    
+    /// Record a free operation
+    /// @param size The size of the freed memory
+    void RecordFree(u32 size) noexcept {
+        freeCount++;
+        bytesFreed += size;
+    }
 };
 
 } // namespace core::bench
