@@ -9,10 +9,10 @@
 namespace core::bench {
 
 namespace {
-    // Round up to next power of 2
     inline u32 NextPowerOfTwo(u32 v) noexcept {
         if (v == 0) return 1;
-        if ((v & (v - 1)) == 0) return v;  // Already power of 2
+        if ((v & (v - 1)) == 0) return v;
+        if (v > 0x80000000u) return 0x80000000u;
         v--;
         v |= v >> 1;
         v |= v >> 2;

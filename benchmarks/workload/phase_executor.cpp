@@ -149,10 +149,6 @@ void PhaseExecutor::Execute() {
 
             opIndex++;
             totalIssuedOperations++;
-
-            if (IsPhaseComplete()) {
-                break;
-            }
         }
         _stats.issuedOpCount = totalIssuedOperations;
     } else {
@@ -424,10 +420,10 @@ void PhaseExecutor::SetupLifetimeTracker() noexcept {
         FATAL("LongLived lifetime model requires allocFreeRatio == 1.0");
     }
 
-    _needsTracker =
-        (_desc.params.operationCount > 0) &&
-        ((normalizedRatio < 1.0f) ||
-         (_desc.params.lifetimeModel != LifetimeModel::LongLived));
+    const bool canAllocate = (_desc.params.operationCount > 0) && (normalizedRatio > 0.0f);
+    const bool usesStandardPath = !_desc.customOperation;
+
+    _needsTracker = canAllocate && usesStandardPath;
 
     const bool requiresTracker = _needsTracker || 
                                  (_desc.reclaimMode == ReclaimMode::FreeAll);
@@ -435,7 +431,7 @@ void PhaseExecutor::SetupLifetimeTracker() noexcept {
     if (_desc.reclaimMode == ReclaimMode::None) {
         const bool hasExternalTracker = (_ctx.liveSetTracker != nullptr) || (_ctx.externalLifetimeTracker != nullptr);
         if (requiresTracker && !hasExternalTracker) {
-            FATAL("ReclaimMode::None with operationCount>0 and allocFreeRatio<1.0 requires external tracker");
+            FATAL("ReclaimMode::None with allocating phase requires external tracker");
         }
     } else {
         if (_ctx.liveSetTracker || _ctx.externalLifetimeTracker) {

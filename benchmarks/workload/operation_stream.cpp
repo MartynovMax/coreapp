@@ -105,18 +105,24 @@ OperationStream::OperationStream(const WorkloadParams& params) noexcept
     }
 
     if (_params.sizeDistribution.type == DistributionType::CustomBuckets) {
-        ASSERT(_params.sizeDistribution.bucketCount > 0);
-        ASSERT(_params.sizeDistribution.buckets != nullptr);
-        ASSERT(_params.sizeDistribution.weights != nullptr);
-        f32 sum = 0.0f;
-        for (u32 i = 0; i < _params.sizeDistribution.bucketCount; ++i) sum += _params.sizeDistribution.weights[i];
-        ASSERT(sum > 0.99f && sum < 1.01f);
-        for (u32 i = 0; i < _params.sizeDistribution.bucketCount; ++i) {
-            u32 sz = _params.sizeDistribution.buckets[i];
-            ASSERT(sz > 0 && "CustomBuckets: size must be > 0");
-            ASSERT(sz >= _params.sizeDistribution.minSize && 
-                   sz <= _params.sizeDistribution.maxSize &&
-                   "CustomBuckets: size out of [minSize, maxSize] range");
+        if (_params.sizeDistribution.buckets == nullptr || 
+            _params.sizeDistribution.weights == nullptr || 
+            _params.sizeDistribution.bucketCount == 0) {
+            _params.sizeDistribution.type = DistributionType::Uniform;
+        } else {
+            ASSERT(_params.sizeDistribution.bucketCount > 0);
+            ASSERT(_params.sizeDistribution.buckets != nullptr);
+            ASSERT(_params.sizeDistribution.weights != nullptr);
+            f32 sum = 0.0f;
+            for (u32 i = 0; i < _params.sizeDistribution.bucketCount; ++i) sum += _params.sizeDistribution.weights[i];
+            ASSERT(sum > 0.99f && sum < 1.01f);
+            for (u32 i = 0; i < _params.sizeDistribution.bucketCount; ++i) {
+                u32 sz = _params.sizeDistribution.buckets[i];
+                ASSERT(sz > 0 && "CustomBuckets: size must be > 0");
+                ASSERT(sz >= _params.sizeDistribution.minSize && 
+                       sz <= _params.sizeDistribution.maxSize &&
+                       "CustomBuckets: size out of [minSize, maxSize] range");
+            }
         }
     }
 
@@ -159,6 +165,18 @@ OperationStream::OperationStream(const WorkloadParams& params) noexcept
     }
     
     if (_params.alignmentDistribution.type == AlignmentDistributionType::PowerOfTwoRange) {
+        if (!IsPowerOfTwo(_params.alignmentDistribution.minAlignment)) {
+            _params.alignmentDistribution.minAlignment = NextPow2Align(_params.alignmentDistribution.minAlignment);
+            if (_params.alignmentDistribution.minAlignment == 0) {
+                _params.alignmentDistribution.minAlignment = CORE_DEFAULT_ALIGNMENT;
+            }
+        }
+        if (!IsPowerOfTwo(_params.alignmentDistribution.maxAlignment)) {
+            _params.alignmentDistribution.maxAlignment = NextPow2Align(_params.alignmentDistribution.maxAlignment);
+            if (_params.alignmentDistribution.maxAlignment == 0) {
+                _params.alignmentDistribution.maxAlignment = CORE_DEFAULT_ALIGNMENT;
+            }
+        }
         ASSERT(IsPowerOfTwo(_params.alignmentDistribution.minAlignment) && 
                "PowerOfTwoRange requires minAlignment to be power-of-2 (or 0)");
         ASSERT(IsPowerOfTwo(_params.alignmentDistribution.maxAlignment) && 

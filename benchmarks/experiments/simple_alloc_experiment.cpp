@@ -186,7 +186,13 @@ void SimpleAllocExperiment::RunPhases() {
     u32 steadyMaxLive = steady.maxLiveObjects;
     u32 maxLiveAcrossPhases = (rampMaxLive > steadyMaxLive) ? rampMaxLive : steadyMaxLive;
     u32 safetyMargin = maxLiveAcrossPhases / 2;
-    const u32 sharedCapacity = maxLiveAcrossPhases + safetyMargin;
+    
+    u32 sharedCapacity = maxLiveAcrossPhases;
+    if (safetyMargin > 0 && maxLiveAcrossPhases <= (UINT32_MAX - safetyMargin)) {
+        sharedCapacity = maxLiveAcrossPhases + safetyMargin;
+    } else if (maxLiveAcrossPhases < UINT32_MAX) {
+        sharedCapacity = UINT32_MAX;
+    }
 
     void* trackerMem = _allocator->Allocate(core::AllocationRequest{
         .size = sizeof(LifetimeTracker),

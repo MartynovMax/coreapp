@@ -2,6 +2,7 @@
 #include "core/memory/malloc_allocator.hpp"
 #include "core/memory/pool_allocator.hpp"
 #include "core/memory/stack_allocator.hpp"
+#include "core/memory/system_allocator.hpp"
 #include <gtest/gtest.h>
 #include <vector>
 
@@ -13,6 +14,21 @@ TEST(AdvancedWorkloadTest, PoolAllocatorReclaimSemantics) {
     std::vector<u8> buffer(32 * 64);
     PoolAllocator poolAllocator(buffer.data(), buffer.size(), 32);
     SeededRNG rng(600);
+    
+    IAllocator* systemAlloc = &core::GetDefaultAllocator();
+    void* trackerMem = systemAlloc->Allocate(core::AllocationRequest{
+        .size = sizeof(LifetimeTracker),
+        .alignment = static_cast<core::memory_alignment>(alignof(LifetimeTracker))
+    });
+    ASSERT_NE(trackerMem, nullptr);
+    
+    LifetimeTracker* tracker = new (trackerMem) LifetimeTracker(
+        4,
+        LifetimeModel::LongLived,
+        rng,
+        systemAlloc
+    );
+    ASSERT_TRUE(tracker->isValid());
 
     WorkloadParams params{};
     params.seed = 600;
@@ -33,6 +49,7 @@ TEST(AdvancedWorkloadTest, PoolAllocatorReclaimSemantics) {
     PhaseContext ctx{};
     ctx.allocator = &poolAllocator;
     ctx.callbackRng = &rng;
+    ctx.liveSetTracker = tracker;
 
     u32 usedBefore = poolAllocator.UsedBlocks();
     
@@ -43,6 +60,13 @@ TEST(AdvancedWorkloadTest, PoolAllocatorReclaimSemantics) {
 
     EXPECT_GT(poolAllocator.UsedBlocks(), usedBefore);
     EXPECT_EQ(ctx.allocCount, 4u);
+    
+    tracker->~LifetimeTracker();
+    systemAlloc->Deallocate(core::AllocationInfo{
+        .ptr = trackerMem,
+        .size = sizeof(LifetimeTracker),
+        .alignment = static_cast<core::memory_alignment>(alignof(LifetimeTracker))
+    });
 }
 
 struct StackState {

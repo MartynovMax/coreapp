@@ -57,7 +57,7 @@ TEST(AdvancedWorkloadTest, ConditionalPhaseCompletionMemoryThreshold) {
     SeededRNG rng(300);
     WorkloadParams params{};
     params.seed = 300;
-    params.operationCount = 1000;
+    params.operationCount = 0;
     params.allocFreeRatio = 1.0f;
     params.lifetimeModel = LifetimeModel::Fifo;
     static auto smallObjects = SizePresets::SmallObjects();

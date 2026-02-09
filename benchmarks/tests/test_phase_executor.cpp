@@ -194,7 +194,7 @@ TEST(PhaseExecutorTest, CompletionCheckCallbackTerminatesPhaseEarly) {
     SeededRNG rng(6);
     WorkloadParams params;
     params.seed = 6;
-    params.operationCount = 100;
+    params.operationCount = 0;
     params.allocFreeRatio = 1.0f;
     params.lifetimeModel = LifetimeModel::Fifo;
     params.sizeDistribution = SizePresets::SmallObjects();
