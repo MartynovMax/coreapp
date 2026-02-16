@@ -24,6 +24,13 @@ enum class EventType : u32 {
     PhaseEnd,
     PhaseComplete,
     Tick,
+    Allocation,
+    Free,
+    AllocatorReset,
+    AllocatorRewind,
+    OutOfMemory,
+    AllocationFailed,
+    PhaseFailure,
 };
 
 struct Event {
@@ -32,23 +39,37 @@ struct Event {
     const char* phaseName;
     u32 repetitionId;
     u64 timestamp;
+    u64 eventSeqNo;
     union {
         PhaseCompletePayload phaseComplete;
         TickPayload tick;
+        AllocationPayload allocation;
+        FreePayload free;
+        AllocatorResetPayload allocatorReset;
+        FailurePayload failure;
     } data;
     Event()
         : type(EventType::PhaseBegin),
           experimentName(nullptr),
           phaseName(nullptr),
           repetitionId(0),
-          timestamp(0)
+          timestamp(0),
+          eventSeqNo(0)
     {
         // Ensure the union contains only trivial types to allow safe zero-initialization
         static_assert(core::is_trivially_copyable_v<PhaseCompletePayload>(), 
                       "PhaseCompletePayload must be trivially copyable for union safety");
         static_assert(core::is_trivially_copyable_v<TickPayload>(), 
                       "TickPayload must be trivially copyable for union safety");
-        static_assert(core::is_trivially_copyable_v<decltype(data)>(), 
+        static_assert(core::is_trivially_copyable_v<AllocationPayload>(),
+                      "AllocationPayload must be trivially copyable for union safety");
+        static_assert(core::is_trivially_copyable_v<FreePayload>(),
+                      "FreePayload must be trivially copyable for union safety");
+        static_assert(core::is_trivially_copyable_v<AllocatorResetPayload>(),
+                      "AllocatorResetPayload must be trivially copyable for union safety");
+        static_assert(core::is_trivially_copyable_v<FailurePayload>(),
+                      "FailurePayload must be trivially copyable for union safety");
+        static_assert(core::is_trivially_copyable_v<decltype(data)>(),
                       "Event::data union must be trivially copyable");
         
         core::memory_zero(&data, sizeof(data));

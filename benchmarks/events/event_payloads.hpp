@@ -62,7 +62,6 @@ struct PhaseCompletePayload {
     f64 throughput;
 };
 
-// TickPayload - metrics for tick events
 struct TickPayload {
     u64 opIndex;
     u64 allocCount;
@@ -71,6 +70,46 @@ struct TickPayload {
     u64 bytesFreed;
     u64 peakLiveCount;
     u64 peakLiveBytes;
+};
+
+struct AllocationPayload {
+    u64 allocationId;
+    void* ptr;
+    u64 size;
+    u64 alignment;
+    u64 tag;
+    bool success;
+    u64 opIndex;
+};
+
+struct FreePayload {
+    u64 allocationId;
+    void* ptr;
+    u64 size;
+    u64 alignment;
+    u64 tag;
+    u64 opIndex;
+};
+
+struct AllocatorResetPayload {
+    const char* allocatorName;
+    u64 freedCount;
+    u64 freedBytes;
+};
+
+enum class FailureReason : u32 {
+    OutOfMemory,
+    AssertionFailed,
+    MaxIterationsReached,
+    InvalidState,
+    Custom,
+};
+
+struct FailurePayload {
+    FailureReason reason;
+    const char* message;
+    u64 opIndex;
+    bool isRecoverable;
 };
 
 } // namespace bench

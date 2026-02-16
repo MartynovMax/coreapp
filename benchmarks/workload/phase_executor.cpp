@@ -10,6 +10,8 @@
 
 #include "events/event_sink.hpp"
 #include "events/event_types.hpp"
+#include "events/event_bus.hpp"
+#include "events/allocation_event_adapter.hpp"
 #include "../common/high_res_timer.hpp"
 #include "lifetime_tracker.hpp"
 #include <new>
@@ -68,7 +70,13 @@ void PhaseExecutor::Execute() {
 
     SetupLifetimeTracker();
 
-    _ctx.eventSink = _eventSink;
+    EventBusSink* busSink = nullptr;
+    EventBusSink busSinkStorage(_eventSink);
+    if (_eventSink) {
+        busSink = &busSinkStorage;
+    }
+
+    _ctx.eventSink = busSink;
     _ctx.userData = _desc.userData;
     _ctx.phaseName = _desc.name;
     _ctx.experimentName = _desc.experimentName;
@@ -85,15 +93,21 @@ void PhaseExecutor::Execute() {
     _ctx.reclaimBytesFreed = 0;
     _ctx.failedAllocCount = 0;
 
-    // Emit OnPhaseBegin event if event sink exists
-    if (_eventSink) {
+    if (busSink) {
         Event evt{};
         evt.type = EventType::PhaseBegin;
         evt.experimentName = _ctx.experimentName;
         evt.phaseName = _ctx.phaseName;
         evt.repetitionId = _ctx.repetitionId;
         evt.timestamp = startTimestamp;
-        _eventSink->OnEvent(evt);
+        busSink->OnEvent(evt);
+    }
+
+    AllocationEventAdapter* allocAdapter = nullptr;
+    AllocationEventAdapter allocAdapterStorage(busSink, _ctx.experimentName, _ctx.phaseName, _ctx.repetitionId);
+    if (busSink) {
+        allocAdapter = &allocAdapterStorage;
+        allocAdapter->Attach();
     }
 
     // Use stack allocation for TickManager (it's very small - just a u64)
@@ -172,9 +186,37 @@ void PhaseExecutor::Execute() {
     } else {
         // operationCount == 0: loop-until-complete mode (do-while)
         if (!_desc.customOperation) {
+            if (busSink) {
+                HighResTimer failTimer;
+                Event evt{};
+                evt.type = EventType::PhaseFailure;
+                evt.experimentName = _ctx.experimentName;
+                evt.phaseName = _ctx.phaseName;
+                evt.repetitionId = _ctx.repetitionId;
+                evt.timestamp = failTimer.Now();
+                evt.data.failure.reason = FailureReason::InvalidState;
+                evt.data.failure.message = "operationCount == 0 requires customOperation callback";
+                evt.data.failure.opIndex = ~0ULL;
+                evt.data.failure.isRecoverable = false;
+                busSink->OnEvent(evt);
+            }
             FATAL("operationCount == 0 requires customOperation callback");
         }
         if (!_desc.completionCheck) {
+            if (busSink) {
+                HighResTimer failTimer;
+                Event evt{};
+                evt.type = EventType::PhaseFailure;
+                evt.experimentName = _ctx.experimentName;
+                evt.phaseName = _ctx.phaseName;
+                evt.repetitionId = _ctx.repetitionId;
+                evt.timestamp = failTimer.Now();
+                evt.data.failure.reason = FailureReason::InvalidState;
+                evt.data.failure.message = "operationCount == 0 requires completionCheck callback";
+                evt.data.failure.opIndex = ~0ULL;
+                evt.data.failure.isRecoverable = false;
+                busSink->OnEvent(evt);
+            }
             FATAL("operationCount == 0 requires completionCheck callback");
         }
 
@@ -223,9 +265,27 @@ void PhaseExecutor::Execute() {
         } while (!completed && opIndex < maxIters);
 
         if (opIndex >= maxIters && !completed) {
+            if (busSink) {
+                HighResTimer failTimer;
+                Event evt{};
+                evt.type = EventType::PhaseFailure;
+                evt.experimentName = _ctx.experimentName;
+                evt.phaseName = _ctx.phaseName;
+                evt.repetitionId = _ctx.repetitionId;
+                evt.timestamp = failTimer.Now();
+                evt.data.failure.reason = FailureReason::MaxIterationsReached;
+                evt.data.failure.message = "operationCount == 0 phase exceeded maxIterations (infinite loop protection)";
+                evt.data.failure.opIndex = opIndex;
+                evt.data.failure.isRecoverable = false;
+                busSink->OnEvent(evt);
+            }
             FATAL("operationCount == 0 phase exceeded maxIterations (infinite loop protection)");
         }
         _stats.issuedOpCount = totalIssuedOperations;
+    }
+
+    if (allocAdapter) {
+        allocAdapter->Detach();
     }
 
     LifetimeTracker* effectiveTracker = GetEffectiveTracker();
@@ -265,7 +325,7 @@ void PhaseExecutor::Execute() {
     _stats.totalBytesFreed =
         SaturatingAdd(_stats.bytesFreed, SaturatingAdd(_stats.internalBytesFreed, _stats.reclaimBytesFreed));
 
-    if (_eventSink) {
+    if (busSink) {
         Event evt{};
         evt.type = EventType::PhaseComplete;
         evt.experimentName = _ctx.experimentName;
@@ -302,17 +362,17 @@ void PhaseExecutor::Execute() {
         evt.data.phaseComplete.failedAllocCount = _stats.failedAllocCount;
         evt.data.phaseComplete.opsPerSec = durationNs > 0 ? static_cast<f64>(_stats.issuedOpCount) * 1e9 / static_cast<f64>(durationNs) : 0.0;
         evt.data.phaseComplete.throughput = durationNs > 0 ? static_cast<f64>(_stats.bytesAllocated) * 1e9 / static_cast<f64>(durationNs) : 0.0;
-        _eventSink->OnEvent(evt);
+        busSink->OnEvent(evt);
     }
 
-    if (_eventSink) {
+    if (busSink) {
         Event evt{};
         evt.type = EventType::PhaseEnd;
         evt.experimentName = _ctx.experimentName;
         evt.phaseName = _ctx.phaseName;
         evt.repetitionId = _ctx.repetitionId;
         evt.timestamp = endTimestamp;
-        _eventSink->OnEvent(evt);
+        busSink->OnEvent(evt);
     }
 }
 

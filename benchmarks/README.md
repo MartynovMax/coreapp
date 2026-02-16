@@ -186,6 +186,122 @@ desc.params = params;
 
 See `workload/workload_params.hpp` for all available presets and parameter options.
 
+## Event Model
+
+The benchmark system provides a comprehensive event tracing mechanism for capturing experiment execution, allocation/deallocation operations, and failure conditions. All events flow through a unified **Event + EventSink** architecture.
+
+### Event Channels
+
+The event model supports two complementary channels:
+
+1. **Workload-level events**: Lifecycle and metrics
+   - `ExperimentBegin/End` - Experiment boundaries
+   - `PhaseBegin/End/Complete` - Phase lifecycle with full metrics
+   - `Tick` - Periodic progress checkpoints during phase execution
+
+2. **Allocator-level events**: Detailed allocation tracking (opt-in via `AllocationEventAdapter`)
+   - `Allocation` - Every allocation (success or failure) with correlation ID
+   - `Free` - Every deallocation with correlation ID
+   - `AllocationFailed` / `OutOfMemory` - Failure signals
+   - `PhaseFailure` - Fatal phase errors
+
+### Event Ordering
+
+All events are assigned a global **eventSeqNo** (sequence number) for deterministic ordering:
+- Monotonically increasing atomic counter
+- Guarantees stable order even when timestamps are identical
+- Enables deterministic replay and offline analysis
+
+### Usage Example: Custom EventSink
+
+```cpp
+class MyEventSink : public IEventSink {
+public:
+    void OnEvent(const Event& event) noexcept override {
+        switch (event.type) {
+            case EventType::PhaseComplete:
+                printf("Phase '%s' completed: %llu allocs, %llu frees\n",
+                       event.phaseName,
+                       event.data.phaseComplete.allocCount,
+                       event.data.phaseComplete.freeCount);
+                break;
+            
+            case EventType::Allocation:
+                printf("Alloc [%llu]: ptr=%p, size=%llu\n",
+                       event.data.allocation.allocationId,
+                       event.data.allocation.ptr,
+                       event.data.allocation.size);
+                break;
+            
+            case EventType::Free:
+                printf("Free [%llu]: ptr=%p\n",
+                       event.data.free.allocationId,
+                       event.data.free.ptr);
+                break;
+            
+            // ... handle other event types ...
+        }
+    }
+};
+
+// Attach to PhaseExecutor
+MyEventSink sink;
+PhaseExecutor executor(desc, ctx, &sink);
+executor.Execute(); // Allocation tracking enabled automatically
+```
+
+### Allocation Correlation
+
+The `AllocationEventAdapter` automatically tracks allocation ↔ free pairs via `allocationId`:
+- Each allocation gets a unique per-phase ID
+- Free events carry the matching `allocationId` for correlation
+- Enables memory leak detection and lifetime analysis
+
+### Event Types
+
+The system defines 13 event types:
+
+| Event Type | When Emitted | Payload |
+|------------|--------------|---------|
+| `ExperimentBegin` | Start of experiment | None |
+| `ExperimentEnd` | End of experiment | None |
+| `PhaseBegin` | Start of phase | None |
+| `PhaseEnd` | End of phase (after reclaim) | None |
+| `PhaseComplete` | Phase completion | Full metrics summary |
+| `Tick` | Periodic checkpoint | Snapshot metrics |
+| `Allocation` | Every allocation | size, alignment, ptr, allocationId, success |
+| `Free` | Every deallocation | ptr, size, allocationId |
+| `AllocatorReset` | Bulk allocator reset | allocatorName, freedCount, freedBytes |
+| `AllocatorRewind` | Allocator rewind | allocatorName, freedCount, freedBytes |
+| `OutOfMemory` | OOM condition | reason, message |
+| `AllocationFailed` | Allocation returned nullptr | reason, message |
+| `PhaseFailure` | Fatal phase error | reason, message, opIndex |
+
+### Event Structure
+
+All events contain:
+- `EventType type` - Event type identifier
+- `const char* experimentName` - Experiment name (or "N/A")
+- `const char* phaseName` - Phase name (or "N/A")
+- `u32 repetitionId` - Repetition counter
+- `u64 timestamp` - Nanosecond timestamp from `HighResTimer`
+- `u64 eventSeqNo` - Global sequence number (assigned by `EventBus`)
+- `union data` - Type-specific payload
+
+### Allocation Tracking
+
+Allocation/Free events require `CORE_MEMORY_TRACKING=1`:
+- **Enabled**: Debug builds (default)
+- **Disabled**: Release builds (no allocation events emitted)
+- **Override**: Define `CORE_MEMORY_TRACKING=1` in build config
+
+### Performance
+
+- **Zero overhead** when `EventSink == nullptr` (no event tracking)
+- **Opt-in**: Allocation tracking only enabled when sink is attached
+- **Per-event cost**: ~5-10ns for sequence number assignment
+- **Per-allocation cost**: ~10-50ns for correlation ID generation
+
 ## Important Notes on Phase Metrics and Completion
 
 - **Bulk Reclaim (FreeAll):**

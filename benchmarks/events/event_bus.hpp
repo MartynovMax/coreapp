@@ -39,5 +39,26 @@ private:
     u32 _count = 0;
 };
 
+// ----------------------------------------------------------------------------
+// EventBusSink - IEventSink wrapper that routes through EventBus
+// ----------------------------------------------------------------------------
+
+class EventBusSink : public IEventSink {
+public:
+    explicit EventBusSink(IEventSink* target) noexcept : _target(target) {
+        if (_target) {
+            _bus.Attach(_target);
+        }
+    }
+
+    void OnEvent(const Event& event) noexcept override {
+        _bus.Emit(event);
+    }
+
+private:
+    EventBus _bus;
+    IEventSink* _target;
+};
+
 } // namespace bench
 } // namespace core
