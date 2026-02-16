@@ -35,6 +35,36 @@ bool ParseOutputFormat(const char* str, OutputFormat& outFormat) noexcept {
     return false;
 }
 
+void ApplyOutputFormat(RunConfig& config) noexcept {
+    switch (config.format) {
+        case OutputFormat::None:
+            config.enableTextOutput = false;
+            config.enableTimeSeriesOutput = false;
+            config.enableSummaryOutput = false;
+            break;
+        case OutputFormat::Text:
+            config.enableTextOutput = true;
+            config.enableTimeSeriesOutput = false;
+            config.enableSummaryOutput = false;
+            break;
+        case OutputFormat::Jsonl:
+            config.enableTextOutput = false;
+            config.enableTimeSeriesOutput = true;
+            config.enableSummaryOutput = false;
+            break;
+        case OutputFormat::Summary:
+            config.enableTextOutput = false;
+            config.enableTimeSeriesOutput = false;
+            config.enableSummaryOutput = true;
+            break;
+        case OutputFormat::All:
+            config.enableTextOutput = true;
+            config.enableTimeSeriesOutput = true;
+            config.enableSummaryOutput = true;
+            break;
+    }
+}
+
 } // anonymous namespace
 
 bool CLIParser::Parse(int argc, char** argv, RunConfig& outConfig) noexcept {
@@ -165,6 +195,14 @@ bool CLIParser::Parse(int argc, char** argv, RunConfig& outConfig) noexcept {
     // Validate configuration
     if (outConfig.measuredRepetitions == 0) {
         _errorMessage = "--repetitions must be at least 1";
+        return false;
+    }
+
+    // Apply output format to independent toggles
+    ApplyOutputFormat(outConfig);
+
+    if ((outConfig.enableTimeSeriesOutput || outConfig.enableSummaryOutput) && outConfig.outputPath == nullptr) {
+        _errorMessage = "Structured outputs (jsonl/summary) require --out=<path>";
         return false;
     }
 

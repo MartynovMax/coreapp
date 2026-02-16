@@ -3,9 +3,29 @@
 #include "../measurement/measurement_system.hpp"
 #include "../measurement/metric_collector.hpp"
 #include "../common/string_utils.hpp"
+#include "../common/high_res_timer.hpp"
+#include "../output/output_manager.hpp"
+#include "../output/output_config.hpp"
+#include "../output/run_metadata.hpp"
+#include <stdio.h>
 
 namespace core {
 namespace bench {
+
+namespace {
+
+// Generate unique run identifier
+void GenerateRunId(char* buffer, size_t bufferSize, u64 seed) noexcept {
+    HighResTimer timer;
+    u64 timestampNs = timer.Now();
+    // Convert nanoseconds to seconds for readability
+    u64 timestampSec = timestampNs / 1000000000ull;
+    snprintf(buffer, bufferSize, "run_%llu_seed%llu",
+             static_cast<unsigned long long>(timestampSec),
+             static_cast<unsigned long long>(seed));
+}
+
+} // anonymous namespace
 
 ExperimentRunner::ExperimentRunner(ExperimentRegistry& registry) noexcept
     : _registry(&registry),
@@ -92,6 +112,44 @@ ExitCode ExperimentRunner::Run(const RunConfig& config) noexcept {
         return kNoExperiments;
     }
 
+    // Setup OutputManager if structured outputs enabled
+    OutputManager* outputManager = nullptr;
+    static char runIdBuffer[128];
+
+    if (config.enableTimeSeriesOutput || config.enableSummaryOutput) {
+        GenerateRunId(runIdBuffer, sizeof(runIdBuffer), config.seed);
+
+        OutputConfig outputConfig;
+        outputConfig.enableTextOutput = config.enableTextOutput;
+        outputConfig.enableTimeSeriesOutput = config.enableTimeSeriesOutput;
+        outputConfig.enableSummaryOutput = config.enableSummaryOutput;
+        outputConfig.outputPath = config.outputPath;
+        outputConfig.verbose = config.verbose;
+
+        outputManager = new OutputManager(outputConfig);
+
+        // Initialize with first experiment metadata (will be updated per experiment)
+        HighResTimer timer;
+        RunMetadata metadata;
+        metadata.runId = runIdBuffer;
+        metadata.experimentName = experiments[0]->name;
+        metadata.experimentCategory = experiments[0]->category;
+        metadata.allocatorName = experiments[0]->allocatorName;
+        metadata.seed = config.seed;
+        metadata.warmupIterations = config.warmupIterations;
+        metadata.measuredRepetitions = config.measuredRepetitions;
+        metadata.filter = config.filter;
+        metadata.startTimestampNs = timer.Now();
+
+        if (!outputManager->Initialize(metadata)) {
+            if (config.verbose) {
+                printf("[ExperimentRunner] Failed to initialize OutputManager\n");
+            }
+            delete outputManager;
+            outputManager = nullptr;
+        }
+    }
+
     ExperimentParams params;
     params.seed = config.seed;
     params.warmupIterations = config.warmupIterations;
@@ -116,6 +174,11 @@ ExitCode ExperimentRunner::Run(const RunConfig& config) noexcept {
         // Attach event sink to experiment
         if (_eventSink != nullptr) {
             experiment->AttachEventSink(_eventSink);
+        }
+
+        // Attach OutputManager if enabled
+        if (outputManager != nullptr) {
+            experiment->AttachEventSink(outputManager);
         }
 
         // Attach measurement systems as event sinks
@@ -163,6 +226,13 @@ ExitCode ExperimentRunner::Run(const RunConfig& config) noexcept {
         }
 
         delete experiment;
+    }
+
+    if (outputManager != nullptr) {
+        if (_metricCollector != nullptr) {
+            outputManager->Finalize(*_metricCollector);
+        }
+        delete outputManager;
     }
 
     if (failureCount == 0) {

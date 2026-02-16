@@ -33,10 +33,33 @@ Run with options:
 - `--seed=<u64>` - Set deterministic seed (default: 0)
 - `--warmup=<n>` - Number of warmup iterations (default: 0)
 - `--repetitions=<n>` - Number of measured repetitions (default: 1)
-- `--format=<mode>` - Output format: none, text, jsonl, summary, all (default: text)
-- `--out=<path>` - Output file path
+- `--format=<mode>` - Output format (default: text)
+  - `none` - Silent (no output)
+  - `text` - Human-readable console output
+  - `jsonl` - Time-series JSONL event log
+  - `summary` - CSV summary with aggregated metrics
+  - `all` - All formats (text + jsonl + summary)
+- `--out=<path>` - Output file base path (creates `<path>.jsonl` and/or `<path>.csv`)
+- `--measurements=<list>` - Comma-separated measurement systems (e.g., `timer,counter,snapshot`)
 - `--help`, `-h` - Show help message
 - `--verbose`, `-v` - Enable verbose output
+
+### Structured Outputs
+
+For machine-readable outputs suitable for analysis and archival:
+
+```bash
+# Time-series event log (JSONL)
+./coreapp_benchmarks --format=jsonl --out=results/run1 --measurements=timer,counter
+
+# Summary metrics (CSV)
+./coreapp_benchmarks --format=summary --out=results/run1 --measurements=timer,counter
+
+# Both outputs
+./coreapp_benchmarks --format=all --out=results/run1 --measurements=timer,counter
+```
+
+See [`output/README.md`](output/README.md) for detailed schema documentation.
 
 ## Exit Codes
 

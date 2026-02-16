@@ -32,6 +32,10 @@ struct RunConfig {
     OutputFormat format = OutputFormat::Text;
     const char* outputPath = nullptr;
     const char* measurements = nullptr;
+
+    bool enableTextOutput = true;
+    bool enableTimeSeriesOutput = false;
+    bool enableSummaryOutput = false;
 };
 
 } // namespace bench

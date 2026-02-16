@@ -60,8 +60,8 @@ TEST(CLIParserTest, FormatFlag) {
     CLIParser parser;
     RunConfig config;
     
-    char* argv1[] = {(char*)"prog", (char*)"--format=jsonl"};
-    EXPECT_TRUE(parser.Parse(2, argv1, config));
+    char* argv1[] = {(char*)"prog", (char*)"--format=jsonl", (char*)"--out=test"};
+    EXPECT_TRUE(parser.Parse(3, argv1, config));
     EXPECT_EQ(config.format, OutputFormat::Jsonl);
     
     char* argv2[] = {(char*)"prog", (char*)"--format=none"};
