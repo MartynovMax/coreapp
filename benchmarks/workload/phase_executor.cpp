@@ -23,7 +23,7 @@ constexpr u32 kMaxTrackerCapacity = 1000000;
 
 inline u64 SaturatingAdd(u64 a, u64 b) noexcept {
     u64 result = a + b;
-    if (result < a) return UINT64_MAX;
+    if (result < a) return core::kU64Max;
     return result;
 }
 

@@ -76,20 +76,20 @@ TEST(SeededRNGTest, ZeroSeed) {
     EXPECT_NE(val, 0ull);
 }
 
-// Test range edge case (max == UINT32_MAX)
+// Test range edge case (max == kU32Max)
 TEST(SeededRNGTest, RangeMaxValue) {
     SeededRNG rng(42);
 
-    // Test full u32 range [0, UINT32_MAX]
+    // Test full u32 range [0, kU32Max]
     for (int i = 0; i < 100; ++i) {
-        u32 val = rng.NextRange(0, 0xFFFFFFFFu);
+        u32 val = rng.NextRange(0, core::kU32Max);
         // Just check it doesn't crash (no UB from overflow)
         (void)val;
     }
 
     // Test large range near max
     for (int i = 0; i < 100; ++i) {
-        u32 val = rng.NextRange(0xFFFFFFF0u, 0xFFFFFFFFu);
+        u32 val = rng.NextRange(0xFFFFFFF0u, core::kU32Max);
         EXPECT_GE(val, 0xFFFFFFF0u);
         EXPECT_LE(val, 0xFFFFFFFFu);
     }

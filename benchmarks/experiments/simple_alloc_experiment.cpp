@@ -188,10 +188,10 @@ void SimpleAllocExperiment::RunPhases() {
     u32 safetyMargin = maxLiveAcrossPhases / 2;
     
     u32 sharedCapacity = maxLiveAcrossPhases;
-    if (safetyMargin > 0 && maxLiveAcrossPhases <= (UINT32_MAX - safetyMargin)) {
+    if (safetyMargin > 0 && maxLiveAcrossPhases <= (core::kU32Max - safetyMargin)) {
         sharedCapacity = maxLiveAcrossPhases + safetyMargin;
-    } else if (maxLiveAcrossPhases < UINT32_MAX) {
-        sharedCapacity = UINT32_MAX;
+    } else if (maxLiveAcrossPhases < core::kU32Max) {
+        sharedCapacity = core::kU32Max;
     }
 
     void* trackerMem = _allocator->Allocate(core::AllocationRequest{
