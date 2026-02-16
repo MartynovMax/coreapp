@@ -10,36 +10,28 @@
 namespace core {
 namespace bench {
 
-// Output format modes
 enum class OutputFormat {
-    None,       // Silent (no output)
-    Text,       // Human-readable text
-    Jsonl,      // JSONL time-series
-    Summary,    // Summary table (CSV/JSON)
-    All,        // All formats enabled
+    None,
+    Text,
+    Jsonl,
+    Summary,
+    All,
 };
 
-// ----------------------------------------------------------------------------
-// RunConfig - Parsed CLI configuration
-// ----------------------------------------------------------------------------
-
 struct RunConfig {
-    // Actions
-    bool showList = false;              // --list flag
-    bool showHelp = false;              // --help flag
-    bool verbose = false;               // --verbose flag
-    
-    // Filtering
-    const char* filter = nullptr;       // --filter=<pattern>
-    
-    // Experiment parameters
-    u64 seed = 0;                       // --seed=<u64>
-    u32 warmupIterations = 0;           // --warmup=<n>
-    u32 measuredRepetitions = 1;        // --repetitions=<n>
-    
-    // Output control
-    OutputFormat format = OutputFormat::Text;   // --format=<mode>
-    const char* outputPath = nullptr;           // --out=<path>
+    bool showList = false;
+    bool showHelp = false;
+    bool verbose = false;
+
+    const char* filter = nullptr;
+
+    u64 seed = 0;
+    u32 warmupIterations = 0;
+    u32 measuredRepetitions = 1;
+
+    OutputFormat format = OutputFormat::Text;
+    const char* outputPath = nullptr;
+    const char* measurements = nullptr;
 };
 
 } // namespace bench

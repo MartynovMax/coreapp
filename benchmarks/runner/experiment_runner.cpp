@@ -1,17 +1,74 @@
 #include "experiment_runner.hpp"
 #include "../events/event_types.hpp"
-#include <stdio.h>
+#include "../measurement/measurement_system.hpp"
+#include "../measurement/metric_collector.hpp"
+#include "../common/string_utils.hpp"
 
 namespace core {
 namespace bench {
 
 ExperimentRunner::ExperimentRunner(ExperimentRegistry& registry) noexcept
-    : _registry(&registry)
+    : _registry(&registry),
+      _measurementSystems{},
+      _measurementSystemCount(0),
+      _metricCollector(nullptr)
 {
+    _metricCollector = new MetricCollector();
+}
+
+ExperimentRunner::~ExperimentRunner() noexcept {
+    delete _metricCollector;
 }
 
 void ExperimentRunner::AttachEventSink(IEventSink* sink) noexcept {
     _eventSink = sink;
+}
+
+void ExperimentRunner::RegisterMeasurementSystem(IMeasurementSystem* system) noexcept {
+    if (system == nullptr || _measurementSystemCount >= kMaxMeasurementSystems) {
+        return;
+    }
+    _measurementSystems[_measurementSystemCount++] = system;
+}
+
+void ExperimentRunner::EnableMeasurementSystem(const char* systemName, bool enabled) noexcept {
+    if (systemName == nullptr) return;
+
+    for (u32 i = 0; i < _measurementSystemCount; ++i) {
+        IMeasurementSystem* system = _measurementSystems[i];
+        if (system != nullptr && StringsEqual(system->Name(), systemName)) {
+            system->SetEnabled(enabled);
+            return;
+        }
+    }
+}
+
+void ExperimentRunner::NotifyRunStart(const char* experimentName, u64 seed, u32 repetitions) noexcept {
+    for (u32 i = 0; i < _measurementSystemCount; ++i) {
+        if (_measurementSystems[i] != nullptr) {
+            _measurementSystems[i]->OnRunStart(experimentName, seed, repetitions);
+        }
+    }
+}
+
+void ExperimentRunner::NotifyRunEnd() noexcept {
+    for (u32 i = 0; i < _measurementSystemCount; ++i) {
+        if (_measurementSystems[i] != nullptr) {
+            _measurementSystems[i]->OnRunEnd();
+        }
+    }
+}
+
+void ExperimentRunner::PublishAllMetrics() noexcept {
+    if (_metricCollector == nullptr) return;
+
+    _metricCollector->Clear();
+
+    for (u32 i = 0; i < _measurementSystemCount; ++i) {
+        if (_measurementSystems[i] != nullptr) {
+            _measurementSystems[i]->PublishMetrics(*_metricCollector);
+        }
+    }
 }
 
 ExitCode ExperimentRunner::Run(const RunConfig& config) noexcept {
@@ -56,9 +113,20 @@ ExitCode ExperimentRunner::Run(const RunConfig& config) noexcept {
             continue;
         }
 
+        // Attach event sink to experiment
         if (_eventSink != nullptr) {
             experiment->AttachEventSink(_eventSink);
         }
+
+        // Attach measurement systems as event sinks
+        for (u32 j = 0; j < _measurementSystemCount; ++j) {
+            if (_measurementSystems[j] != nullptr) {
+                experiment->AttachEventSink(_measurementSystems[j]);
+            }
+        }
+
+        // Notify measurement systems: run start
+        NotifyRunStart(desc->name, config.seed, config.measuredRepetitions);
 
         // Emit ExperimentBegin event
         if (_eventSink != nullptr) {
@@ -81,6 +149,12 @@ ExitCode ExperimentRunner::Run(const RunConfig& config) noexcept {
             event.timestamp = 0;
             _eventSink->OnEvent(event);
         }
+
+        // Notify measurement systems: run end
+        NotifyRunEnd();
+
+        // Publish metrics
+        PublishAllMetrics();
 
         if (result) {
             ++successCount;
@@ -112,25 +186,20 @@ bool ExperimentRunner::RunExperiment(IExperiment* experiment, const ExperimentPa
         experiment->Setup(params);
 
         try {
-            // Warmup loop
             for (u32 i = 0; i < params.warmupIterations; ++i) {
                 experiment->Warmup();
             }
 
-            // Measured repetitions loop
             for (u32 i = 0; i < params.measuredRepetitions; ++i) {
                 experiment->RunPhases();
             }
         } catch (...) {
-            printf("Error: Exception in warmup/run_phases\n");
             success = false;
         }
 
-        // Teardown (always called, even if previous stages failed)
         experiment->Teardown();
 
     } catch (...) {
-        printf("Error: Exception in setup\n");
         success = false;
 
         experiment->Teardown();

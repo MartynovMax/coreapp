@@ -134,6 +134,17 @@ bool CLIParser::Parse(int argc, char** argv, RunConfig& outConfig) noexcept {
             continue;
         }
 
+        // --measurements=<list>
+        const char* measurementsValue = ExtractValue(arg, "--measurements");
+        if (measurementsValue != nullptr) {
+            if (*measurementsValue == '\0') {
+                _errorMessage = "--measurements requires a comma-separated list (e.g., timer,counter,snapshot)";
+                return false;
+            }
+            outConfig.measurements = measurementsValue;
+            continue;
+        }
+
         // --help or -h
         if (StringsEqual(arg, "--help") || StringsEqual(arg, "-h")) {
             outConfig.showHelp = true;
@@ -171,6 +182,7 @@ void CLIParser::PrintHelp() noexcept {
     printf("  --repetitions=<n>         Number of measured repetitions (default: 1)\n");
     printf("  --format=<mode>           Output format: none, text, jsonl, summary, all (default: text)\n");
     printf("  --out=<path>              Output file path\n");
+    printf("  --measurements=<list>     Measurement systems: timer,counter,snapshot (default: none)\n");
     printf("  --help, -h                Show this help message\n");
     printf("  --verbose, -v             Enable verbose output\n");
 }

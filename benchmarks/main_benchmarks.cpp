@@ -9,6 +9,7 @@
 #include "runner/cli_parser.hpp"
 #include "experiments/null_experiment.hpp"
 #include "experiments/simple_alloc_experiment.hpp"
+#include "measurement/measurement_factory.hpp"
 #include <stdio.h>
 
 using namespace core;
@@ -56,7 +57,6 @@ int main(int argc, char** argv) {
     simpleAllocDesc.factory = &CreateSimpleAllocExperiment;
     registry.Register(simpleAllocDesc);
 
-    // Show list if requested
     if (config.showList) {
         u32 count = 0;
         const ExperimentDescriptor* experiments = registry.GetAll(count);
@@ -70,8 +70,22 @@ int main(int argc, char** argv) {
 
     printf("[main] Creating and running experiments...\n");
 
-    // Create and run experiments
     ExperimentRunner runner(registry);
+
+    MeasurementFactory measurementFactory;
+    if (config.measurements != nullptr) {
+        u32 systemCount = measurementFactory.ParseAndCreate(config.measurements);
+        printf("[main] Enabled %u measurement system(s)\n", systemCount);
+
+        IMeasurementSystem** systems = measurementFactory.GetSystems();
+        for (u32 i = 0; i < systemCount; ++i) {
+            if (systems[i] != nullptr) {
+                runner.RegisterMeasurementSystem(systems[i]);
+                printf("  - %s: %s\n", systems[i]->Name(), systems[i]->Description());
+            }
+        }
+    }
+
     ExitCode exitCode = runner.Run(config);
 
     printf("[main] Done. Exit code: %d\n", exitCode);
