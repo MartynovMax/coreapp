@@ -28,9 +28,9 @@ u32 MeasurementFactory::ParseAndCreate(const char* measurementsList) noexcept {
             ++end;
         }
 
-        size_t length = static_cast<size_t>(end - current);
+        u32 length = static_cast<u32>(end - current);
         if (length > 0 && length < sizeof(nameBuffer)) {
-            for (size_t i = 0; i < length; ++i) {
+            for (u32 i = 0; i < length; ++i) {
                 nameBuffer[i] = current[i];
             }
             nameBuffer[length] = '\0';
