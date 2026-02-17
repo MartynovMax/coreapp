@@ -36,6 +36,44 @@ target_include_directories(coreapp_benchmarks PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}
 )
 
+# ---------------------------------------------------------------------------
+# Environment metadata compile-time definitions
+# ---------------------------------------------------------------------------
+
+# Compiler version (human-readable string)
+if(CMAKE_CXX_COMPILER_VERSION)
+    target_compile_definitions(coreapp_benchmarks PRIVATE
+        CORE_COMPILER_VERSION_STRING="${CMAKE_CXX_COMPILER_VERSION}"
+    )
+endif()
+
+# Build flags (captured at configure time)
+string(TOUPPER "${CMAKE_BUILD_TYPE}" BUILD_TYPE_UPPER)
+set(BUILD_FLAGS "${CMAKE_CXX_FLAGS} ${CMAKE_CXX_FLAGS_${BUILD_TYPE_UPPER}}")
+string(STRIP "${BUILD_FLAGS}" BUILD_FLAGS)
+if(BUILD_FLAGS)
+    # Escape quotes for proper inclusion in C++ string
+    string(REPLACE "\"" "\\\"" BUILD_FLAGS_ESCAPED "${BUILD_FLAGS}")
+    target_compile_definitions(coreapp_benchmarks PRIVATE
+        CORE_BUILD_FLAGS_CMAKE="${BUILD_FLAGS_ESCAPED}"
+    )
+endif()
+
+# OS version at build time (optional, may differ from runtime)
+cmake_host_system_information(RESULT OS_RELEASE QUERY OS_RELEASE)
+if(OS_RELEASE)
+    target_compile_definitions(coreapp_benchmarks PRIVATE
+        CORE_OS_VERSION_BUILD="${OS_RELEASE}"
+    )
+endif()
+
+# CPU architecture details
+if(CMAKE_SYSTEM_PROCESSOR)
+    target_compile_definitions(coreapp_benchmarks PRIVATE
+        CORE_CPU_ARCH_CMAKE="${CMAKE_SYSTEM_PROCESSOR}"
+    )
+endif()
+
 # IDE source grouping
 source_group(TREE ${CMAKE_CURRENT_SOURCE_DIR}
              FILES ${BENCHMARK_HEADERS} ${BENCHMARK_SOURCES})
@@ -61,6 +99,13 @@ if(BENCHMARK_TEST_SOURCES)
     target_link_libraries(benchmark_tests PRIVATE coreapp gtest_main)
     
     target_include_directories(benchmark_tests PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
+    
+    # Apply same metadata definitions to tests
+    if(CMAKE_CXX_COMPILER_VERSION)
+        target_compile_definitions(benchmark_tests PRIVATE
+            CORE_COMPILER_VERSION_STRING="${CMAKE_CXX_COMPILER_VERSION}"
+        )
+    endif()
     
     add_test(NAME benchmark_tests COMMAND benchmark_tests)
     

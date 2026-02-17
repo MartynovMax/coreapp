@@ -20,6 +20,19 @@ struct RunMetadata {
     u32 measuredRepetitions = 0;              // Measured repetition count
     const char* filter = nullptr;             // Filter pattern (if any)
     u64 startTimestampNs = 0;                 // Run start timestamp
+
+    // Environment and build metadata (required for offline comparison)
+    const char* runTimestampUtc = "0";        // Run start timestamp (nanoseconds string)
+    const char* osName = "unknown";           // OS name (Windows, Linux, macOS)
+    const char* osVersion = "unknown";        // OS version string
+    const char* arch = "unknown";             // Architecture (x64, ARM64, etc.)
+    const char* compilerName = "unknown";     // Compiler (MSVC, GCC, Clang)
+    const char* compilerVersion = "unknown";  // Compiler version string
+    const char* buildType = "unknown";        // Build type (Debug, Release, etc.)
+    const char* buildFlags = "unknown";       // Key build flags (normalized)
+    const char* cpuModel = "unknown";         // CPU model string
+    u32 cpuCoresLogical = 0;                  // Logical cores (0 if unavailable)
+    u32 cpuCoresPhysical = 0;                 // Physical cores (0 if unavailable)
 };
 
 } // namespace bench

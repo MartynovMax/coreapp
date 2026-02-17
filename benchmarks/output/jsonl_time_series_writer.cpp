@@ -139,7 +139,7 @@ void JsonlTimeSeriesWriter::WriteWarningRecord(const Event& event) noexcept {
 }
 
 void JsonlTimeSeriesWriter::WriteCommonFields(const Event& event, const char* recordType) noexcept {
-    fprintf(_file, "\"schema_version\":\"ts.v1\"");
+    fprintf(_file, "\"schema_version\":\"ts.v2\"");
     fprintf(_file, ",\"record_type\":\"%s\"", recordType);
 
     // Run metadata
@@ -168,6 +168,47 @@ void JsonlTimeSeriesWriter::WriteCommonFields(const Event& event, const char* re
     }
 
     fprintf(_file, ",\"seed\":%llu", static_cast<unsigned long long>(_metadata.seed));
+
+    // Environment and build metadata
+    fprintf(_file, ",\"run_timestamp_utc\":\"");
+    EscapeJsonString(_metadata.runTimestampUtc);
+    fprintf(_file, "\"");
+
+    fprintf(_file, ",\"os_name\":\"");
+    EscapeJsonString(_metadata.osName);
+    fprintf(_file, "\"");
+
+    fprintf(_file, ",\"os_version\":\"");
+    EscapeJsonString(_metadata.osVersion);
+    fprintf(_file, "\"");
+
+    fprintf(_file, ",\"arch\":\"");
+    EscapeJsonString(_metadata.arch);
+    fprintf(_file, "\"");
+
+    fprintf(_file, ",\"compiler_name\":\"");
+    EscapeJsonString(_metadata.compilerName);
+    fprintf(_file, "\"");
+
+    fprintf(_file, ",\"compiler_version\":\"");
+    EscapeJsonString(_metadata.compilerVersion);
+    fprintf(_file, "\"");
+
+    fprintf(_file, ",\"build_type\":\"");
+    EscapeJsonString(_metadata.buildType);
+    fprintf(_file, "\"");
+
+    fprintf(_file, ",\"build_flags\":\"");
+    EscapeJsonString(_metadata.buildFlags);
+    fprintf(_file, "\"");
+
+    fprintf(_file, ",\"cpu_model\":\"");
+    EscapeJsonString(_metadata.cpuModel);
+    fprintf(_file, "\"");
+
+    fprintf(_file, ",\"cpu_cores_logical\":%u", _metadata.cpuCoresLogical);
+    fprintf(_file, ",\"cpu_cores_physical\":%u", _metadata.cpuCoresPhysical);
+
     fprintf(_file, ",\"repetition_id\":%u", event.repetitionId);
     fprintf(_file, ",\"timestamp_ns\":%llu", static_cast<unsigned long long>(event.timestamp));
     fprintf(_file, ",\"event_seq_no\":%llu", static_cast<unsigned long long>(event.eventSeqNo));

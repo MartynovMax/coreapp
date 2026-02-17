@@ -23,7 +23,6 @@ AllocationEventAdapter::AllocationEventAdapter(
       _nextAllocationId(1),
       _ptrMap{}
 {
-    // Note: _sink may be nullptr if event tracking is disabled
     // ASSERT(_sink != nullptr);
     // ASSERT(_experimentName != nullptr);
     // ASSERT(_phaseName != nullptr);

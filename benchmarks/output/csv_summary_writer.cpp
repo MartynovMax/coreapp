@@ -63,6 +63,19 @@ void CsvSummaryWriter::WriteHeader() noexcept {
     fprintf(_file, "warmup_iterations,");
     fprintf(_file, "measured_repetitions,");
 
+    // Environment and build metadata
+    fprintf(_file, "run_timestamp_utc,");
+    fprintf(_file, "os_name,");
+    fprintf(_file, "os_version,");
+    fprintf(_file, "arch,");
+    fprintf(_file, "compiler_name,");
+    fprintf(_file, "compiler_version,");
+    fprintf(_file, "build_type,");
+    fprintf(_file, "build_flags,");
+    fprintf(_file, "cpu_model,");
+    fprintf(_file, "cpu_cores_logical,");
+    fprintf(_file, "cpu_cores_physical,");
+
     // Timer metrics
     fprintf(_file, "phase_duration_ns,");
     fprintf(_file, "repetition_min_ns,");
@@ -90,7 +103,7 @@ void CsvSummaryWriter::WriteHeader() noexcept {
 
 void CsvSummaryWriter::WriteRow(const MetricCollector& collector) noexcept {
     // Schema version
-    fprintf(_file, "summary.v1,");
+    fprintf(_file, "summary.v2,");
 
     // Run identifiers
     if (_metadata.runId != nullptr) {
@@ -120,6 +133,19 @@ void CsvSummaryWriter::WriteRow(const MetricCollector& collector) noexcept {
     fprintf(_file, "%llu,", static_cast<unsigned long long>(_metadata.seed));
     fprintf(_file, "%u,", _metadata.warmupIterations);
     fprintf(_file, "%u,", _metadata.measuredRepetitions);
+
+    // Environment and build metadata
+    fprintf(_file, "%s,", _metadata.runTimestampUtc);
+    fprintf(_file, "%s,", _metadata.osName);
+    fprintf(_file, "%s,", _metadata.osVersion);
+    fprintf(_file, "%s,", _metadata.arch);
+    fprintf(_file, "%s,", _metadata.compilerName);
+    fprintf(_file, "%s,", _metadata.compilerVersion);
+    fprintf(_file, "%s,", _metadata.buildType);
+    fprintf(_file, "%s,", _metadata.buildFlags);
+    fprintf(_file, "%s,", _metadata.cpuModel);
+    fprintf(_file, "%u,", _metadata.cpuCoresLogical);
+    fprintf(_file, "%u,", _metadata.cpuCoresPhysical);
 
     // Timer metrics
     WriteMetricValue(collector, "timer.phase_duration_ns");

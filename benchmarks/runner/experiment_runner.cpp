@@ -7,6 +7,7 @@
 #include "../output/output_manager.hpp"
 #include "../output/output_config.hpp"
 #include "../output/run_metadata.hpp"
+#include "../system/environment_metadata.hpp"
 #include <stdio.h>
 
 namespace core {
@@ -140,6 +141,9 @@ ExitCode ExperimentRunner::Run(const RunConfig& config) noexcept {
         metadata.measuredRepetitions = config.measuredRepetitions;
         metadata.filter = config.filter;
         metadata.startTimestampNs = timer.Now();
+
+        // Collect environment and build metadata
+        CollectEnvironmentMetadata(metadata);
 
         if (!outputManager->Initialize(metadata)) {
             if (config.verbose) {
