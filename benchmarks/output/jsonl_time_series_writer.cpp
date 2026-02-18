@@ -141,6 +141,10 @@ void JsonlTimeSeriesWriter::WriteWarningRecord(const Event& event) noexcept {
 void JsonlTimeSeriesWriter::WriteCommonFields(const Event& event, const char* recordType) noexcept {
     fprintf(_file, "\"schema_version\":\"ts.v2\"");
     fprintf(_file, ",\"record_type\":\"%s\"", recordType);
+    
+    // Run validity (protocol requirement)
+    fprintf(_file, ",\"status\":\"%s\"", RunStatusToString(_metadata.status));
+    fprintf(_file, ",\"failure_class\":\"%s\"", FailureClassToString(_metadata.failureClass));
 
     // Run metadata
     if (_metadata.runId != nullptr) {

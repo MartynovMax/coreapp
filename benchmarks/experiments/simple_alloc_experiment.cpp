@@ -135,6 +135,34 @@ void SimpleAllocExperiment::Setup(const ExperimentParams& params) {
     _phaseCtx.experimentName = Name();
 
     _warmupIterations = params.warmupIterations;
+    
+    // Pre-allocate shared tracker (protocol requirement: isolation)
+    // Calculate maximum capacity needed across all phases
+    u32 rampMaxLive = 10000;
+    u32 steadyMaxLive = 20000;
+    u32 maxLiveAcrossPhases = steadyMaxLive; // Use max of all phases
+    u32 safetyMargin = maxLiveAcrossPhases / 2;
+    u32 sharedCapacity = maxLiveAcrossPhases + safetyMargin;
+    
+    _trackerMemory = _allocator->Allocate(core::AllocationRequest{
+        .size = sizeof(LifetimeTracker),
+        .alignment = static_cast<memory_alignment>(alignof(LifetimeTracker))
+    });
+    
+    if (!_trackerMemory) {
+        FATAL("Failed to allocate LifetimeTracker in Setup()");
+    }
+    
+    SeededRNG sharedRng(_seed + 100);
+    _sharedTracker = new (_trackerMemory) LifetimeTracker(
+        sharedCapacity,
+        LifetimeModel::Fifo,
+        sharedRng,
+        _allocator);
+    
+    if (!_sharedTracker->isValid()) {
+        FATAL("Failed to initialize shared LifetimeTracker in Setup()");
+    }
 }
 
 void SimpleAllocExperiment::Warmup() {
@@ -165,6 +193,7 @@ void SimpleAllocExperiment::Warmup() {
 
 void SimpleAllocExperiment::RunPhases() {
     ASSERT(_allocator != nullptr);
+    ASSERT(_sharedTracker != nullptr && _sharedTracker->isValid());
 
     WorkloadParams ramp = MakeBaseParams(_seed);
     ramp.operationCount = 10000;
@@ -179,41 +208,9 @@ void SimpleAllocExperiment::RunPhases() {
     steady.maxLiveObjects = 20000;
     steady.allocFreeRatio = 0.5f;
     steady.tickInterval = 1000;
-
-    SeededRNG sharedRng(_seed + 100);
     
-    u32 rampMaxLive = ramp.maxLiveObjects;
-    u32 steadyMaxLive = steady.maxLiveObjects;
-    u32 maxLiveAcrossPhases = (rampMaxLive > steadyMaxLive) ? rampMaxLive : steadyMaxLive;
-    u32 safetyMargin = maxLiveAcrossPhases / 2;
-    
-    u32 sharedCapacity = maxLiveAcrossPhases;
-    if (safetyMargin > 0 && maxLiveAcrossPhases <= (core::kU32Max - safetyMargin)) {
-        sharedCapacity = maxLiveAcrossPhases + safetyMargin;
-    } else if (maxLiveAcrossPhases < core::kU32Max) {
-        sharedCapacity = core::kU32Max;
-    }
-
-    void* trackerMem = _allocator->Allocate(core::AllocationRequest{
-        .size = sizeof(LifetimeTracker),
-        .alignment = static_cast<memory_alignment>(alignof(LifetimeTracker))
-    });
-    
-    if (!trackerMem) {
-        FATAL("Failed to allocate LifetimeTracker");
-    }
-    
-    LifetimeTracker* sharedTracker = new (trackerMem) LifetimeTracker(
-        sharedCapacity,
-        LifetimeModel::Fifo,
-        sharedRng,
-        _allocator);
-    
-    if (!sharedTracker->isValid()) {
-        FATAL("Failed to initialize shared LifetimeTracker - insufficient capacity or allocation failure");
-    }
-    
-    sharedTracker->Clear();
+    // Clear pre-allocated tracker (protocol requirement: isolation)
+    _sharedTracker->Clear();
 
     RunPhaseOnce(
         _allocator,
@@ -224,7 +221,7 @@ void SimpleAllocExperiment::RunPhases() {
         /*repetitionId=*/0,
         ramp,
         ReclaimMode::None,
-        /*externalTracker=*/sharedTracker);
+        /*externalTracker=*/_sharedTracker);
 
     RunPhaseOnce(
         _allocator,
@@ -235,7 +232,7 @@ void SimpleAllocExperiment::RunPhases() {
         /*repetitionId=*/0,
         steady,
         ReclaimMode::None,
-        /*externalTracker=*/sharedTracker);
+        /*externalTracker=*/_sharedTracker);
 
     WorkloadParams bulk = MakeBaseParams(_seed + 200);
     bulk.operationCount = 0;
@@ -252,20 +249,27 @@ void SimpleAllocExperiment::RunPhases() {
         ReclaimMode::Custom,
         /*externalTracker=*/nullptr,
         /*reclaimCallback=*/BulkReclaimFromUserData,
-        /*customOperation=*/NoOpOperation,          // Required for operationCount=0
-        /*completionCheck=*/ImmediateCompletion,  // Required for operationCount=0
-        /*userData=*/sharedTracker);
-    
-    // Manual cleanup
-    sharedTracker->~LifetimeTracker();
-    _allocator->Deallocate(core::AllocationInfo{
-        .ptr = trackerMem,
-        .size = sizeof(LifetimeTracker),
-        .alignment = static_cast<memory_alignment>(alignof(LifetimeTracker))
-    });
+        /*customOperation=*/NoOpOperation,
+        /*completionCheck=*/ImmediateCompletion,
+        /*userData=*/_sharedTracker);
 }
 
 void SimpleAllocExperiment::Teardown() noexcept {
+    // Cleanup pre-allocated tracker
+    if (_sharedTracker) {
+        _sharedTracker->~LifetimeTracker();
+        _sharedTracker = nullptr;
+    }
+    
+    if (_trackerMemory && _allocator) {
+        _allocator->Deallocate(core::AllocationInfo{
+            .ptr = _trackerMemory,
+            .size = sizeof(LifetimeTracker),
+            .alignment = static_cast<memory_alignment>(alignof(LifetimeTracker))
+        });
+        _trackerMemory = nullptr;
+    }
+
     if (_resetCallback) {
         _resetCallback(_resetUserData);
     }

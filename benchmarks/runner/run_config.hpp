@@ -27,7 +27,8 @@ struct RunConfig {
 
     u64 seed = 0;
     u32 warmupIterations = 0;
-    u32 measuredRepetitions = 1;
+    u32 measuredRepetitions = 5;
+    u32 minRepetitions = 5;
 
     OutputFormat format = OutputFormat::Text;
     const char* outputPath = nullptr;

@@ -23,6 +23,7 @@ TEST(ExitCodeTest, Success) {
     ExperimentRunner runner(registry);
     RunConfig config;
     config.measuredRepetitions = 1;
+    config.minRepetitions = 1;
 
     ExitCode exitCode = runner.Run(config);
     EXPECT_EQ(exitCode, kSuccess);
@@ -43,6 +44,7 @@ TEST(ExitCodeTest, Failure) {
     ExperimentRunner runner(registry);
     RunConfig config;
     config.measuredRepetitions = 1;
+    config.minRepetitions = 1;
 
     ExitCode exitCode = runner.Run(config);
     EXPECT_EQ(exitCode, kFailure);
@@ -64,6 +66,7 @@ TEST(ExitCodeTest, NoExperiments) {
     RunConfig config;
     config.filter = "nonexistent*";
     config.measuredRepetitions = 1;
+    config.minRepetitions = 1;
 
     ExitCode exitCode = runner.Run(config);
     EXPECT_EQ(exitCode, kNoExperiments);
@@ -103,6 +106,7 @@ TEST(ExitCodeTest, PartialFailure) {
     ExperimentRunner runner(registry);
     RunConfig config;
     config.measuredRepetitions = 1;
+    config.minRepetitions = 1;
 
     ExitCode exitCode = runner.Run(config);
     EXPECT_EQ(exitCode, kPartialFailure);

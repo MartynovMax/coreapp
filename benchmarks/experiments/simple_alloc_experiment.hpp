@@ -16,6 +16,8 @@
 namespace core {
 namespace bench {
 
+class LifetimeTracker;
+
 // ----------------------------------------------------------------------------
 // SimpleAllocExperiment - Example experiment for allocation benchmarks
 // ----------------------------------------------------------------------------
@@ -58,6 +60,10 @@ private:
     void* _resetUserData = nullptr;
 
     u32 _warmupIterations = 0;
+    
+    // Pre-allocated shared tracker (protocol requirement: isolation)
+    LifetimeTracker* _sharedTracker = nullptr;
+    void* _trackerMemory = nullptr;
 };
 
 } // namespace bench

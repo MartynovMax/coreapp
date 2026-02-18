@@ -444,7 +444,7 @@ TEST(OutputTest, MetadataPresentWithNAMetrics) {
         CsvSummaryWriter writer(testPath);
         ASSERT_TRUE(writer.Open());
 
-        RunMetadata metadata;
+        RunMetadata metadata{};
         metadata.runId = "test_na";
         metadata.experimentName = "test";
         metadata.allocatorName = "alloc";
@@ -473,8 +473,9 @@ TEST(OutputTest, MetadataPresentWithNAMetrics) {
     ASSERT_NE(fgets(dataRow, sizeof(dataRow), f), nullptr);
     fclose(f);
 
-    // Verify schema version and run_id are present
-    EXPECT_TRUE(strncmp(dataRow, "summary.v2,test_na,", 19) == 0);
+    // Verify schema version, status, failure_class, run_id, and experiment_name are present
+    // Format: summary.v2,valid,none,test_na,test,,alloc, (42 chars total)
+    EXPECT_TRUE(strncmp(dataRow, "summary.v2,valid,none,test_na,test,,alloc,", 42) == 0);
 
     // Verify environment fields are populated (not empty)
     // Count commas to ensure all fields are present

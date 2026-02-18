@@ -55,6 +55,7 @@ TEST(SimpleAllocExperimentTest, DiscoverableByRunner) {
     config.seed = 123;
     config.warmupIterations = 1;
     config.measuredRepetitions = 1;
+    config.minRepetitions = 1;
 
     ExitCode exitCode = runner.Run(config);
     EXPECT_EQ(exitCode, kSuccess);

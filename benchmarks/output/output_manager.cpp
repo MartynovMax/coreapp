@@ -81,6 +81,17 @@ void OutputManager::Finalize(const MetricCollector& collector) noexcept {
     }
 }
 
+void OutputManager::SetMetadata(const RunMetadata& metadata) noexcept {
+    _metadata = metadata;
+    
+    if (_timeSeriesWriter != nullptr) {
+        _timeSeriesWriter->SetMetadata(_metadata);
+    }
+    if (_summaryWriter != nullptr) {
+        _summaryWriter->SetMetadata(_metadata);
+    }
+}
+
 void OutputManager::OnEvent(const Event& event) noexcept {
     if (_timeSeriesWriter != nullptr && _timeSeriesWriter->IsOpen()) {
         _timeSeriesWriter->WriteEvent(event);

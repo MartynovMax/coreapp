@@ -34,6 +34,7 @@ TEST(IntegrationTest, FullRun) {
     config.seed = 42;
     config.warmupIterations = 2;
     config.measuredRepetitions = 3;
+    config.minRepetitions = 3;
 
     ExitCode exitCode = runner.Run(config);
 
@@ -51,10 +52,11 @@ TEST(IntegrationTest, CLIEndToEnd) {
         (char*)"--seed=123",
         (char*)"--warmup=1",
         (char*)"--repetitions=2",
+        (char*)"--min-repetitions=2",
         (char*)"--format=text"
     };
     
-    bool parsed = parser.Parse(6, argv, config);
+    bool parsed = parser.Parse(7, argv, config);
     ASSERT_TRUE(parsed);
 
     ExperimentRegistry registry;
@@ -92,6 +94,7 @@ TEST(IntegrationTest, MinimalRun) {
     config.format = OutputFormat::None;
     config.warmupIterations = 0;
     config.measuredRepetitions = 1;
+    config.minRepetitions = 1;
 
     ExitCode exitCode = runner.Run(config);
 
@@ -138,6 +141,7 @@ TEST(IntegrationTest, MultipleExperiments) {
     RunConfig config;
     config.warmupIterations = 1;
     config.measuredRepetitions = 2;
+    config.minRepetitions = 2;
 
     ExitCode exitCode = runner.Run(config);
 

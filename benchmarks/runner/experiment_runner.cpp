@@ -207,6 +207,18 @@ ExitCode ExperimentRunner::Run(const RunConfig& config) noexcept {
 
         bool result = RunExperiment(experiment, params);
 
+        // Validate minimum repetitions (timing protocol requirement)
+        if (result && params.measuredRepetitions < config.minRepetitions) {
+            _currentRunStatus = RunStatus::Invalid;
+            _currentFailureClass = FailureClass::InsufficientRepetitions;
+            result = false;
+            
+            if (config.verbose) {
+                printf("[ExperimentRunner] Insufficient repetitions: %u < %u (min required)\n",
+                       params.measuredRepetitions, config.minRepetitions);
+            }
+        }
+
         // Emit ExperimentEnd event
         if (_eventSink != nullptr) {
             Event event;
@@ -222,6 +234,22 @@ ExitCode ExperimentRunner::Run(const RunConfig& config) noexcept {
 
         // Publish metrics
         PublishAllMetrics();
+
+        // Update metadata with status before finalization
+        if (outputManager != nullptr) {
+            RunMetadata updatedMetadata;
+            updatedMetadata.runId = runIdBuffer;
+            updatedMetadata.experimentName = desc->name;
+            updatedMetadata.experimentCategory = desc->category;
+            updatedMetadata.allocatorName = desc->allocatorName;
+            updatedMetadata.seed = config.seed;
+            updatedMetadata.warmupIterations = config.warmupIterations;
+            updatedMetadata.measuredRepetitions = config.measuredRepetitions;
+            updatedMetadata.filter = config.filter;
+            updatedMetadata.status = _currentRunStatus;
+            updatedMetadata.failureClass = _currentFailureClass;
+            outputManager->SetMetadata(updatedMetadata);
+        }
 
         if (result) {
             ++successCount;
@@ -253,6 +281,10 @@ bool ExperimentRunner::RunExperiment(IExperiment* experiment, const ExperimentPa
         return false;
     }
 
+    // Reset status for this experiment
+    _currentRunStatus = RunStatus::Valid;
+    _currentFailureClass = FailureClass::None;
+
     bool success = true;
 
     try {
@@ -268,12 +300,16 @@ bool ExperimentRunner::RunExperiment(IExperiment* experiment, const ExperimentPa
                 experiment->RunPhases();
             }
         } catch (...) {
+            _currentRunStatus = RunStatus::Invalid;
+            _currentFailureClass = FailureClass::RuntimeError;
             success = false;
         }
 
         experiment->Teardown();
 
     } catch (...) {
+        _currentRunStatus = RunStatus::Invalid;
+        _currentFailureClass = FailureClass::RuntimeError;
         success = false;
 
         experiment->Teardown();

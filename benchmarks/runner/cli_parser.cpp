@@ -139,6 +139,20 @@ bool CLIParser::Parse(int argc, char** argv, RunConfig& outConfig) noexcept {
             continue;
         }
 
+        // --min-repetitions=<n>
+        const char* minRepsValue = ExtractValue(arg, "--min-repetitions");
+        if (minRepsValue != nullptr) {
+            if (*minRepsValue == '\0') {
+                _errorMessage = "--min-repetitions requires a numeric value";
+                return false;
+            }
+            if (!ParseU32(minRepsValue, outConfig.minRepetitions)) {
+                _errorMessage = "--min-repetitions: invalid numeric value";
+                return false;
+            }
+            continue;
+        }
+
         // --format=<mode>
         const char* formatValue = ExtractValue(arg, "--format");
         if (formatValue != nullptr) {
@@ -217,7 +231,8 @@ void CLIParser::PrintHelp() noexcept {
     printf("  --filter=<pattern>        Run experiments matching pattern (wildcards: *, ?)\n");
     printf("  --seed=<u64>              Set deterministic seed (default: 0)\n");
     printf("  --warmup=<n>              Number of warmup iterations (default: 0)\n");
-    printf("  --repetitions=<n>         Number of measured repetitions (default: 1)\n");
+    printf("  --repetitions=<n>         Number of measured repetitions (default: 5)\n");
+    printf("  --min-repetitions=<n>     Minimum repetitions for valid run (default: 5)\n");
     printf("  --format=<mode>           Output format: none, text, jsonl, summary, all (default: text)\n");
     printf("  --out=<path>              Output file path\n");
     printf("  --measurements=<list>     Measurement systems: timer,counter,snapshot (default: none)\n");

@@ -123,6 +123,7 @@ TEST(OutputModesTest, RunWithJsonlOutput) {
     config.enableSummaryOutput = false;
     config.outputPath = outputPath;
     config.measuredRepetitions = 1;
+    config.minRepetitions = 1;
 
     ExitCode exitCode = runner.Run(config);
     EXPECT_EQ(exitCode, kSuccess);
@@ -152,6 +153,7 @@ TEST(OutputModesTest, RunWithSummaryOutput) {
     config.enableSummaryOutput = true;
     config.outputPath = outputPath;
     config.measuredRepetitions = 1;
+    config.minRepetitions = 1;
 
     ExitCode exitCode = runner.Run(config);
     EXPECT_EQ(exitCode, kSuccess);
@@ -184,6 +186,7 @@ TEST(OutputModesTest, RunWithAllOutputs) {
     config.enableSummaryOutput = true;
     config.outputPath = outputPath;
     config.measuredRepetitions = 1;
+    config.minRepetitions = 1;
 
     ExitCode exitCode = runner.Run(config);
     EXPECT_EQ(exitCode, kSuccess);
@@ -211,6 +214,7 @@ TEST(OutputModesTest, RunWithNoOutputs) {
     config.enableTimeSeriesOutput = false;
     config.enableSummaryOutput = false;
     config.measuredRepetitions = 1;
+    config.minRepetitions = 1;
 
     ExitCode exitCode = runner.Run(config);
     EXPECT_EQ(exitCode, kSuccess);

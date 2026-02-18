@@ -119,6 +119,7 @@ TEST(ExperimentRunnerTest, ZeroEventSinks) {
     RunConfig config;
     config.warmupIterations = 1;
     config.measuredRepetitions = 1;
+    config.minRepetitions = 1;
 
     ExitCode exitCode = runner.Run(config);
 
@@ -155,6 +156,7 @@ TEST(ExperimentRunnerTest, EventSinkReceivesEvents) {
     RunConfig config;
     config.warmupIterations = 1;
     config.measuredRepetitions = 1;
+    config.minRepetitions = 1;
 
     ExitCode exitCode = runner.Run(config);
 

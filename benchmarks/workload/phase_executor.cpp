@@ -13,6 +13,7 @@
 #include "events/event_bus.hpp"
 #include "events/allocation_event_adapter.hpp"
 #include "../common/high_res_timer.hpp"
+#include "../common/optimization_barriers.hpp"
 #include "lifetime_tracker.hpp"
 #include <new>
 
@@ -395,6 +396,10 @@ void PhaseExecutor::ExecuteOperationAlloc(const Operation& op, u64 opIndex) cons
         _ctx.failedAllocCount++;
         return;
     }
+
+    *static_cast<u8*>(ptr) = 0xFF;
+    volatile u8 dummy = *static_cast<u8*>(ptr);
+    DoNotOptimize(dummy);
 
     if (_needsTracker && (!_tracker || !_tracker->isValid())) {
         core::AllocationInfo info{};

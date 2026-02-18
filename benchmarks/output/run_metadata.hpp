@@ -10,6 +10,26 @@
 namespace core {
 namespace bench {
 
+// Run validity status (timing protocol requirement)
+enum class RunStatus : u8 {
+    Valid,
+    Invalid
+};
+
+// Failure classification for invalid runs (timing protocol requirement)
+enum class FailureClass : u8 {
+    None,
+    InsufficientRepetitions,
+    RuntimeError,
+    IsolationViolation,
+    Timeout,
+    UserAbort
+};
+
+// String conversion functions
+const char* RunStatusToString(RunStatus status) noexcept;
+const char* FailureClassToString(FailureClass fc) noexcept;
+
 struct RunMetadata {
     const char* runId = nullptr;              // Unique run identifier
     const char* experimentName = nullptr;     // Experiment name
@@ -20,6 +40,11 @@ struct RunMetadata {
     u32 measuredRepetitions = 0;              // Measured repetition count
     const char* filter = nullptr;             // Filter pattern (if any)
     u64 startTimestampNs = 0;                 // Run start timestamp
+
+    // Run validity tracking (timing protocol requirement)
+    RunStatus status = RunStatus::Valid;
+    FailureClass failureClass = FailureClass::None;
+    const char* failureDetails = nullptr;
 
     // Environment and build metadata (required for offline comparison)
     const char* runTimestampUtc = "0";        // Run start timestamp (nanoseconds string)

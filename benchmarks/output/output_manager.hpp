@@ -26,6 +26,7 @@ public:
 
     bool Initialize(const RunMetadata& metadata) noexcept;
     void Finalize(const MetricCollector& collector) noexcept;
+    void SetMetadata(const RunMetadata& metadata) noexcept;
 
     void OnEvent(const Event& event) noexcept override;
 

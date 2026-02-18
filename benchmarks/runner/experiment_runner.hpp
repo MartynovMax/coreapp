@@ -9,6 +9,7 @@
 #include "run_config.hpp"
 #include "exit_codes.hpp"
 #include "../events/event_sink.hpp"
+#include "../output/run_metadata.hpp"
 
 namespace core {
 namespace bench {
@@ -43,6 +44,9 @@ private:
     IMeasurementSystem* _measurementSystems[kMaxMeasurementSystems];
     u32 _measurementSystemCount;
     MetricCollector* _metricCollector;
+
+    RunStatus _currentRunStatus = RunStatus::Valid;
+    FailureClass _currentFailureClass = FailureClass::None;
 
     void NotifyRunStart(const char* experimentName, u64 seed, u32 repetitions) noexcept;
     void NotifyRunEnd() noexcept;

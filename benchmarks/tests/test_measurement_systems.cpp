@@ -248,6 +248,7 @@ TEST(MeasurementSystemsTest, SameWorkloadDifferentMeasurements) {
         RunConfig config;
         config.format = OutputFormat::None;
         config.measuredRepetitions = 1;
+        config.minRepetitions = 1;
 
         ExitCode exitCode = runner.Run(config);
         EXPECT_EQ(exitCode, kSuccess);
@@ -269,6 +270,7 @@ TEST(MeasurementSystemsTest, SameWorkloadDifferentMeasurements) {
         RunConfig config;
         config.format = OutputFormat::None;
         config.measuredRepetitions = 1;
+        config.minRepetitions = 1;
 
         ExitCode exitCode = runner.Run(config);
         EXPECT_EQ(exitCode, kSuccess);
@@ -292,6 +294,7 @@ TEST(MeasurementSystemsTest, SameWorkloadDifferentMeasurements) {
         RunConfig config;
         config.format = OutputFormat::None;
         config.measuredRepetitions = 1;
+        config.minRepetitions = 1;
 
         ExitCode exitCode = runner.Run(config);
         EXPECT_EQ(exitCode, kSuccess);

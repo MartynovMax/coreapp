@@ -53,6 +53,10 @@ void CsvSummaryWriter::WriteSummary(const MetricCollector& collector) noexcept {
 void CsvSummaryWriter::WriteHeader() noexcept {
     // Schema version
     fprintf(_file, "schema_version,");
+    
+    // Run validity (protocol requirement)
+    fprintf(_file, "status,");
+    fprintf(_file, "failure_class,");
 
     // Run identifiers
     fprintf(_file, "run_id,");
@@ -104,6 +108,10 @@ void CsvSummaryWriter::WriteHeader() noexcept {
 void CsvSummaryWriter::WriteRow(const MetricCollector& collector) noexcept {
     // Schema version
     fprintf(_file, "summary.v2,");
+    
+    // Run validity (protocol requirement)
+    fprintf(_file, "%s,", RunStatusToString(_metadata.status));
+    fprintf(_file, "%s,", FailureClassToString(_metadata.failureClass));
 
     // Run identifiers
     if (_metadata.runId != nullptr) {
