@@ -6,6 +6,7 @@
 #include "../../core/base/core_build.hpp"
 #include "../../core/memory/memory_ops.hpp"
 #include "../../core/memory/core_allocator.hpp"
+#include <cstddef>
 
 #if CORE_PLATFORM_WINDOWS
 #define WIN32_LEAN_AND_MEAN
@@ -179,7 +180,7 @@ const char* CollectCpuModel() noexcept {
     return "unknown";
 
 #elif CORE_PLATFORM_MACOS
-    usize size = sizeof(s_cpuModelBuffer);
+    size_t size = sizeof(s_cpuModelBuffer);
     if (sysctlbyname("machdep.cpu.brand_string", s_cpuModelBuffer, &size, nullptr, 0) == 0) {
         return s_cpuModelBuffer;
     }
@@ -279,7 +280,7 @@ u32 CollectCpuCoresPhysical() noexcept {
 
 #elif CORE_PLATFORM_MACOS
     u32 physicalCores = 0;
-    usize size = sizeof(physicalCores);
+    size_t size = sizeof(physicalCores);
     if (sysctlbyname("hw.physicalcpu", &physicalCores, &size, nullptr, 0) == 0) {
         return physicalCores;
     }
