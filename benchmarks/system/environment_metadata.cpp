@@ -5,6 +5,7 @@
 #include "../../core/base/core_platform.hpp"
 #include "../../core/base/core_build.hpp"
 #include "../../core/memory/memory_ops.hpp"
+#include "../../core/memory/core_allocator.hpp"
 
 #if CORE_PLATFORM_WINDOWS
 #define WIN32_LEAN_AND_MEAN
@@ -212,10 +213,17 @@ u32 CollectCpuCoresPhysical() noexcept {
     GetLogicalProcessorInformation(nullptr, &length);
 
     if (length > 0) {
-        SYSTEM_LOGICAL_PROCESSOR_INFORMATION* buffer =
-            (SYSTEM_LOGICAL_PROCESSOR_INFORMATION*)malloc(length);
+        // Use default allocator instead of malloc (protocol compliance)
+        IAllocator& allocator = core::GetDefaultAllocator();
+        void* bufferMem = allocator.Allocate(core::AllocationRequest{
+            .size = static_cast<usize>(length),
+            .alignment = static_cast<memory_alignment>(alignof(SYSTEM_LOGICAL_PROCESSOR_INFORMATION))
+        });
 
-        if (buffer != nullptr) {
+        if (bufferMem != nullptr) {
+            SYSTEM_LOGICAL_PROCESSOR_INFORMATION* buffer =
+                static_cast<SYSTEM_LOGICAL_PROCESSOR_INFORMATION*>(bufferMem);
+
             if (GetLogicalProcessorInformation(buffer, &length)) {
                 u32 physicalCores = 0;
                 DWORD count = length / sizeof(SYSTEM_LOGICAL_PROCESSOR_INFORMATION);
@@ -226,10 +234,18 @@ u32 CollectCpuCoresPhysical() noexcept {
                     }
                 }
 
-                free(buffer);
+                allocator.Deallocate(core::AllocationInfo{
+                    .ptr = bufferMem,
+                    .size = static_cast<usize>(length),
+                    .alignment = static_cast<memory_alignment>(alignof(SYSTEM_LOGICAL_PROCESSOR_INFORMATION))
+                });
                 return physicalCores;
             }
-            free(buffer);
+            allocator.Deallocate(core::AllocationInfo{
+                .ptr = bufferMem,
+                .size = static_cast<usize>(length),
+                .alignment = static_cast<memory_alignment>(alignof(SYSTEM_LOGICAL_PROCESSOR_INFORMATION))
+            });
         }
     }
     return 0;
