@@ -43,10 +43,9 @@ def _cmd_compare(args: argparse.Namespace) -> int:
         print(f"error: {exc}", file=sys.stderr)
         return 1
 
-    # compare logic is not implemented yet — hand off to compare.py when ready
-    print("compare is not implemented yet")
-    print(f"  baseline  run_id : {baseline.metadata.run_id or '(unknown)'}")
-    print(f"  candidate run_id : {candidate.metadata.run_id or '(unknown)'}")
+    from .compare import compare_runs, print_comparison
+    cmp = compare_runs(baseline, candidate)
+    print_comparison(cmp)
     return 0
 
 
