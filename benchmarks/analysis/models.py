@@ -28,7 +28,7 @@ class RunMetadata:
     experiment_name: str = ""
     experiment_category: str = ""
     allocator: str = ""
-    seed: int = 0
+    seed: Optional[int] = None
     run_timestamp_utc: Optional[str] = None
 
     # Environment
@@ -40,8 +40,8 @@ class RunMetadata:
     build_type: str = "unknown"
     build_flags: str = "unknown"
     cpu_model: str = "unknown"
-    cpu_cores_logical: int = 0
-    cpu_cores_physical: int = 0
+    cpu_cores_logical: Optional[int] = None
+    cpu_cores_physical: Optional[int] = None
 
 
 @dataclass
@@ -49,6 +49,10 @@ class SummaryRecord:
     """One row from a summary.v2 CSV file."""
 
     metadata: RunMetadata = field(default_factory=RunMetadata)
+
+    # Run validity (written by C++ timing protocol)
+    status: Optional[str] = None          # "Valid" | "Invalid"
+    failure_class: Optional[str] = None   # "None" | "InsufficientRepetitions" | ...
 
     warmup_iterations: Optional[int] = None
     measured_repetitions: Optional[int] = None
