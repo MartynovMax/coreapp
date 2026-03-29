@@ -25,6 +25,7 @@ from __future__ import annotations
 from typing import Optional
 
 from .models import RunMetadata, RunModel, SummaryRecord
+from .filters import RunFilter, apply_filter
 
 
 # ---------------------------------------------------------------------------
@@ -262,13 +263,17 @@ def report_summary_table(run: RunModel) -> str:
 # Public API
 # ---------------------------------------------------------------------------
 
-def report_run(run: RunModel) -> str:
+def report_run(run: RunModel, flt: Optional[RunFilter] = None) -> str:
     """
     Render a full compact report for a single benchmark run.
 
+    If *flt* is provided, only summary records matching the filter are
+    included in the metrics table and the overview section.  Metadata is
+    always taken from the top-level run and is not filtered.
+
     Sections (in order):
       1. Run Metadata
-      2. Run Overview
+      2. Run Overview  (counts / dimensions reflect the filtered subset)
       3. Summary Metrics table
 
     NA values are always shown explicitly as "NA".
@@ -276,22 +281,30 @@ def report_run(run: RunModel) -> str:
 
     Args:
         run: An assembled RunModel.
+        flt: Optional RunFilter; pass None to include all records.
 
     Returns:
         Full report as a single string.
     """
+    effective_run = apply_filter(run, flt) if flt is not None else run
+
     sections = [
         f"# Benchmark Run Report",
         "",
-        report_metadata(run),
+        report_metadata(effective_run),
         "",
-        _report_overview(run),
+        _report_overview(effective_run),
         "",
-        report_summary_table(run),
+        report_summary_table(effective_run),
     ]
     return "\n".join(sections)
 
 
-def print_run(run: RunModel) -> None:
-    """Print report_run() to stdout."""
-    print(report_run(run))
+def print_run(run: RunModel, flt: Optional[RunFilter] = None) -> None:
+    """Print report_run() to stdout.
+
+    Args:
+        run: An assembled RunModel.
+        flt: Optional RunFilter; pass None to include all records.
+    """
+    print(report_run(run, flt))

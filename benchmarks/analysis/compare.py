@@ -38,6 +38,7 @@ from enum import Enum
 from typing import Optional
 
 from .models import RunModel, SummaryRecord
+from .filters import RunFilter, apply_filter
 
 
 # ---------------------------------------------------------------------------
@@ -329,9 +330,18 @@ def _index_records(
 # Public API
 # ---------------------------------------------------------------------------
 
-def compare_runs(baseline: RunModel, candidate: RunModel) -> RunComparison:
+def compare_runs(
+    baseline: RunModel,
+    candidate: RunModel,
+    flt: Optional[RunFilter] = None,
+) -> RunComparison:
     """
     Compare two RunModel instances and return a RunComparison.
+
+    If *flt* is provided, the same filter is applied to both runs before
+    matching so that the comparison scope is restricted to the records that
+    satisfy the filter.  Filtering is done on both sides independently to
+    preserve correct unmatched tracking.
 
     Matching strategy:
     - Records are matched by (experiment_name, allocator, repetition_index).
@@ -347,10 +357,15 @@ def compare_runs(baseline: RunModel, candidate: RunModel) -> RunComparison:
     Args:
         baseline:  The reference RunModel.
         candidate: The RunModel being evaluated against the baseline.
+        flt:       Optional RunFilter; pass None to compare all records.
 
     Returns:
         A RunComparison with matched diffs and unmatched key lists.
     """
+    if flt is not None:
+        baseline  = apply_filter(baseline,  flt)
+        candidate = apply_filter(candidate, flt)
+
     cmp = RunComparison(
         baseline_run_id=baseline.metadata.run_id or "(unknown)",
         candidate_run_id=candidate.metadata.run_id or "(unknown)",
