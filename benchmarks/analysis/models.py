@@ -86,13 +86,21 @@ class TimeSeriesRecord:
 
     metadata: RunMetadata = field(default_factory=RunMetadata)
 
+    # Run validity — written by C++ in every record (same as SummaryRecord).
+    status: Optional[str] = None          # "Valid" | "Invalid"
+    failure_class: Optional[str] = None   # "None" | "InsufficientRepetitions" | ...
+
     record_type: str = ""          # "event" | "tick" | "warning"
     repetition_id: int = 0
     timestamp_ns: int = 0
     event_seq_no: int = 0
-    phase_name: str = ""
 
-    # Raw payload — kept as a dict until a later step parses it further.
+    # Present on event/tick records; absent on some warning records.
+    phase_name: str = ""
+    # Present only on event records; identifies the experiment at event time.
+    event_experiment_name: Optional[str] = None
+
+    # Raw payload — structure varies by record_type; interpreted downstream.
     payload: dict = field(default_factory=dict)
 
 
