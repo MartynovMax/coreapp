@@ -28,11 +28,8 @@ def _cmd_report(args: argparse.Namespace) -> int:
         print(f"error: {exc}", file=sys.stderr)
         return 1
 
-    # report logic is not implemented yet — hand off to report.py when ready
-    print("report is not implemented yet")
-    print(f"  run_id   : {run.metadata.run_id or '(unknown)'}")
-    print(f"  summary  : {len(run.summary)} record(s)")
-    print(f"  timeseries: {len(run.timeseries)} record(s)")
+    from .report import print_run
+    print_run(run)
     return 0
 
 

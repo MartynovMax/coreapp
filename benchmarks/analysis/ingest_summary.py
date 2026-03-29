@@ -142,6 +142,12 @@ def _parse_record(row: dict[str, str]) -> SummaryRecord:
         status=_parse_str(row.get("status", "")),
         failure_class=_parse_str(row.get("failure_class", "")),
 
+        # workload and profile are not in the current summary.v2 C++ schema.
+        # Parsed opportunistically so the ingestion layer is forward-compatible
+        # with future schema additions; remain None when the column is absent.
+        workload=_parse_str(row.get("workload", "")),
+        profile=_parse_str(row.get("profile", "")),
+
         warmup_iterations=_parse_int(row.get("warmup_iterations", ""), "warmup_iterations"),
         measured_repetitions=_parse_int(row.get("measured_repetitions", ""), "measured_repetitions"),
 

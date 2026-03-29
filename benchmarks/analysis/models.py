@@ -54,6 +54,12 @@ class SummaryRecord:
     status: Optional[str] = None          # "Valid" | "Invalid"
     failure_class: Optional[str] = None   # "None" | "InsufficientRepetitions" | ...
 
+    # Workload / profile classification.
+    # Not part of the current summary.v2 C++ schema.  Reserved for future schema
+    # additions or post-ingestion enrichment.  Remain None until filled.
+    workload: Optional[str] = None
+    profile: Optional[str] = None
+
     warmup_iterations: Optional[int] = None
     measured_repetitions: Optional[int] = None
 
@@ -111,4 +117,43 @@ class RunModel:
     metadata: RunMetadata = field(default_factory=RunMetadata)
     summary: list[SummaryRecord] = field(default_factory=list)
     timeseries: list[TimeSeriesRecord] = field(default_factory=list)
+
+    # ------------------------------------------------------------------
+    # Derived views — convenience accessors for reporting.
+    # All return stable-sorted lists of unique non-empty string values.
+    # ------------------------------------------------------------------
+
+    @property
+    def experiments(self) -> list[str]:
+        """Unique experiment names present in summary records, sorted."""
+        return sorted({r.metadata.experiment_name for r in self.summary
+                       if r.metadata.experiment_name})
+
+    @property
+    def allocators(self) -> list[str]:
+        """Unique allocator names present in summary records, sorted."""
+        return sorted({r.metadata.allocator for r in self.summary
+                       if r.metadata.allocator})
+
+    @property
+    def workloads(self) -> list[str]:
+        """Unique workload labels present in summary records, sorted.
+
+        Returns an empty list when no summary records carry a workload value.
+        The workload field is not part of the current summary.v2 C++ schema and
+        will remain empty until either the schema is extended or a post-ingestion
+        enrichment step populates it.
+        """
+        return sorted({r.workload for r in self.summary if r.workload})
+
+    @property
+    def profiles(self) -> list[str]:
+        """Unique profile labels present in summary records, sorted.
+
+        Returns an empty list when no summary records carry a profile value.
+        The profile field is not part of the current summary.v2 C++ schema and
+        will remain empty until either the schema is extended or a post-ingestion
+        enrichment step populates it.
+        """
+        return sorted({r.profile for r in self.summary if r.profile})
 
