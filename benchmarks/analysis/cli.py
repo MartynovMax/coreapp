@@ -29,6 +29,7 @@ from __future__ import annotations
 
 import argparse
 import sys
+import textwrap
 
 
 # ---------------------------------------------------------------------------
@@ -194,8 +195,29 @@ def _cmd_plot(args: argparse.Namespace) -> int:
 
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
-        prog="analysis",
+        prog="python -m analysis",
         description="Offline analysis tool for coreapp benchmark outputs.",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        epilog=textwrap.dedent("""\
+            examples:
+              # report for a single run
+              python -m analysis report --input results/run1
+
+              # compare two runs
+              python -m analysis compare --baseline results/run1 --candidate results/run2
+
+              # latency plot, filtered to one allocator
+              python -m analysis plot --input results/run1 --kind latency \\
+                      --output latency.png --allocator tlsf
+
+              # throughput comparison across two runs
+              python -m analysis plot --input results/run1 --compare results/run2 \\
+                      --kind throughput --output throughput.png
+
+              # time-series trend plot
+              python -m analysis plot --input results/run1 --kind timeseries \\
+                      --metric-key live_bytes --output live_bytes.png
+        """),
     )
     subparsers = parser.add_subparsers(dest="command", metavar="<command>")
     subparsers.required = True
@@ -203,7 +225,19 @@ def build_parser() -> argparse.ArgumentParser:
     # --- report ---
     report_parser = subparsers.add_parser(
         "report",
-        help="Generate a report from a single benchmark run.",
+        help="Generate a Markdown report for a single benchmark run.",
+        description=(
+            "Load a benchmark run from <PATH>.csv (and optionally <PATH>.jsonl), "
+            "validate it, and print a compact Markdown report to stdout."
+        ),
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        epilog=textwrap.dedent("""\
+            examples:
+              python -m analysis report --input results/run1
+              python -m analysis report --input results/run1 --allocator tlsf
+              python -m analysis report --input results/run1 --experiment exp_mixed_sizes \\
+                      --allocator tlsf --allocator mimalloc
+        """),
     )
     report_parser.add_argument(
         "--input",
@@ -218,6 +252,21 @@ def build_parser() -> argparse.ArgumentParser:
     compare_parser = subparsers.add_parser(
         "compare",
         help="Compare two benchmark runs and produce a diff report.",
+        description=(
+            "Load two runs from their respective base paths, validate both, "
+            "and print a Markdown diff report to stdout.  Records are matched "
+            "by (experiment_name, allocator, repetition index).  "
+            "NA values are never treated as zero."
+        ),
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        epilog=textwrap.dedent("""\
+            examples:
+              python -m analysis compare --baseline results/run1 --candidate results/run2
+              python -m analysis compare --baseline results/run1 --candidate results/run2 \\
+                      --allocator tlsf
+              python -m analysis compare --baseline results/run1 --candidate results/run2 \\
+                      --experiment exp_mixed_sizes --allocator tlsf --allocator mimalloc
+        """),
     )
     compare_parser.add_argument(
         "--baseline",
@@ -237,7 +286,30 @@ def build_parser() -> argparse.ArgumentParser:
     # --- plot ---
     plot_parser = subparsers.add_parser(
         "plot",
-        help="Generate a static plot from a benchmark run.",
+        help="Generate a static plot (PNG) from a benchmark run.",
+        description=(
+            "Load a run, optionally apply filters, and write a static chart to --output.\n\n"
+            "Plot kinds:\n"
+            "  latency     — grouped bar chart: min / median / p95 / max per record\n"
+            "  throughput  — grouped bar chart: ops/sec per experiment across runs\n"
+            "                (add --compare to include additional runs)\n"
+            "  timeseries  — line chart: payload metric vs elapsed time from JSONL ticks\n"
+            "                (requires --metric-key)"
+        ),
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        epilog=textwrap.dedent("""\
+            examples:
+              python -m analysis plot --input results/run1 --kind latency --output latency.png
+              python -m analysis plot --input results/run1 --kind latency --output latency.png \\
+                      --allocator tlsf
+              python -m analysis plot --input results/run1 --compare results/run2 \\
+                      --kind throughput --output throughput.png
+              python -m analysis plot --input results/run1 --kind timeseries \\
+                      --metric-key live_bytes --output live_bytes.png
+              python -m analysis plot --input results/run1 --kind timeseries \\
+                      --metric-key live_bytes --output live_bytes.png \\
+                      --allocator tlsf --experiment exp_mixed_sizes
+        """),
     )
     plot_parser.add_argument(
         "--input",
@@ -275,8 +347,8 @@ def build_parser() -> argparse.ArgumentParser:
         default=None,
         metavar="KEY",
         help=(
-            "Metric field name for throughput plot (default: ops_per_sec_mean) "
-            "or payload key for timeseries plot."
+            "Metric field for throughput (default: ops_per_sec_mean) "
+            "or payload key for timeseries (required)."
         ),
     )
     _add_filter_args(plot_parser)

@@ -61,6 +61,38 @@ For machine-readable outputs suitable for analysis and archival:
 
 See [`output/README.md`](output/README.md) for detailed schema documentation.
 
+## Offline Analysis Tool
+
+The `analysis/` directory contains a Python package for offline ingestion,
+validation, reporting, comparison, and plotting of benchmark outputs.
+
+### Quick start
+
+```bash
+# From the benchmarks/ directory:
+
+# Report for a single run
+python -m analysis report --input results/run1
+
+# Compare two runs
+python -m analysis compare --baseline results/run1 --candidate results/run2
+
+# Latency bar chart
+python -m analysis plot --input results/run1 --kind latency --output latency.png
+
+# All commands support optional filters:
+python -m analysis report --input results/run1 --allocator tlsf --experiment exp_A
+```
+
+### Running the analysis tests
+
+```bash
+# From the benchmarks/ directory:
+python -m pytest analysis/tests/ -v
+```
+
+See [`analysis/README.md`](analysis/README.md) for full documentation.
+
 ## Exit Codes
 
 - `0` - Success (all experiments passed)
