@@ -5,8 +5,12 @@ Usage:
     python -m analysis.cli report  --input <path>
     python -m analysis.cli compare --baseline <path> --candidate <path>
 
-This module is intentionally thin. All business logic lives in
-report.py, compare.py, and related modules.
+This module is intentionally thin.  It is responsible for:
+  - argument parsing
+  - assembling RunModel(s) from file paths
+  - delegating to report.py / compare.py
+
+All business logic lives in report.py, compare.py, and related modules.
 """
 
 from __future__ import annotations
@@ -16,12 +20,36 @@ import sys
 
 
 def _cmd_report(args: argparse.Namespace) -> int:
+    from .assemble import assemble_run_from_files
+
+    try:
+        run = assemble_run_from_files(args.input, validate=True)
+    except (FileNotFoundError, ValueError) as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        return 1
+
+    # report logic is not implemented yet — hand off to report.py when ready
     print("report is not implemented yet")
+    print(f"  run_id   : {run.metadata.run_id or '(unknown)'}")
+    print(f"  summary  : {len(run.summary)} record(s)")
+    print(f"  timeseries: {len(run.timeseries)} record(s)")
     return 0
 
 
 def _cmd_compare(args: argparse.Namespace) -> int:
+    from .assemble import assemble_run_from_files
+
+    try:
+        baseline  = assemble_run_from_files(args.baseline,  validate=True)
+        candidate = assemble_run_from_files(args.candidate, validate=True)
+    except (FileNotFoundError, ValueError) as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        return 1
+
+    # compare logic is not implemented yet — hand off to compare.py when ready
     print("compare is not implemented yet")
+    print(f"  baseline  run_id : {baseline.metadata.run_id or '(unknown)'}")
+    print(f"  candidate run_id : {candidate.metadata.run_id or '(unknown)'}")
     return 0
 
 
