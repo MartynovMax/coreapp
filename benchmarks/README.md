@@ -84,6 +84,37 @@ python -m analysis plot --input results/run1 --kind latency --output latency.png
 python -m analysis report --input results/run1 --allocator tlsf --experiment exp_A
 ```
 
+### Local web UI (no CLI required)
+
+```bash
+# Windows — double-click or run:
+run_ui.bat
+
+# Linux / macOS:
+./run_ui.sh
+```
+
+Opens a browser UI at `http://localhost:8501` with three pages:
+**Single Run** · **Compare Runs** · **Plots**.
+
+### CLI via wrapper scripts (no need to type `python -m`)
+
+```bat
+:: Windows
+run_analysis.bat report  --input results\run1
+run_analysis.bat compare --baseline results\run1 --candidate results\run2
+run_analysis.bat plot    --input results\run1 --kind latency --output latency.png
+run_analysis.bat --help
+```
+
+```bash
+# Linux / macOS
+./run_analysis.sh report  --input results/run1
+./run_analysis.sh compare --baseline results/run1 --candidate results/run2
+./run_analysis.sh plot    --input results/run1 --kind latency --output latency.png
+./run_analysis.sh --help
+```
+
 ### Running the analysis tests
 
 ```bash

@@ -19,6 +19,7 @@ Modules:
   compare             Run-to-run NA-safe diff and Markdown output
   plots               Static chart generation (requires matplotlib)
   cli                 argparse entry point (report / compare / plot)
+  ui                  Tkinter desktop UI (single run / compare / plots)
 
 Entry point:
   python -m analysis <command> [options]

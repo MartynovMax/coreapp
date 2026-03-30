@@ -144,6 +144,60 @@ Rules enforced everywhere:
 
 ---
 
+## Desktop UI
+
+A Tkinter-based desktop application for users who prefer not to use the CLI.  
+No browser required — runs as a native window.  Tkinter ships with standard Python.
+
+### Launch
+
+```bat
+:: Windows — double-click or run from any directory:
+run_ui.bat
+
+:: or directly:
+python analysis/ui.py
+python -m analysis.ui
+```
+
+```bash
+# Linux / macOS:
+./run_ui.sh
+
+# or directly:
+python analysis/ui.py
+```
+
+### Pages
+
+| Tab | What it does |
+|-----|--------------|
+| 📄 Single Run | Load a run, view metric cards + sortable table + latency chart |
+| ⚖️ Compare Runs | Load baseline + candidate, view throughput chart + diff report |
+| 📈 Plots | Choose latency / throughput / timeseries, view embedded chart, save PNG |
+| ℹ️ Help | Quick-reference for inputs, filters, and launch commands |
+
+### Filters (all pages)
+
+All filter fields accept comma-separated values:
+
+```
+Allocators:   tlsf, mimalloc
+Experiments:  exp_mixed_sizes, exp_ramp_up
+Workloads:    (optional)
+Profiles:     (optional)
+```
+
+Filters are AND-combined across dimensions (same semantics as `--allocator` / `--experiment` in the CLI).
+
+### Inputs
+
+Enter the run **base path** (without extension) — the same value you would pass to `--input` in the CLI.  
+Both `.csv` and `.jsonl` are loaded automatically when present.  
+Use the **Browse…** button to pick a file; the extension is stripped automatically.
+
+---
+
 ## Running the tests
 
 ```bash
@@ -173,5 +227,5 @@ The test suite covers:
 | `numpy`      | Yes      | Array ops (pulled in by matplotlib) |
 | `pytest`     | Dev only | Test runner                      |
 
-Standard library only for all ingestion, validation, reporting, and comparison
-modules (`csv`, `json`, `argparse`, `dataclasses`, `warnings`).
+Standard library only for all ingestion, validation, reporting, comparison,
+and UI modules (`csv`, `json`, `argparse`, `dataclasses`, `warnings`, `tkinter`).
