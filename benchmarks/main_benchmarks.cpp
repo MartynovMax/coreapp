@@ -9,6 +9,7 @@
 #include "runner/cli_parser.hpp"
 #include "experiments/null_experiment.hpp"
 #include "experiments/simple_alloc_experiment.hpp"
+#include "experiments/article1_registry.hpp"
 #include "measurement/measurement_factory.hpp"
 #include <stdio.h>
 
@@ -56,6 +57,10 @@ int main(int argc, char** argv) {
     simpleAllocDesc.description = "A simple allocation/free experiment with phase-based workload model.";
     simpleAllocDesc.factory = &CreateSimpleAllocExperiment;
     registry.Register(simpleAllocDesc);
+
+    // Register Article 1 matrix — 31 scenarios: article1/{allocator}/{lifetime}/{workload}
+    // Run all: coreapp_benchmarks --filter=article1/*
+    RegisterArticle1Matrix(registry);
 
     if (config.showList) {
         u32 count = 0;

@@ -9,6 +9,11 @@ Pipeline:
       →  filters  →  report / compare / plots
 
 Modules:
+  allocator_capabilities
+                      Static capability descriptors for all allocators/arenas
+                      used in the experiment suite (AllocatorKind,
+                      AllocatorCapabilities, ALLOCATOR_REGISTRY,
+                      get_capabilities, list_allocators_with).
   models              Internal domain dataclasses (RunModel, SummaryRecord, …)
   ingest_summary      Load summary.v2 CSV  → list[SummaryRecord]
   ingest_timeseries   Load ts.v2 JSONL     → list[TimeSeriesRecord]
