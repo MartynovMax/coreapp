@@ -30,9 +30,10 @@ struct MetricDescriptor {
 };
 
 namespace Capabilities {
-    constexpr const char* LiveSetTracking = "live_set_tracking";
+    constexpr const char* LiveSetTracking    = "live_set_tracking";
     constexpr const char* AllocationTracking = "allocation_tracking";
-    constexpr const char* TimingAccuracy = "timing_accuracy";
+    constexpr const char* TimingAccuracy     = "timing_accuracy";
+    constexpr const char* FootprintTracking  = "footprint_tracking";
 }
 
 } // namespace bench

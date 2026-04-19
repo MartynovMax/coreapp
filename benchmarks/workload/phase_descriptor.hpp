@@ -41,6 +41,10 @@ using PhaseOperationCallback = void(*)(PhaseContext& ctx, const Operation& op) n
 // Callback for checking phase completion (returns true when phase should end)
 using PhaseCompletionCallback = bool(*)(const PhaseContext& ctx) noexcept;
 
+// Callback for querying allocator footprint (reserved/capacity bytes) at phase end.
+// Returns 0 if footprint is unavailable for this allocator.
+using FootprintCallback = u64(*)(void* userData) noexcept;
+
 // ----------------------------------------------------------------------------
 // PhaseDescriptor - Complete phase description
 // ----------------------------------------------------------------------------
@@ -57,7 +61,8 @@ struct PhaseDescriptor {
     ReclaimCallback reclaimCallback = nullptr;
     PhaseOperationCallback customOperation = nullptr;
     PhaseCompletionCallback completionCheck = nullptr;
-    
+    FootprintCallback footprintCallback = nullptr;  // optional; queried at phase end
+
     u64 maxIterations = 100000;
     
     // Strict metrics validation for customOperation callbacks

@@ -4,6 +4,7 @@
 // =============================================================================
 
 #include "scenario_loader.hpp"
+#include "../common/allocator_capabilities.hpp"
 #include "../runner/experiment_registry.hpp"
 #include "../runner/experiment_descriptor.hpp"
 
@@ -37,12 +38,11 @@ bool ParseLifetimeModel(const std::string& s, LifetimeModel& out) noexcept {
     return false;
 }
 
-// Best-effort: map workload name to enum; unknown names map to FixedSmall (no runtime impact).
-WorkloadProfile ParseWorkloadProfile(const std::string& s) noexcept {
-    if (s == "fixed_small")   return WorkloadProfile::FixedSmall;
-    if (s == "variable_size") return WorkloadProfile::VariableSize;
-    if (s == "churn")         return WorkloadProfile::Churn;
-    return WorkloadProfile::FixedSmall;
+bool ParseWorkloadProfile(const std::string& s, WorkloadProfile& out) noexcept {
+    if (s == "fixed_small")   { out = WorkloadProfile::FixedSmall;   return true; }
+    if (s == "variable_size") { out = WorkloadProfile::VariableSize;  return true; }
+    if (s == "churn")         { out = WorkloadProfile::Churn;         return true; }
+    return false;
 }
 
 const char* AllocatorTypeName(AllocatorType t) noexcept {
@@ -143,7 +143,21 @@ ScenarioLoadResult LoadScenariosFromJson(const char* path) noexcept {
         };
 
         // ----------------------------------------------------------------
-        // 2. Parse scenarios array
+        // 2. Parse top-level defaults (seed, repetitions)
+        // ----------------------------------------------------------------
+
+        u64 defaultSeed        = 0;
+        u32 defaultRepetitions = 0;
+
+        if (root.contains("default_seed") && root["default_seed"].is_number_unsigned()) {
+            defaultSeed = root["default_seed"].get<u64>();
+        }
+        if (root.contains("default_repetitions") && root["default_repetitions"].is_number_unsigned()) {
+            defaultRepetitions = root["default_repetitions"].get<u32>();
+        }
+
+        // ----------------------------------------------------------------
+        // 3. Parse scenarios array
         // ----------------------------------------------------------------
 
         if (!root.contains("scenarios") || !root["scenarios"].is_array()) {
@@ -220,14 +234,34 @@ ScenarioLoadResult LoadScenariosFromJson(const char* path) noexcept {
             cfg.operationCount = prof->operationCount;
             cfg.maxLiveObjects = prof->maxLiveObjects;
             cfg.allocFreeRatio = prof->allocFreeRatio;
-            cfg.workload       = ParseWorkloadProfile(workloadName);
+            if (!ParseWorkloadProfile(workloadName, cfg.workload)) {
+                // findProfile succeeded but ParseWorkloadProfile didn't — should never happen
+                // if both tables are in sync; treat as internal error
+                snprintf(result.errorMessage, sizeof(result.errorMessage),
+                         "Scenario '%s': workload profile '%s' has no enum mapping",
+                         cfg.scenarioName, workloadName.c_str());
+                return result;
+            }
+
+            // --- capability-based compatibility validation ---
+            const char* compatError = ValidateScenarioCompatibility(
+                cfg.allocatorType, cfg.workload, cfg.lifetime);
+            if (compatError != nullptr) {
+                snprintf(result.errorMessage, sizeof(result.errorMessage),
+                         "Scenario '%s': %s", cfg.scenarioName, compatError);
+                return result;
+            }
 
             // --- optional overrides ---
             if (item.contains("seed") && item["seed"].is_number_unsigned()) {
                 cfg.seed = item["seed"].get<u64>();
+            } else if (defaultSeed != 0) {
+                cfg.seed = defaultSeed;
             }
             if (item.contains("repetitions") && item["repetitions"].is_number_unsigned()) {
                 cfg.repetitions = item["repetitions"].get<u32>();
+            } else if (defaultRepetitions != 0) {
+                cfg.repetitions = defaultRepetitions;
             }
             if (item.contains("pool_block_size") && item["pool_block_size"].is_number_unsigned()) {
                 cfg.poolBlockSize = item["pool_block_size"].get<u32>();

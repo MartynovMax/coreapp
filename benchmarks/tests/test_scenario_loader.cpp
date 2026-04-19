@@ -78,6 +78,26 @@ TEST(ScenarioLoaderTest, AllScenariosHaveValidSizeRange) {
     }
 }
 
+TEST(ScenarioLoaderTest, DefaultSeedAppliedToAllScenarios) {
+    ScenarioLoadResult r = LoadScenariosFromJson(kArticle1JsonPath);
+    ASSERT_TRUE(r.ok) << r.errorMessage;
+    for (u32 i = 0; i < r.count; ++i) {
+        EXPECT_GT(r.scenarios[i].seed, 0u)
+            << "scenario '" << r.scenarios[i].scenarioName
+            << "' has seed=0 (default_seed not applied)";
+    }
+}
+
+TEST(ScenarioLoaderTest, DefaultRepetitionsAppliedToAllScenarios) {
+    ScenarioLoadResult r = LoadScenariosFromJson(kArticle1JsonPath);
+    ASSERT_TRUE(r.ok) << r.errorMessage;
+    for (u32 i = 0; i < r.count; ++i) {
+        EXPECT_GT(r.scenarios[i].repetitions, 0u)
+            << "scenario '" << r.scenarios[i].scenarioName
+            << "' has repetitions=0 (default_repetitions not applied)";
+    }
+}
+
 // ---------------------------------------------------------------------------
 // LoadScenariosFromJson — error path
 // ---------------------------------------------------------------------------
@@ -117,6 +137,52 @@ TEST(ScenarioLoaderTest, JsonNamesMatchBuiltInTable) {
         const ExperimentDescriptor* desc = registry.Find(jsonName);
         EXPECT_NE(desc, nullptr)
             << "JSON scenario '" << jsonName << "' not found in C++ table (index " << i << ")";
+    }
+}
+
+// Drift guard: workload profile parameters in JSON match the C++ static table.
+// This catches silent regressions where article1_matrix.json and article1_registry.cpp
+// diverge (e.g. someone updates operation_count in JSON but forgets the C++ constants).
+TEST(ScenarioLoaderTest, JsonProfileParamsMatchBuiltInTable) {
+    ScenarioLoadResult r = LoadScenariosFromJson(kArticle1JsonPath);
+    ASSERT_TRUE(r.ok) << r.errorMessage;
+
+    u32 staticCount = 0;
+    const AllocBenchConfig* staticEntries = GetArticle1MatrixEntries(staticCount);
+    ASSERT_NE(staticEntries, nullptr);
+    ASSERT_EQ(r.count, staticCount)
+        << "JSON and C++ static table have different scenario counts";
+
+    for (u32 i = 0; i < r.count; ++i) {
+        const AllocBenchConfig& json   = r.scenarios[i];
+        const char* name = json.scenarioName;
+
+        // Find matching static entry by name
+        const AllocBenchConfig* found = nullptr;
+        for (u32 j = 0; j < staticCount; ++j) {
+            if (staticEntries[j].scenarioName &&
+                strcmp(staticEntries[j].scenarioName, name) == 0) {
+                found = &staticEntries[j];
+                break;
+            }
+        }
+        ASSERT_NE(found, nullptr) << "JSON scenario '" << name
+            << "' not found in C++ static table — names are out of sync";
+
+        EXPECT_EQ(json.sizeMin,        found->sizeMin)
+            << "sizeMin mismatch for '" << name << "'";
+        EXPECT_EQ(json.sizeMax,        found->sizeMax)
+            << "sizeMax mismatch for '" << name << "'";
+        EXPECT_EQ(json.operationCount, found->operationCount)
+            << "operationCount mismatch for '" << name << "'";
+        EXPECT_EQ(json.maxLiveObjects, found->maxLiveObjects)
+            << "maxLiveObjects mismatch for '" << name << "'";
+        EXPECT_NEAR(json.allocFreeRatio, found->allocFreeRatio, 1e-4f)
+            << "allocFreeRatio mismatch for '" << name << "'";
+        EXPECT_EQ(json.allocatorType,  found->allocatorType)
+            << "allocatorType mismatch for '" << name << "'";
+        EXPECT_EQ(json.lifetime,       found->lifetime)
+            << "lifetime mismatch for '" << name << "'";
     }
 }
 

@@ -38,6 +38,10 @@ private:
         u64 peakLiveBytes;
         u64 finalLiveCount;
         u64 finalLiveBytes;
+        u64 failedAllocCount;
+        u64 reservedBytes;
+        f64 throughputOpsPerSec;
+        f64 throughputBytesPerSec;
         bool hasPeakMetrics;
     };
 
@@ -45,7 +49,7 @@ private:
     bool _hasData;
 
     static const MetricDescriptor _descriptors[];
-    static constexpr u32 _descriptorCount = 8;
+    static constexpr u32 _descriptorCount = 12;
 };
 
 } // namespace bench

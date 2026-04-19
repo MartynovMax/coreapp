@@ -60,22 +60,30 @@ int main(int argc, char** argv) {
     registry.Register(simpleAllocDesc);
 
     // Register Article 1 matrix — 31 scenarios: article1/{allocator}/{lifetime}/{workload}
-    // If --config is given the JSON file replaces (not extends) the built-in table.
-    if (config.hasExplicitConfig) {
-        ScenarioLoadResult loaded = LoadScenariosFromJson(config.scenarioConfigPath);
-        if (!loaded.ok) {
-            printf("Error: failed to load scenario config '%s': %s\n",
-                   config.scenarioConfigPath, loaded.errorMessage);
-            return kInvalidArgs;
-        }
+    //
+    // JSON is the canonical source of truth. The built-in C++ static table is a fallback
+    // used only when the JSON file cannot be loaded (e.g. running from a different directory).
+    //
+    // --config <path>  overrides the default JSON path.
+    static constexpr const char* kDefaultMatrixJson = "config/article1_matrix.json";
+    const char* matrixPath = config.hasExplicitConfig ? config.scenarioConfigPath : kDefaultMatrixJson;
+
+    ScenarioLoadResult loaded = LoadScenariosFromJson(matrixPath);
+    if (loaded.ok) {
         for (u32 i = 0; i < loaded.count; ++i) {
             RegisterLoadedScenario(registry, loaded.scenarios[i]);
         }
-        printf("[main] Loaded %u scenario(s) from %s\n",
-               loaded.count, config.scenarioConfigPath);
+        printf("[main] Loaded %u scenario(s) from %s\n", loaded.count, matrixPath);
+    } else if (config.hasExplicitConfig) {
+        // Explicit --config must succeed; bail out.
+        printf("Error: failed to load scenario config '%s': %s\n",
+               config.scenarioConfigPath, loaded.errorMessage);
+        return kInvalidArgs;
     } else {
-        // Default: use the built-in C++ table
-        // Run all: coreapp_benchmarks --filter=article1/*
+        // Default JSON not found — fall back to built-in C++ table.
+        // Note: the static table does not apply default_seed / default_repetitions from JSON.
+        printf("[main] Warning: could not load '%s' (%s) — using built-in static matrix.\n",
+               kDefaultMatrixJson, loaded.errorMessage);
         RegisterArticle1Matrix(registry);
     }
 

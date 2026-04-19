@@ -367,6 +367,9 @@ void PhaseExecutor::Execute() {
         evt.data.phaseComplete.totalFreeCount = _stats.totalFreeCount;
         evt.data.phaseComplete.totalBytesFreed = _stats.totalBytesFreed;
         evt.data.phaseComplete.failedAllocCount = _stats.failedAllocCount;
+        evt.data.phaseComplete.reservedBytes = _desc.footprintCallback
+            ? _desc.footprintCallback(_desc.userData)
+            : 0u;
         evt.data.phaseComplete.opsPerSec = durationNs > 0 ? static_cast<f64>(_stats.issuedOpCount) * 1e9 / static_cast<f64>(durationNs) : 0.0;
         evt.data.phaseComplete.throughput = durationNs > 0 ? static_cast<f64>(_stats.bytesAllocated) * 1e9 / static_cast<f64>(durationNs) : 0.0;
         busSink->OnEvent(evt);

@@ -52,6 +52,33 @@ const MetricDescriptor CounterMeasurementSystem::_descriptors[] = {
         .classification = MetricClassification::Exact,
         .capability = nullptr,
     },
+    // Throughput
+    {
+        .name = "counter.throughput_ops_per_sec",
+        .unit = "ops/sec",
+        .classification = MetricClassification::Exact,
+        .capability = nullptr,
+    },
+    {
+        .name = "counter.throughput_bytes_per_sec",
+        .unit = "bytes/sec",
+        .classification = MetricClassification::Exact,
+        .capability = nullptr,
+    },
+    // Failure
+    {
+        .name = "counter.failed_alloc_count",
+        .unit = "count",
+        .classification = MetricClassification::Exact,
+        .capability = nullptr,
+    },
+    // Footprint
+    {
+        .name = "counter.reserved_bytes",
+        .unit = "bytes",
+        .classification = MetricClassification::Optional,
+        .capability = Capabilities::FootprintTracking,
+    },
 };
 
 CounterMeasurementSystem::CounterMeasurementSystem() noexcept
@@ -83,6 +110,10 @@ void CounterMeasurementSystem::OnEvent(const Event& event) noexcept {
             _counters.peakLiveBytes = payload.peakLiveBytes;
             _counters.finalLiveCount = payload.finalLiveCount;
             _counters.finalLiveBytes = payload.finalLiveBytes;
+            _counters.failedAllocCount = payload.failedAllocCount;
+            _counters.reservedBytes = payload.reservedBytes;
+            _counters.throughputOpsPerSec = payload.opsPerSec;
+            _counters.throughputBytesPerSec = payload.throughput;
 
             // Check if peak metrics are valid (non-zero indicates tracking was active)
             _counters.hasPeakMetrics = (payload.peakLiveCount > 0 || payload.peakLiveBytes > 0);
@@ -129,6 +160,20 @@ void CounterMeasurementSystem::PublishMetrics(MetricCollector& collector) noexce
     // Publish final live-set metrics (exact)
     collector.PublishFromDescriptor(_descriptors[6], MetricValue::FromU64(_counters.finalLiveCount));
     collector.PublishFromDescriptor(_descriptors[7], MetricValue::FromU64(_counters.finalLiveBytes));
+
+    // Publish throughput
+    collector.PublishFromDescriptor(_descriptors[8], MetricValue::FromF64(_counters.throughputOpsPerSec));
+    collector.PublishFromDescriptor(_descriptors[9], MetricValue::FromF64(_counters.throughputBytesPerSec));
+
+    // Publish failure count
+    collector.PublishFromDescriptor(_descriptors[10], MetricValue::FromU64(_counters.failedAllocCount));
+
+    // Publish footprint (optional: NA if not available for this allocator)
+    if (_counters.reservedBytes > 0) {
+        collector.PublishFromDescriptor(_descriptors[11], MetricValue::FromU64(_counters.reservedBytes));
+    } else {
+        collector.RegisterMetric(_descriptors[11]); // NA
+    }
 }
 
 } // namespace bench

@@ -190,6 +190,72 @@ TEST(MeasurementSystemsTest, CounterSystemPublishesExactMetrics) {
     EXPECT_TRUE(peakLive->value.IsNA());
 }
 
+TEST(MeasurementSystemsTest, CounterSystemPublishesThroughputAndFailures) {
+    CounterMeasurementSystem counter;
+    MetricCollector collector;
+
+    counter.OnRunStart("test", 0, 1);
+
+    Event evt{};
+    evt.type = EventType::PhaseComplete;
+    evt.experimentName = "test";
+    evt.phaseName = "phase1";
+    evt.repetitionId = 1;
+    evt.data.phaseComplete.allocCount = 1000;
+    evt.data.phaseComplete.freeCount = 900;
+    evt.data.phaseComplete.bytesAllocated = 32000;
+    evt.data.phaseComplete.bytesFreed = 28800;
+    evt.data.phaseComplete.finalLiveCount = 100;
+    evt.data.phaseComplete.finalLiveBytes = 3200;
+    evt.data.phaseComplete.failedAllocCount = 3;
+    evt.data.phaseComplete.opsPerSec = 1234567.0;
+    evt.data.phaseComplete.throughput = 9876543.0;
+    evt.data.phaseComplete.reservedBytes = 0; // not available for malloc
+
+    counter.OnEvent(evt);
+    counter.PublishMetrics(collector);
+
+    const MetricEntry* throughput = collector.FindMetric("counter.throughput_ops_per_sec");
+    ASSERT_NE(throughput, nullptr);
+    EXPECT_DOUBLE_EQ(throughput->value.AsF64(), 1234567.0);
+
+    const MetricEntry* bytesPerSec = collector.FindMetric("counter.throughput_bytes_per_sec");
+    ASSERT_NE(bytesPerSec, nullptr);
+    EXPECT_DOUBLE_EQ(bytesPerSec->value.AsF64(), 9876543.0);
+
+    const MetricEntry* failed = collector.FindMetric("counter.failed_alloc_count");
+    ASSERT_NE(failed, nullptr);
+    EXPECT_EQ(failed->value.AsU64(), 3u);
+
+    // reserved_bytes = 0 → should be NA
+    const MetricEntry* reserved = collector.FindMetric("counter.reserved_bytes");
+    ASSERT_NE(reserved, nullptr);
+    EXPECT_TRUE(reserved->value.IsNA());
+}
+
+TEST(MeasurementSystemsTest, CounterSystemPublishesReservedBytesWhenAvailable) {
+    CounterMeasurementSystem counter;
+    MetricCollector collector;
+
+    counter.OnRunStart("test", 0, 1);
+
+    Event evt{};
+    evt.type = EventType::PhaseComplete;
+    evt.experimentName = "test";
+    evt.phaseName = "phase1";
+    evt.repetitionId = 1;
+    evt.data.phaseComplete.allocCount = 500;
+    evt.data.phaseComplete.reservedBytes = 1048576; // 1 MB arena
+
+    counter.OnEvent(evt);
+    counter.PublishMetrics(collector);
+
+    const MetricEntry* reserved = collector.FindMetric("counter.reserved_bytes");
+    ASSERT_NE(reserved, nullptr);
+    EXPECT_FALSE(reserved->value.IsNA());
+    EXPECT_EQ(reserved->value.AsU64(), 1048576u);
+}
+
 TEST(MeasurementSystemsTest, SnapshotSystemCapturesTicks) {
     SnapshotMeasurementSystem snapshot(1); // Every tick
     MetricCollector collector;

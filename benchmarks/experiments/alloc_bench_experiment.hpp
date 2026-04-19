@@ -41,6 +41,9 @@ enum class WorkloadProfile {
 // ----------------------------------------------------------------------------
 
 struct AllocBenchConfig {
+    // scenario_id: this field is the stable unique key used as a join key across runs.
+    // Do NOT rename scenarios between runs — downstream analysis uses this name.
+    // Format: "article1/{allocator}/{lifetime}/{workload}"
     const char*     scenarioName   = nullptr;  // e.g. "article1/malloc/fifo/fixed_small"
     AllocatorType   allocatorType  = AllocatorType::Malloc;
     LifetimeModel   lifetime       = LifetimeModel::Fifo;
@@ -84,6 +87,12 @@ public:
     [[nodiscard]] const char* AllocatorName() const noexcept override;
 
     void AttachEventSink(IEventSink* sink) noexcept override { _eventSink = sink; }
+
+    // Returns allocator-specific reserved/capacity bytes; 0 if not available.
+    [[nodiscard]] u64 QueryFootprint() const noexcept;
+
+    // FootprintCallback trampoline: userData must be AllocBenchExperiment*.
+    static u64 FootprintQueryCallback(void* userData) noexcept;
 
 private:
     AllocBenchConfig _config;

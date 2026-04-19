@@ -7,6 +7,7 @@
 
 #include <new>
 
+#include "../common/allocator_capabilities.hpp"
 #include "../runner/experiment_params.hpp"
 #include "../workload/phase_descriptor.hpp"
 #include "../workload/phase_executor.hpp"
@@ -55,21 +56,23 @@ void RunPhaseOnce(
     ReclaimCallback         reclaimCallback     = nullptr,
     PhaseOperationCallback  customOperation     = nullptr,
     PhaseCompletionCallback completionCheck     = nullptr,
-    void*                   userData            = nullptr) noexcept
+    void*                   userData            = nullptr,
+    FootprintCallback       footprintCallback   = nullptr) noexcept
 {
     ASSERT(allocator != nullptr);
 
     PhaseDescriptor desc{};
-    desc.name           = phaseName;
-    desc.experimentName = experimentName;
-    desc.type           = phaseType;
-    desc.repetitionId   = repetitionId;
-    desc.params         = params;
-    desc.reclaimMode    = reclaimMode;
+    desc.name             = phaseName;
+    desc.experimentName   = experimentName;
+    desc.type             = phaseType;
+    desc.repetitionId     = repetitionId;
+    desc.params           = params;
+    desc.reclaimMode      = reclaimMode;
     desc.reclaimCallback  = reclaimCallback;
     desc.customOperation  = customOperation;
     desc.completionCheck  = completionCheck;
     desc.userData         = userData;
+    desc.footprintCallback = footprintCallback;
 
     SeededRNG rng(params.seed);
     PhaseContext ctx{};
@@ -136,6 +139,30 @@ const char* AllocBenchExperiment::AllocatorName() const noexcept {
     return "unknown";
 }
 
+u64 AllocBenchExperiment::QueryFootprint() const noexcept {
+    switch (_config.allocatorType) {
+        case AllocatorType::Malloc:
+            return 0; // malloc has no capacity introspection
+        case AllocatorType::MonotonicArena:
+            return _arena ? static_cast<u64>(_arena->Capacity()) : 0u;
+        case AllocatorType::Pool:
+            return _pool ? static_cast<u64>(_pool->CapacityBytes()) : 0u;
+        case AllocatorType::SegregatedList: {
+            if (!_segregated) return 0u;
+            u64 total = 0;
+            for (u32 i = 0; i < _segregated->SizeClassCount(); ++i) {
+                total += static_cast<u64>(_segregated->ClassCapacityBytes(i));
+            }
+            return total;
+        }
+    }
+    return 0;
+}
+
+u64 AllocBenchExperiment::FootprintQueryCallback(void* userData) noexcept {
+    return static_cast<const AllocBenchExperiment*>(userData)->QueryFootprint();
+}
+
 // Setup / Teardown helpers ---------------------------------------------------
 
 void AllocBenchExperiment::SetupAllocator() noexcept {
@@ -191,11 +218,11 @@ void AllocBenchExperiment::Setup(const ExperimentParams& params) {
 
     SetupAllocator();
 
-    const bool _isLongLivedOrArena =
+    const bool isResetOnlyOrLongLived =
         (_config.lifetime == LifetimeModel::LongLived) ||
-        (_config.allocatorType == AllocatorType::MonotonicArena);
+        IsResetOnly(_config.allocatorType);
     const u64 _totalAllocCapacity = (u64)_config.maxLiveObjects + _config.operationCount + 512;
-    const u32 trackerCapacity = _isLongLivedOrArena
+    const u32 trackerCapacity = isResetOnlyOrLongLived
         ? static_cast<u32>(_totalAllocCapacity > 0x7FFFFFFFu ? 0x7FFFFFFFu : _totalAllocCapacity)
         : _config.maxLiveObjects + (_config.maxLiveObjects / 2) + 512;
     _trackerMem = core::GetDefaultAllocator().Allocate(core::AllocationRequest{
@@ -242,9 +269,9 @@ void AllocBenchExperiment::RunPhases(u32 repetitionIndex) {
     ASSERT(_allocator != nullptr);
     ASSERT(_sharedTracker != nullptr && _sharedTracker->isValid());
 
-    const bool isArena    = (_config.allocatorType == AllocatorType::MonotonicArena);
+    const bool isResetOnly = IsResetOnly(_config.allocatorType);
     const bool isLongLived = (_config.lifetime == LifetimeModel::LongLived);
-    const f32  steadyRatio = (isArena || isLongLived) ? 1.0f : _config.allocFreeRatio;
+    const f32  steadyRatio = (isResetOnly || isLongLived) ? 1.0f : _config.allocFreeRatio;
 
     // --- Phase 1: RampUp — fill the live set ---
     WorkloadParams ramp{};
@@ -265,7 +292,7 @@ void AllocBenchExperiment::RunPhases(u32 repetitionIndex) {
     WorkloadParams steady{};
     steady.seed           = _seed + 100;
     steady.operationCount = _config.operationCount;
-    steady.maxLiveObjects = (isLongLived || isArena) ? 0u : _config.maxLiveObjects;
+    steady.maxLiveObjects = (isLongLived || isResetOnly) ? 0u : _config.maxLiveObjects;
     steady.allocFreeRatio = steadyRatio;
     steady.lifetimeModel  = _config.lifetime;
     steady.sizeDistribution = SizeDistribution{
@@ -290,9 +317,14 @@ void AllocBenchExperiment::RunPhases(u32 repetitionIndex) {
 
     RunPhaseOnce(_allocator, _eventSink, "Steady", Name(),
                  PhaseType::Steady, repetitionIndex,
-                 steady, ReclaimMode::None, _sharedTracker);
+                 steady, ReclaimMode::None, _sharedTracker,
+                 /*reclaimCallback=*/nullptr,
+                 /*customOperation=*/nullptr,
+                 /*completionCheck=*/nullptr,
+                 /*userData=*/this,
+                 /*footprintCallback=*/AllocBenchExperiment::FootprintQueryCallback);
 
-    if (isArena) {
+    if (isResetOnly) {
         // Arena reclaim: capture metrics, clear tracker, then Reset()
         RunPhaseOnce(_allocator, _eventSink, "BulkReclaim", Name(),
                      PhaseType::BulkReclaim, repetitionIndex,

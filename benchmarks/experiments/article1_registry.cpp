@@ -183,6 +183,11 @@ void RegisterArticle1Matrix(ExperimentRegistry& registry) noexcept {
     }
 }
 
+const AllocBenchConfig* GetArticle1MatrixEntries(u32& count) noexcept {
+    count = kArticle1MatrixCount;
+    return kArticle1Matrix;
+}
+
 } // namespace core::bench
 
 
