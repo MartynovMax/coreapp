@@ -65,6 +65,11 @@ public:
     memory_size ClassUsedBlocks(u32 classIndex) const noexcept;
     memory_size ClassCapacityBytes(u32 classIndex) const noexcept;
 
+    // Fallback allocation counter: incremented whenever an allocation is
+    // routed to the fallback allocator (oversized, alignment mismatch, pool full).
+    u64 FallbackCount() const noexcept { return _fallbackCount; }
+    void ResetFallbackCount() noexcept { _fallbackCount = 0; }
+
 private:
 
     u32 SelectSizeClass(memory_size size) const noexcept;
@@ -74,6 +79,7 @@ private:
     memory_size _maxClassSize;
     IAllocator* _upstream;
     IAllocator* _fallback;
+    u64 _fallbackCount = 0;
 };
 
 } // namespace core

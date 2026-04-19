@@ -60,12 +60,14 @@ void CsvSummaryWriter::WriteHeader() noexcept {
 
     // Run identifiers
     fprintf(_file, "run_id,");
+    fprintf(_file, "scenario_id,");
     fprintf(_file, "experiment_name,");
     fprintf(_file, "experiment_category,");
     fprintf(_file, "allocator,");
     fprintf(_file, "seed,");
     fprintf(_file, "warmup_iterations,");
     fprintf(_file, "measured_repetitions,");
+    fprintf(_file, "params_hash,");
 
     // Environment and build metadata
     fprintf(_file, "run_timestamp_utc,");
@@ -100,15 +102,26 @@ void CsvSummaryWriter::WriteHeader() noexcept {
 
     // Derived metrics
     fprintf(_file, "ops_per_sec_mean,");
-    fprintf(_file, "throughput_bytes_per_sec_mean");
+    fprintf(_file, "throughput_bytes_per_sec_mean,");
+
+    // Failure metrics
+    fprintf(_file, "failed_alloc_count,");
+    fprintf(_file, "fallback_count,");
+
+    // Footprint metrics
+    fprintf(_file, "reserved_bytes,");
+
+    // Overhead proxy metrics (fragmentation / memory amplification)
+    fprintf(_file, "overhead_ratio,");         // reserved_bytes / peak_live_bytes
+    fprintf(_file, "overhead_ratio_req");      // reserved_bytes / requested_bytes
 
     fprintf(_file, "\n");
 }
 
 void CsvSummaryWriter::WriteRow(const MetricCollector& collector) noexcept {
     // Schema version
-    fprintf(_file, "summary.v2,");
-    
+    fprintf(_file, "summary.v4,");
+
     // Run validity (protocol requirement)
     fprintf(_file, "%s,", RunStatusToString(_metadata.status));
     fprintf(_file, "%s,", FailureClassToString(_metadata.failureClass));
@@ -116,6 +129,12 @@ void CsvSummaryWriter::WriteRow(const MetricCollector& collector) noexcept {
     // Run identifiers
     if (_metadata.runId != nullptr) {
         fprintf(_file, "%s,", _metadata.runId);
+    } else {
+        fprintf(_file, ",");
+    }
+
+    if (_metadata.scenarioId != nullptr) {
+        fprintf(_file, "%s,", _metadata.scenarioId);
     } else {
         fprintf(_file, ",");
     }
@@ -141,6 +160,7 @@ void CsvSummaryWriter::WriteRow(const MetricCollector& collector) noexcept {
     fprintf(_file, "%llu,", static_cast<unsigned long long>(_metadata.seed));
     fprintf(_file, "%u,", _metadata.warmupIterations);
     fprintf(_file, "%u,", _metadata.measuredRepetitions);
+    fprintf(_file, "%08x,", static_cast<unsigned int>(_metadata.paramsHash));
 
     // Environment and build metadata
     fprintf(_file, "%s,", _metadata.runTimestampUtc);
@@ -173,8 +193,28 @@ void CsvSummaryWriter::WriteRow(const MetricCollector& collector) noexcept {
     WriteMetricValue(collector, "counter.final_live_count");
     WriteMetricValue(collector, "counter.final_live_bytes");
 
-    fprintf(_file, ",");  // ops_per_sec_mean
-    fprintf(_file, "");   // throughput_bytes_per_sec_mean (last column, no comma)
+    // Derived metrics
+    WriteMetricValue(collector, "counter.throughput_ops_per_sec");
+    WriteMetricValue(collector, "counter.throughput_bytes_per_sec");
+
+    // Failure metrics
+    WriteMetricValue(collector, "counter.failed_alloc_count");
+    WriteMetricValue(collector, "counter.fallback_count");
+
+    // Footprint metrics
+    WriteMetricValue(collector, "counter.reserved_bytes");
+
+    // Overhead proxy metrics (last two columns — no trailing comma after the last)
+    WriteMetricValue(collector, "counter.overhead_ratio");
+    {
+        const MetricEntry* entry = collector.FindMetric("counter.overhead_ratio_req");
+        if (entry != nullptr && !entry->value.IsNA()) {
+            if (entry->value.IsF64()) {
+                fprintf(_file, "%.6f", entry->value.AsF64());
+            }
+        }
+        // else: empty (NA)
+    }
 
     fprintf(_file, "\n");
 }

@@ -76,15 +76,18 @@ void* SegregatedListAllocator::Allocate(const AllocationRequest& request) noexce
     const memory_alignment reqAlignment = detail::NormalizeAlignment(request.alignment);
 
     if (reqAlignment > CORE_DEFAULT_ALIGNMENT) {
+        ++_fallbackCount;
         return _fallback->Allocate(request);
     }
 
     if (request.size > _maxClassSize) {
+        ++_fallbackCount;
         return _fallback->Allocate(request);
     }
 
     u32 classIndex = SelectSizeClass(request.size);
     if (classIndex == kInvalidClass) {
+        ++_fallbackCount;
         return _fallback->Allocate(request);
     }
 
@@ -96,6 +99,7 @@ void* SegregatedListAllocator::Allocate(const AllocationRequest& request) noexce
     void* ptr = _classes[classIndex].pool->Allocate(request);
     
     if (ptr == nullptr) {
+        ++_fallbackCount;
         return _fallback->Allocate(request);
     }
 

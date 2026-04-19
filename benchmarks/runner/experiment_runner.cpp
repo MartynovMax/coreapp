@@ -283,6 +283,7 @@ ExitCode ExperimentRunner::Run(const RunConfig& config) noexcept {
             RunMetadata updatedMetadata;
             updatedMetadata.runId = runIdBuffer;
             updatedMetadata.scenarioId = scenarioIdBuffer;
+            updatedMetadata.paramsHash = desc->paramsHash;
             updatedMetadata.experimentName = desc->name;
             updatedMetadata.experimentCategory = desc->category;
             updatedMetadata.allocatorName = desc->allocatorName;

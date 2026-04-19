@@ -33,6 +33,7 @@ const char* FailureClassToString(FailureClass fc) noexcept;
 struct RunMetadata {
     const char* runId = nullptr;              // Unique run identifier (timestamp-based)
     const char* scenarioId = nullptr;         // Stable deterministic id: "<name>|seed=<N>|reps=<R>"
+    u32 paramsHash = 0;                       // FNV-1a hash of scenario workload params (drift detection)
     const char* experimentName = nullptr;     // Experiment name
     const char* experimentCategory = nullptr; // Experiment category
     const char* allocatorName = nullptr;      // Allocator being tested

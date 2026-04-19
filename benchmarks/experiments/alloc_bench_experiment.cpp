@@ -57,7 +57,8 @@ void RunPhaseOnce(
     PhaseOperationCallback  customOperation     = nullptr,
     PhaseCompletionCallback completionCheck     = nullptr,
     void*                   userData            = nullptr,
-    FootprintCallback       footprintCallback   = nullptr) noexcept
+    FootprintCallback       footprintCallback   = nullptr,
+    FallbackCountCallback   fallbackCountCallback = nullptr) noexcept
 {
     ASSERT(allocator != nullptr);
 
@@ -73,6 +74,7 @@ void RunPhaseOnce(
     desc.completionCheck  = completionCheck;
     desc.userData         = userData;
     desc.footprintCallback = footprintCallback;
+    desc.fallbackCountCallback = fallbackCountCallback;
 
     SeededRNG rng(params.seed);
     PhaseContext ctx{};
@@ -161,6 +163,17 @@ u64 AllocBenchExperiment::QueryFootprint() const noexcept {
 
 u64 AllocBenchExperiment::FootprintQueryCallback(void* userData) noexcept {
     return static_cast<const AllocBenchExperiment*>(userData)->QueryFootprint();
+}
+
+u64 AllocBenchExperiment::QueryFallbackCount() const noexcept {
+    if (_config.allocatorType == AllocatorType::SegregatedList && _segregated) {
+        return _segregated->FallbackCount();
+    }
+    return 0;
+}
+
+u64 AllocBenchExperiment::FallbackCountQueryCallback(void* userData) noexcept {
+    return static_cast<const AllocBenchExperiment*>(userData)->QueryFallbackCount();
 }
 
 // Setup / Teardown helpers ---------------------------------------------------
@@ -311,6 +324,12 @@ void AllocBenchExperiment::RunPhases(u32 repetitionIndex) {
 
     _sharedTracker->Clear();
 
+    // Reset fallback counter before the measured Steady phase so warmup
+    // and RampUp fallbacks don't pollute the per-run metric.
+    if (_segregated) {
+        _segregated->ResetFallbackCount();
+    }
+
     RunPhaseOnce(_allocator, _eventSink, "RampUp", Name(),
                  PhaseType::RampUp, repetitionIndex,
                  ramp, ReclaimMode::None, _sharedTracker);
@@ -322,7 +341,9 @@ void AllocBenchExperiment::RunPhases(u32 repetitionIndex) {
                  /*customOperation=*/nullptr,
                  /*completionCheck=*/nullptr,
                  /*userData=*/this,
-                 /*footprintCallback=*/AllocBenchExperiment::FootprintQueryCallback);
+                 /*footprintCallback=*/AllocBenchExperiment::FootprintQueryCallback,
+                 /*fallbackCountCallback=*/(_config.allocatorType == AllocatorType::SegregatedList)
+                     ? AllocBenchExperiment::FallbackCountQueryCallback : nullptr);
 
     if (isResetOnly) {
         // Arena reclaim: capture metrics, clear tracker, then Reset()

@@ -91,8 +91,14 @@ public:
     // Returns allocator-specific reserved/capacity bytes; 0 if not available.
     [[nodiscard]] u64 QueryFootprint() const noexcept;
 
+    // Returns segregated_list fallback allocation count since last reset; 0 for other allocators.
+    [[nodiscard]] u64 QueryFallbackCount() const noexcept;
+
     // FootprintCallback trampoline: userData must be AllocBenchExperiment*.
     static u64 FootprintQueryCallback(void* userData) noexcept;
+
+    // FallbackCountCallback trampoline: userData must be AllocBenchExperiment*.
+    static u64 FallbackCountQueryCallback(void* userData) noexcept;
 
 private:
     AllocBenchConfig _config;
@@ -125,6 +131,25 @@ private:
     static void ArenaReclaimCallback(PhaseContext& ctx)    noexcept;
     static void StandardReclaimCallback(PhaseContext& ctx) noexcept;
 };
+
+// Compute a stable 32-bit FNV-1a hash of scenario workload parameters.
+// Use this to detect silent drift when scenario names stay the same but
+// parameters change between runs.
+inline constexpr u32 ComputeAllocBenchParamsHash(const AllocBenchConfig& cfg) noexcept {
+    u32 h = 2166136261u;
+    auto mix = [&](u32 v) noexcept { h = (h ^ v) * 16777619u; };
+    mix(static_cast<u32>(cfg.allocatorType));
+    mix(static_cast<u32>(cfg.lifetime));
+    mix(static_cast<u32>(cfg.workload));
+    mix(cfg.sizeMin);
+    mix(cfg.sizeMax);
+    mix(static_cast<u32>(cfg.operationCount & 0xFFFFFFFFu));
+    mix(static_cast<u32>(cfg.operationCount >> 32));
+    mix(cfg.maxLiveObjects);
+    // Encode allocFreeRatio as fixed-point (4 decimal places) to avoid FP reinterpret_cast
+    mix(static_cast<u32>(cfg.allocFreeRatio * 10000.0f + 0.5f));
+    return h;
+}
 
 } // namespace core::bench
 

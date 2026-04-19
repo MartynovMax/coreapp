@@ -7,7 +7,6 @@
 #include "../common/allocator_capabilities.hpp"
 #include "../runner/experiment_registry.hpp"
 #include "../runner/experiment_descriptor.hpp"
-
 #include <nlohmann/json.hpp>
 #include <fstream>
 #include <string>
@@ -234,6 +233,38 @@ ScenarioLoadResult LoadScenariosFromJson(const char* path) noexcept {
             cfg.operationCount = prof->operationCount;
             cfg.maxLiveObjects = prof->maxLiveObjects;
             cfg.allocFreeRatio = prof->allocFreeRatio;
+
+            // --- numeric sanity validation ---
+            if (cfg.sizeMin < 1) {
+                snprintf(result.errorMessage, sizeof(result.errorMessage),
+                         "Scenario '%s': sizeMin must be >= 1 (got %u)",
+                         cfg.scenarioName, cfg.sizeMin);
+                return result;
+            }
+            if (cfg.sizeMax < cfg.sizeMin) {
+                snprintf(result.errorMessage, sizeof(result.errorMessage),
+                         "Scenario '%s': sizeMax (%u) must be >= sizeMin (%u)",
+                         cfg.scenarioName, cfg.sizeMax, cfg.sizeMin);
+                return result;
+            }
+            if (cfg.operationCount == 0) {
+                snprintf(result.errorMessage, sizeof(result.errorMessage),
+                         "Scenario '%s': operation_count must be > 0",
+                         cfg.scenarioName);
+                return result;
+            }
+            if (cfg.maxLiveObjects == 0) {
+                snprintf(result.errorMessage, sizeof(result.errorMessage),
+                         "Scenario '%s': max_live_objects must be > 0",
+                         cfg.scenarioName);
+                return result;
+            }
+            if (!(cfg.allocFreeRatio >= 0.0f && cfg.allocFreeRatio <= 1.0f)) {
+                snprintf(result.errorMessage, sizeof(result.errorMessage),
+                         "Scenario '%s': alloc_free_ratio must be in [0.0, 1.0]",
+                         cfg.scenarioName);
+                return result;
+            }
             if (!ParseWorkloadProfile(workloadName, cfg.workload)) {
                 // findProfile succeeded but ParseWorkloadProfile didn't — should never happen
                 // if both tables are in sync; treat as internal error
@@ -365,6 +396,7 @@ void RegisterLoadedScenario(ExperimentRegistry& registry,
     desc.factory         = kDynamicFactories[idx];
     desc.scenarioSeed        = cfg.seed;
     desc.scenarioRepetitions = cfg.repetitions;
+    desc.paramsHash          = ComputeAllocBenchParamsHash(cfg);
 
     registry.Register(desc);
 }

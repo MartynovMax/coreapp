@@ -367,6 +367,9 @@ void PhaseExecutor::Execute() {
         evt.data.phaseComplete.totalFreeCount = _stats.totalFreeCount;
         evt.data.phaseComplete.totalBytesFreed = _stats.totalBytesFreed;
         evt.data.phaseComplete.failedAllocCount = _stats.failedAllocCount;
+        evt.data.phaseComplete.fallbackCount = _desc.fallbackCountCallback
+            ? _desc.fallbackCountCallback(_desc.userData)
+            : 0u;
         evt.data.phaseComplete.reservedBytes = _desc.footprintCallback
             ? _desc.footprintCallback(_desc.userData)
             : 0u;

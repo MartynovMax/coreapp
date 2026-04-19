@@ -45,6 +45,10 @@ using PhaseCompletionCallback = bool(*)(const PhaseContext& ctx) noexcept;
 // Returns 0 if footprint is unavailable for this allocator.
 using FootprintCallback = u64(*)(void* userData) noexcept;
 
+// Callback for querying allocator-specific fallback allocation count at phase end.
+// Returns 0 if not applicable for this allocator.
+using FallbackCountCallback = u64(*)(void* userData) noexcept;
+
 // ----------------------------------------------------------------------------
 // PhaseDescriptor - Complete phase description
 // ----------------------------------------------------------------------------
@@ -61,7 +65,8 @@ struct PhaseDescriptor {
     ReclaimCallback reclaimCallback = nullptr;
     PhaseOperationCallback customOperation = nullptr;
     PhaseCompletionCallback completionCheck = nullptr;
-    FootprintCallback footprintCallback = nullptr;  // optional; queried at phase end
+    FootprintCallback footprintCallback = nullptr;     // optional; queried at phase end
+    FallbackCountCallback fallbackCountCallback = nullptr; // optional; queried at phase end
 
     u64 maxIterations = 100000;
     

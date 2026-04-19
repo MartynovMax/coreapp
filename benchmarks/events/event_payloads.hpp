@@ -60,6 +60,7 @@ struct PhaseCompletePayload {
     u64 totalFreeCount;
     u64 totalBytesFreed;
     u64 failedAllocCount;
+    u64 fallbackCount;   // allocator-specific: times routed to fallback (e.g. segregated_list overflow)
     u64 reservedBytes;   // allocator footprint at phase end; 0 = not available
     f64 opsPerSec;
     f64 throughput;

@@ -27,6 +27,7 @@ struct ExperimentDescriptor {
     // Per-scenario defaults (0 = use global RunConfig value / built-in default)
     u64 scenarioSeed        = 0;            // Default seed for this scenario
     u32 scenarioRepetitions = 0;            // Default repetition count for this scenario
+    u32 paramsHash          = 0;            // FNV-1a hash of workload parameters (drift detection)
 };
 
 } // namespace bench
