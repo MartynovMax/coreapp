@@ -1,6 +1,6 @@
 // =============================================================================
 // scenario_loader.cpp
-// Parses article1_matrix.json (or compatible JSON) → AllocBenchConfig[].
+// Parses a JSON scenario matrix → AllocBenchConfig[].
 // =============================================================================
 
 #include "scenario_loader.hpp"
@@ -142,7 +142,26 @@ ScenarioLoadResult LoadScenariosFromJson(const char* path) noexcept {
         };
 
         // ----------------------------------------------------------------
-        // 2. Parse top-level defaults (seed, repetitions)
+        // 2a. Parse run_prefix (used for output dirs and category)
+        // ----------------------------------------------------------------
+        {
+            std::string runPrefixStr;
+            if (root.contains("run_prefix") && root["run_prefix"].is_string()) {
+                runPrefixStr = root["run_prefix"].get<std::string>();
+            } else {
+                // Derive from filename: "config/article1_matrix.json" -> "article1_matrix"
+                runPrefixStr = path;
+                auto lastSlash = runPrefixStr.find_last_of("/\\");
+                if (lastSlash != std::string::npos) runPrefixStr = runPrefixStr.substr(lastSlash + 1);
+                auto dot = runPrefixStr.find_last_of('.');
+                if (dot != std::string::npos) runPrefixStr = runPrefixStr.substr(0, dot);
+            }
+            snprintf(result.runPrefix, sizeof(result.runPrefix), "%s", runPrefixStr.c_str());
+            snprintf(result.category, sizeof(result.category), "%s", runPrefixStr.c_str());
+        }
+
+        // ----------------------------------------------------------------
+        // 2b. Parse top-level defaults (seed, repetitions)
         // ----------------------------------------------------------------
         // NOTE: seed=0 is treated as "not set" throughout the loader.
         // A JSON value of "default_seed": 0 (or per-scenario "seed": 0) will be
@@ -352,7 +371,7 @@ IExperiment* DynamicFactory() noexcept {
     return AllocBenchExperiment::Create(s_dynamicConfigs[N]);
 }
 
-// Hand-written table of 256 factory shims (same pattern as article1_registry.cpp).
+// Hand-written table of 256 factory shims (same pattern as static_matrix_registry.cpp).
 // Only entries [0 .. s_dynamicCount) are ever called.
 #define F(n) DynamicFactory<n>
 static const ExperimentFactory kDynamicFactories[kMaxDynamicFactories] = {
@@ -394,7 +413,8 @@ static const ExperimentFactory kDynamicFactories[kMaxDynamicFactories] = {
 } // anonymous namespace
 
 void RegisterLoadedScenario(ExperimentRegistry& registry,
-                             const AllocBenchConfig& cfg) noexcept {
+                             const AllocBenchConfig& cfg,
+                             const char* category) noexcept {
     if (s_dynamicCount >= kMaxDynamicFactories) {
         return; // silently ignore overflow; caller should check result.count
     }
@@ -405,7 +425,7 @@ void RegisterLoadedScenario(ExperimentRegistry& registry,
 
     ExperimentDescriptor desc{};
     desc.name            = cfg.scenarioName;
-    desc.category        = "article1";
+    desc.category        = (category != nullptr) ? category : "experiment";
     desc.allocatorName   = AllocatorTypeName(cfg.allocatorType);
     desc.description     = "Loaded from JSON scenario matrix";
     desc.factory         = kDynamicFactories[idx];
@@ -418,6 +438,5 @@ void RegisterLoadedScenario(ExperimentRegistry& registry,
 }
 
 } // namespace core::bench
-
 
 

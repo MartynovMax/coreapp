@@ -9,8 +9,8 @@
 #include "runner/cli_parser.hpp"
 #include "experiments/null_experiment.hpp"
 #include "experiments/simple_alloc_experiment.hpp"
-#include "experiments/article1_registry.hpp"
 #include "config/scenario_loader.hpp"
+#include "runner/batch_runner.hpp"
 #include "measurement/measurement_factory.hpp"
 #include <stdio.h>
 
@@ -22,6 +22,28 @@ extern "C" core::bench::IExperiment* CreateSimpleAllocExperiment();
 int main(int argc, char** argv) {
     printf("[main] Starting up...\n");
 
+    // Build command line string for manifest (quote args containing spaces)
+    static char cmdLineBuffer[2048];
+    {
+        size_t pos = 0;
+        for (int i = 0; i < argc && pos < sizeof(cmdLineBuffer) - 1; ++i) {
+            if (i > 0 && pos < sizeof(cmdLineBuffer) - 1) cmdLineBuffer[pos++] = ' ';
+
+            // Check if argument contains spaces and needs quoting
+            bool needsQuote = false;
+            for (const char* scan = argv[i]; *scan != '\0'; ++scan) {
+                if (*scan == ' ') { needsQuote = true; break; }
+            }
+
+            if (needsQuote && pos < sizeof(cmdLineBuffer) - 1) cmdLineBuffer[pos++] = '"';
+            for (const char* p = argv[i]; *p != '\0' && pos < sizeof(cmdLineBuffer) - 1; ++p) {
+                cmdLineBuffer[pos++] = *p;
+            }
+            if (needsQuote && pos < sizeof(cmdLineBuffer) - 1) cmdLineBuffer[pos++] = '"';
+        }
+        cmdLineBuffer[pos] = '\0';
+    }
+
     // Parse CLI arguments
     CLIParser parser;
     RunConfig config;
@@ -32,6 +54,8 @@ int main(int argc, char** argv) {
         return kInvalidArgs;
     }
 
+    config.commandLine = cmdLineBuffer;
+
     // Show help if requested
     if (config.showHelp) {
         CLIParser::PrintHelp();
@@ -41,7 +65,7 @@ int main(int argc, char** argv) {
     // Create registry
     ExperimentRegistry registry;
 
-    // Register experiments
+    // Register built-in experiments (always available)
     ExperimentDescriptor nullDesc;
     nullDesc.name = "null";
     nullDesc.category = "test";
@@ -50,7 +74,6 @@ int main(int argc, char** argv) {
     nullDesc.factory = &NullExperiment::Create;
     registry.Register(nullDesc);
 
-    // Register SimpleAllocExperiment
     ExperimentDescriptor simpleAllocDesc;
     simpleAllocDesc.name = "simple_alloc";
     simpleAllocDesc.category = "allocation";
@@ -59,32 +82,28 @@ int main(int argc, char** argv) {
     simpleAllocDesc.factory = &CreateSimpleAllocExperiment;
     registry.Register(simpleAllocDesc);
 
-    // Register Article 1 matrix — 31 scenarios: article1/{allocator}/{lifetime}/{workload}
+    // Load scenario matrix from JSON config (if provided)
     //
-    // JSON is the canonical source of truth. The built-in C++ static table is a fallback
-    // used only when the JSON file cannot be loaded (e.g. running from a different directory).
-    //
-    // --config <path>  overrides the default JSON path.
-    static constexpr const char* kDefaultMatrixJson = "config/article1_matrix.json";
-    const char* matrixPath = config.hasExplicitConfig ? config.scenarioConfigPath : kDefaultMatrixJson;
-
-    ScenarioLoadResult loaded = LoadScenariosFromJson(matrixPath);
-    if (loaded.ok) {
-        for (u32 i = 0; i < loaded.count; ++i) {
-            RegisterLoadedScenario(registry, loaded.scenarios[i]);
+    // --config=<path>  is the single entry point for loading experiment matrices.
+    // The JSON file's "run_prefix" field determines the output directory prefix
+    // and experiment category.  CLI --run-prefix overrides it.
+    if (config.scenarioConfigPath != nullptr) {
+        ScenarioLoadResult loaded = LoadScenariosFromJson(config.scenarioConfigPath);
+        if (!loaded.ok) {
+            printf("Error: failed to load scenario config '%s': %s\n",
+                   config.scenarioConfigPath, loaded.errorMessage);
+            return kInvalidArgs;
         }
-        printf("[main] Loaded %u scenario(s) from %s\n", loaded.count, matrixPath);
-    } else if (config.hasExplicitConfig) {
-        // Explicit --config must succeed; bail out.
-        printf("Error: failed to load scenario config '%s': %s\n",
-               config.scenarioConfigPath, loaded.errorMessage);
-        return kInvalidArgs;
-    } else {
-        // Default JSON not found — fall back to built-in C++ table.
-        // Note: the static table does not apply default_seed / default_repetitions from JSON.
-        printf("[main] Warning: could not load '%s' (%s) — using built-in static matrix.\n",
-               kDefaultMatrixJson, loaded.errorMessage);
-        RegisterArticle1Matrix(registry);
+        for (u32 i = 0; i < loaded.count; ++i) {
+            RegisterLoadedScenario(registry, loaded.scenarios[i], loaded.category);
+        }
+        printf("[main] Loaded %u scenario(s) from %s (prefix: %s)\n",
+               loaded.count, config.scenarioConfigPath, loaded.runPrefix);
+
+        // Auto-set runPrefix from config if CLI didn't override
+        if (!config.hasExplicitRunPrefix && loaded.runPrefix[0] != '\0') {
+            config.runPrefix = loaded.runPrefix;
+        }
     }
 
     if (config.showList) {
@@ -99,6 +118,14 @@ int main(int argc, char** argv) {
     }
 
     printf("[main] Creating and running experiments...\n");
+
+    // Batch mode: run all matched scenarios with auto-generated output dirs
+    if (config.batchMode) {
+        BatchRunner batch(registry, config);
+        ExitCode batchExit = batch.Run();
+        printf("[main] Batch done. Exit code: %d\n", batchExit);
+        return batchExit;
+    }
 
     ExperimentRunner runner(registry);
 

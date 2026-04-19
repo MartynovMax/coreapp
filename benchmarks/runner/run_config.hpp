@@ -22,6 +22,8 @@ struct RunConfig {
     bool showList = false;
     bool showHelp = false;
     bool verbose = false;
+    bool batchMode = false;
+    bool dryRun = false;
 
     const char* filter = nullptr;
 
@@ -44,6 +46,11 @@ struct RunConfig {
     bool enableTextOutput = true;
     bool enableTimeSeriesOutput = false;
     bool enableSummaryOutput = false;
+
+    const char* commandLine = "";              // Reconstructed command line for manifest
+
+    const char* runPrefix = nullptr;           // Subdirectory under runs/ — set from JSON "run_prefix" or --run-prefix
+    bool hasExplicitRunPrefix = false;         // True if set via --run-prefix CLI flag
 };
 
 } // namespace bench

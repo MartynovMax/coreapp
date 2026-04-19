@@ -5,7 +5,7 @@
 
 #include "../config/scenario_loader.hpp"
 #include "../runner/experiment_runner.hpp"   // BuildScenarioId (exposed via anonymous ns — tested indirectly)
-#include "../experiments/article1_registry.hpp"
+#include "../experiments/static_matrix_registry.hpp"
 #include "../runner/experiment_registry.hpp"
 #include <gtest/gtest.h>
 #include <cstring>
@@ -141,7 +141,7 @@ TEST(ScenarioLoaderTest, JsonNamesMatchBuiltInTable) {
 }
 
 // Drift guard: workload profile parameters in JSON match the C++ static table.
-// This catches silent regressions where article1_matrix.json and article1_registry.cpp
+// This catches silent regressions where article1_matrix.json and static_matrix_registry.cpp
 // diverge (e.g. someone updates operation_count in JSON but forgets the C++ constants).
 TEST(ScenarioLoaderTest, JsonProfileParamsMatchBuiltInTable) {
     ScenarioLoadResult r = LoadScenariosFromJson(kArticle1JsonPath);

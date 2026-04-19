@@ -163,6 +163,10 @@ ExitCode ExperimentRunner::Run(const RunConfig& config) noexcept {
             metadata.filter = config.filter;
             metadata.startTimestampNs = timer.Now();
 
+            // Manifest fields (Task 8)
+            metadata.commandLine = config.commandLine;
+            metadata.configPath = config.scenarioConfigPath ? config.scenarioConfigPath : "";
+
             CollectEnvironmentMetadata(metadata);
 
             if (!outputManager->Initialize(metadata)) {

@@ -1,15 +1,14 @@
 // =============================================================================
-// article1_registry.cpp
-// Static definition of all 31 Article 1 matrix scenarios + registration.
+// static_matrix_registry.cpp
+// Static definition of all 31 static matrix scenarios + registration.
 //
-// This file is the CODE-LEVEL counterpart of:
-//   benchmarks/config/article1_matrix.json  (source of truth / documentation)
-//   benchmarks/docs/article1_matrix.md      (human-readable reference)
+// This file is the CODE-LEVEL counterpart of the experiment JSON config
+// (e.g. workspace/config/article1_matrix.json).
 //
-// Keep in sync with article1_matrix.json when parameters change.
+// Keep in sync with the JSON config when parameters change.
 // =============================================================================
 
-#include "article1_registry.hpp"
+#include "static_matrix_registry.hpp"
 #include "alloc_bench_experiment.hpp"
 #include "../runner/experiment_registry.hpp"
 #include "../runner/experiment_descriptor.hpp"
@@ -55,7 +54,7 @@ static constexpr Params kChurn        = {  16,  64, 200000,  500, 0.6f };
         0, 0 \
     }
 
-static const AllocBenchConfig kArticle1Matrix[] = {
+static const AllocBenchConfig kStaticMatrix[] = {
 
     // ------------------------------------------------------------------
     // malloc (baseline) — 12 scenarios
@@ -113,24 +112,24 @@ static const AllocBenchConfig kArticle1Matrix[] = {
 
 #undef SCENARIO
 
-static constexpr u32 kArticle1MatrixCount =
-    static_cast<u32>(sizeof(kArticle1Matrix) / sizeof(kArticle1Matrix[0]));
+static constexpr u32 kStaticMatrixCount =
+    static_cast<u32>(sizeof(kStaticMatrix) / sizeof(kStaticMatrix[0]));
 
 // Static assert: must stay in sync with the JSON matrix (31 scenarios)
-static_assert(kArticle1MatrixCount == 31,
-    "article1_matrix: expected exactly 31 scenarios; update JSON and .md if changed");
+static_assert(kStaticMatrixCount == 31,
+    "static_matrix: expected exactly 31 scenarios; update JSON and .md if changed");
 
 // ============================================================================
 // Factory shims — one per scenario index
 // ExperimentFactory is a plain function pointer (no closure), so we use
-// template shims indexed into the static kArticle1Matrix array.
+// template shims indexed into the static kStaticMatrix array.
 // ============================================================================
 
 namespace {
 
 template<u32 N>
 IExperiment* ArticleFactory() noexcept {
-    return AllocBenchExperiment::Create(kArticle1Matrix[N]);
+    return AllocBenchExperiment::Create(kStaticMatrix[N]);
 }
 
 // Explicit factory table — avoids index_sequence complexity
@@ -149,21 +148,35 @@ static const ExperimentFactory kFactories[31] = {
 };
 
 static_assert(sizeof(kFactories)/sizeof(kFactories[0]) == 31,
-    "kFactories must have exactly 31 entries matching kArticle1Matrix");
+    "kFactories must have exactly 31 entries matching kStaticMatrix");
 
 } // namespace
 
 // ============================================================================
-// RegisterArticle1Matrix
+// RegisterStaticMatrix
 // ============================================================================
 
-void RegisterArticle1Matrix(ExperimentRegistry& registry) noexcept {
-    for (u32 i = 0; i < kArticle1MatrixCount; ++i) {
-        const AllocBenchConfig& cfg = kArticle1Matrix[i];
+void RegisterStaticMatrix(ExperimentRegistry& registry) noexcept {
+    for (u32 i = 0; i < kStaticMatrixCount; ++i) {
+        const AllocBenchConfig& cfg = kStaticMatrix[i];
 
         ExperimentDescriptor desc{};
         desc.name          = cfg.scenarioName;
-        desc.category      = "article1";
+
+        // Derive category from first path segment of scenario name (e.g. "article1/..." → "article1")
+        static thread_local char categoryBuf[64];
+        const char* slash = nullptr;
+        for (const char* p = cfg.scenarioName; *p; ++p) {
+            if (*p == '/') { slash = p; break; }
+        }
+        if (slash && (slash - cfg.scenarioName) < 63) {
+            const auto len = static_cast<u32>(slash - cfg.scenarioName);
+            for (u32 c = 0; c < len; ++c) categoryBuf[c] = cfg.scenarioName[c];
+            categoryBuf[len] = '\0';
+            desc.category = categoryBuf;
+        } else {
+            desc.category = cfg.scenarioName;
+        }
 
         // Derive allocatorName from AllocatorType
         switch (cfg.allocatorType) {
@@ -173,7 +186,7 @@ void RegisterArticle1Matrix(ExperimentRegistry& registry) noexcept {
             case AllocatorType::SegregatedList: desc.allocatorName = "segregated_list"; break;
         }
 
-        desc.description = "Article 1 matrix scenario: allocator x lifetime x workload";
+        desc.description = "Allocator benchmark scenario: allocator x lifetime x workload";
         desc.factory     = kFactories[i];
 
         desc.scenarioSeed        = cfg.seed;        // 0 = use global default
@@ -185,9 +198,9 @@ void RegisterArticle1Matrix(ExperimentRegistry& registry) noexcept {
     }
 }
 
-const AllocBenchConfig* GetArticle1MatrixEntries(u32& count) noexcept {
-    count = kArticle1MatrixCount;
-    return kArticle1Matrix;
+const AllocBenchConfig* GetStaticMatrixEntries(u32& count) noexcept {
+    count = kStaticMatrixCount;
+    return kStaticMatrix;
 }
 
 } // namespace core::bench

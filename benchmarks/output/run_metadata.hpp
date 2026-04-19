@@ -60,6 +60,12 @@ struct RunMetadata {
     const char* cpuModel = "unknown";         // CPU model string
     u32 cpuCoresLogical = 0;                  // Logical cores (0 if unavailable)
     u32 cpuCoresPhysical = 0;                 // Physical cores (0 if unavailable)
+
+    // Manifest-level metadata (Task 8: environment manifest)
+    const char* gitSha = "unknown";           // Git commit SHA
+    const char* commandLine = "";             // Reconstructed command line
+    const char* configPath = "";              // Scenario config path (if any)
+    const char* benchVersion = "unknown";     // Benchmark suite version (from ver.txt)
 };
 
 } // namespace bench

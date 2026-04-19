@@ -49,14 +49,14 @@ PhaseExecutor::~PhaseExecutor() noexcept {
     if (_ownsTracker && _tracker) {
         _tracker->~LifetimeTracker();
         
-        // Deallocate via IAllocator
+        // Deallocate via default allocator (matches allocation in SetupLifetimeTracker)
         core::AllocationInfo info{};
         info.ptr = _tracker;
         info.size = sizeof(LifetimeTracker);
         info.alignment = static_cast<core::memory_alignment>(alignof(LifetimeTracker));
         info.tag = 0;
-        _ctx.allocator->Deallocate(info);
-        
+        core::GetDefaultAllocator().Deallocate(info);
+
         _tracker = nullptr;
     }
     _ownsTracker = false;
@@ -520,7 +520,7 @@ void PhaseExecutor::SetupLifetimeTracker() noexcept {
         info.size = sizeof(LifetimeTracker);
         info.alignment = static_cast<core::memory_alignment>(alignof(LifetimeTracker));
         info.tag = 0;
-        _ctx.allocator->Deallocate(info);
+        core::GetDefaultAllocator().Deallocate(info);
     }
     _tracker = nullptr;
     _ownsTracker = false;
@@ -578,26 +578,32 @@ void PhaseExecutor::SetupLifetimeTracker() noexcept {
                 trackerCapacity = 1;
             }
 
+            // Allocate the internal tracker from the default allocator, NOT
+            // from _ctx.allocator — the experiment allocator may have
+            // constraints (e.g. PoolAllocator with small fixed block size)
+            // that cannot satisfy sizeof(LifetimeTracker).
+            core::IAllocator& trackerAlloc = core::GetDefaultAllocator();
+
             core::AllocationRequest req{};
             req.size = sizeof(LifetimeTracker);
             req.alignment = static_cast<core::memory_alignment>(alignof(LifetimeTracker));
             req.tag = 0;
             req.flags = core::AllocationFlags::None;
 
-            void* mem = _ctx.allocator->Allocate(req);
+            void* mem = trackerAlloc.Allocate(req);
             if (!mem) {
                 FATAL("Failed to allocate memory for LifetimeTracker");
             }
             _tracker = new (mem) LifetimeTracker(trackerCapacity, _desc.params.lifetimeModel,
                                                   *_ctx.callbackRng, _ctx.allocator,
-                                                  &core::GetDefaultAllocator());
+                                                  &trackerAlloc);
             if (!_tracker || !_tracker->isValid()) {
                 core::AllocationInfo info{};
                 info.ptr = mem;
                 info.size = sizeof(LifetimeTracker);
                 info.alignment = static_cast<core::memory_alignment>(alignof(LifetimeTracker));
                 info.tag = 0;
-                _ctx.allocator->Deallocate(info);
+                trackerAlloc.Deallocate(info);
                 FATAL("phase requires LifetimeTracker, but allocation/initialization failed");
             }
 

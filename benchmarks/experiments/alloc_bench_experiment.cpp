@@ -1,6 +1,6 @@
 // =============================================================================
 // alloc_bench_experiment.cpp
-// Parametric experiment for Article 1 matrix.
+// Parametric experiment for allocator benchmark matrix.
 // =============================================================================
 
 #include "alloc_bench_experiment.hpp"
@@ -124,11 +124,26 @@ const char* AllocBenchExperiment::Name() const noexcept {
 }
 
 const char* AllocBenchExperiment::Category() const noexcept {
-    return "article1";
+    // Derive category from first path segment of scenario name (e.g. "article1/..." → "article1")
+    static thread_local char catBuf[64];
+    if (_config.scenarioName) {
+        const char* slash = nullptr;
+        for (const char* p = _config.scenarioName; *p; ++p) {
+            if (*p == '/') { slash = p; break; }
+        }
+        if (slash && (slash - _config.scenarioName) < 63) {
+            const auto len = static_cast<u32>(slash - _config.scenarioName);
+            for (u32 c = 0; c < len; ++c) catBuf[c] = _config.scenarioName[c];
+            catBuf[len] = '\0';
+            return catBuf;
+        }
+        return _config.scenarioName;
+    }
+    return "experiment";
 }
 
 const char* AllocBenchExperiment::Description() const noexcept {
-    return "Article 1 matrix scenario: allocator x lifetime x workload";
+    return "Allocator benchmark scenario: allocator x lifetime x workload";
 }
 
 const char* AllocBenchExperiment::AllocatorName() const noexcept {

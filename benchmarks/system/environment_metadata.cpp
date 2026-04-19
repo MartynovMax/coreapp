@@ -317,6 +317,16 @@ void CollectEnvironmentMetadata(RunMetadata& metadata) noexcept {
     metadata.cpuModel = CollectCpuModel();
     metadata.cpuCoresLogical = CollectCpuCoresLogical();
     metadata.cpuCoresPhysical = CollectCpuCoresPhysical();
+
+    // Git SHA (compile-time from CMake)
+#ifdef CORE_GIT_SHA
+    metadata.gitSha = CORE_GIT_SHA;
+#endif
+
+    // Benchmark suite version (compile-time from ver.txt via CMake)
+#ifdef CORE_BENCH_VERSION
+    metadata.benchVersion = CORE_BENCH_VERSION;
+#endif
 }
 
 } // namespace bench

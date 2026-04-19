@@ -5,11 +5,12 @@
 // Runtime loader: reads a JSON scenario matrix and produces AllocBenchConfig[].
 //
 // Usage:
-//   ScenarioLoadResult r = LoadScenariosFromJson("config/article1_matrix.json");
+//   ScenarioLoadResult r = LoadScenariosFromJson("config/my_matrix.json");
 //   if (!r.ok) { printf("Error: %s\n", r.errorMessage); }
 //
-// JSON format expected: same as config/article1_matrix.json
+// JSON format expected:
 //   {
+//     "run_prefix": "<name>",        // optional — used for output dirs & category
 //     "workload_profiles": { "<name>": { "size_min", "size_max", "operation_count",
 //                                        "max_live_objects", "alloc_free_ratio" }, ... },
 //     "scenarios": [ { "name", "allocator", "lifetime", "workload",
@@ -29,6 +30,8 @@ struct ScenarioLoadResult {
     u32  count        = 0;
     bool ok           = false;
     char errorMessage[256] = {};
+    char runPrefix[64] = {};    // Parsed from JSON "run_prefix" or derived from filename
+    char category[64] = {};     // Same as runPrefix — used as experiment category
 };
 
 // Load scenarios from a JSON file.
@@ -36,11 +39,11 @@ struct ScenarioLoadResult {
 ScenarioLoadResult LoadScenariosFromJson(const char* path) noexcept;
 
 // Register a single AllocBenchConfig into an ExperimentRegistry.
-// Mirrors RegisterArticle1Matrix() but for dynamically-loaded scenarios.
-// Safe to call for configs loaded via LoadScenariosFromJson.
+// category is used as ExperimentDescriptor::category (e.g. "article1").
 class ExperimentRegistry;
 void RegisterLoadedScenario(ExperimentRegistry& registry,
-                             const AllocBenchConfig& cfg) noexcept;
+                             const AllocBenchConfig& cfg,
+                             const char* category = "experiment") noexcept;
 
 } // namespace core::bench
 

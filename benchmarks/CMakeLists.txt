@@ -37,10 +37,35 @@ target_include_directories(coreapp_benchmarks PRIVATE
 )
 
 # ---------------------------------------------------------------------------
+# Git SHA (captured at configure time; re-run cmake to update)
+# ---------------------------------------------------------------------------
+
+execute_process(
+    COMMAND git rev-parse HEAD
+    WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}"
+    OUTPUT_VARIABLE GIT_SHA
+    OUTPUT_STRIP_TRAILING_WHITESPACE
+    ERROR_QUIET
+    RESULT_VARIABLE GIT_RESULT
+)
+if(NOT GIT_RESULT EQUAL 0)
+    set(GIT_SHA "unknown")
+endif()
+
+# Benchmark suite version from ver.txt
+file(READ "${CMAKE_CURRENT_SOURCE_DIR}/ver.txt" BENCH_VERSION)
+string(STRIP "${BENCH_VERSION}" BENCH_VERSION)
+
+# ---------------------------------------------------------------------------
 # Environment metadata compile-time definitions
 # ---------------------------------------------------------------------------
 
 # Compiler version (human-readable string)
+target_compile_definitions(coreapp_benchmarks PRIVATE
+    CORE_GIT_SHA="${GIT_SHA}"
+    CORE_BENCH_VERSION="${BENCH_VERSION}"
+)
+
 if(CMAKE_CXX_COMPILER_VERSION)
     target_compile_definitions(coreapp_benchmarks PRIVATE
         CORE_COMPILER_VERSION_STRING="${CMAKE_CXX_COMPILER_VERSION}"
@@ -106,6 +131,10 @@ if(BENCHMARK_TEST_SOURCES)
     )
 
     # Apply same metadata definitions to tests
+    target_compile_definitions(benchmark_tests PRIVATE
+        CORE_GIT_SHA="${GIT_SHA}"
+        CORE_BENCH_VERSION="${BENCH_VERSION}"
+    )
     if(CMAKE_CXX_COMPILER_VERSION)
         target_compile_definitions(benchmark_tests PRIVATE
             CORE_COMPILER_VERSION_STRING="${CMAKE_CXX_COMPILER_VERSION}"

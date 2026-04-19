@@ -210,6 +210,30 @@ bool CLIParser::Parse(int argc, char** argv, RunConfig& outConfig) noexcept {
             continue;
         }
 
+        // --run-prefix=<name>
+        const char* runPrefixValue = ExtractValue(arg, "--run-prefix");
+        if (runPrefixValue != nullptr) {
+            if (*runPrefixValue == '\0') {
+                _errorMessage = "--run-prefix requires a name value";
+                return false;
+            }
+            outConfig.runPrefix = runPrefixValue;
+            outConfig.hasExplicitRunPrefix = true;
+            continue;
+        }
+
+        // --batch
+        if (StringsEqual(arg, "--batch")) {
+            outConfig.batchMode = true;
+            continue;
+        }
+
+        // --dry-run
+        if (StringsEqual(arg, "--dry-run")) {
+            outConfig.dryRun = true;
+            continue;
+        }
+
         // --verbose or -v
         if (StringsEqual(arg, "--verbose") || StringsEqual(arg, "-v")) {
             outConfig.verbose = true;
@@ -230,8 +254,14 @@ bool CLIParser::Parse(int argc, char** argv, RunConfig& outConfig) noexcept {
     // Apply output format to independent toggles
     ApplyOutputFormat(outConfig);
 
-    if ((outConfig.enableTimeSeriesOutput || outConfig.enableSummaryOutput) && outConfig.outputPath == nullptr) {
-        _errorMessage = "Structured outputs (jsonl/summary) require --out=<path>";
+    // --dry-run implies --batch
+    if (outConfig.dryRun) {
+        outConfig.batchMode = true;
+    }
+
+    if ((outConfig.enableTimeSeriesOutput || outConfig.enableSummaryOutput)
+         && outConfig.outputPath == nullptr && !outConfig.batchMode) {
+        _errorMessage = "Structured outputs (jsonl/summary) require --out=<path> or --batch";
         return false;
     }
 
@@ -252,6 +282,9 @@ void CLIParser::PrintHelp() noexcept {
     printf("  --out=<path>              Output file path\n");
     printf("  --measurements=<list>     Measurement systems: timer,counter,snapshot (default: none)\n");
     printf("  --config=<path>           Load scenario matrix from JSON file\n");
+    printf("  --batch                   Batch mode: run all scenarios, auto-generate output dirs\n");
+    printf("  --run-prefix=<name>       Subdirectory name under runs/ (default: from JSON run_prefix)\n");
+    printf("  --dry-run                 Show planned batch scenarios without executing them\n");
     printf("  --help, -h                Show this help message\n");
     printf("  --verbose, -v             Enable verbose output\n");
 }

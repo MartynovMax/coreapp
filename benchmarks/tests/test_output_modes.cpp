@@ -77,17 +77,17 @@ TEST(OutputModesTest, CLIParserRequiresOutPathForStructuredOutputs) {
     // Test --format=jsonl without --out (should fail)
     char* argv1[] = {(char*)"prog", (char*)"--format=jsonl"};
     EXPECT_FALSE(parser.Parse(2, argv1, config));
-    EXPECT_STREQ(parser.GetError(), "Structured outputs (jsonl/summary) require --out=<path>");
+    EXPECT_STREQ(parser.GetError(), "Structured outputs (jsonl/summary) require --out=<path> or --batch");
 
     // Test --format=summary without --out (should fail)
     char* argv2[] = {(char*)"prog", (char*)"--format=summary"};
     EXPECT_FALSE(parser.Parse(2, argv2, config));
-    EXPECT_STREQ(parser.GetError(), "Structured outputs (jsonl/summary) require --out=<path>");
+    EXPECT_STREQ(parser.GetError(), "Structured outputs (jsonl/summary) require --out=<path> or --batch");
 
     // Test --format=all without --out (should fail)
     char* argv3[] = {(char*)"prog", (char*)"--format=all"};
     EXPECT_FALSE(parser.Parse(2, argv3, config));
-    EXPECT_STREQ(parser.GetError(), "Structured outputs (jsonl/summary) require --out=<path>");
+    EXPECT_STREQ(parser.GetError(), "Structured outputs (jsonl/summary) require --out=<path> or --batch");
 
     // Test --format=jsonl with --out (should succeed)
     char* argv4[] = {(char*)"prog", (char*)"--format=jsonl", (char*)"--out=test"};

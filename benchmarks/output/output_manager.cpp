@@ -1,4 +1,5 @@
 #include "output_manager.hpp"
+#include "manifest_writer.hpp"
 #include "../common/string_utils.hpp"
 #include <stdio.h>
 
@@ -29,7 +30,7 @@ bool OutputManager::Initialize(const RunMetadata& metadata) noexcept {
     if (_config.enableTimeSeriesOutput) {
         if (_config.outputPath != nullptr) {
             // Append .jsonl extension
-            static char timeSeriesPath[512];
+            char timeSeriesPath[512];
             snprintf(timeSeriesPath, sizeof(timeSeriesPath), "%s.jsonl", _config.outputPath);
 
             _timeSeriesWriter = new JsonlTimeSeriesWriter(timeSeriesPath);
@@ -52,7 +53,7 @@ bool OutputManager::Initialize(const RunMetadata& metadata) noexcept {
     if (_config.enableSummaryOutput) {
         if (_config.outputPath != nullptr) {
             // Append .csv extension
-            static char summaryPath[512];
+            char summaryPath[512];
             snprintf(summaryPath, sizeof(summaryPath), "%s.csv", _config.outputPath);
 
             _summaryWriter = new CsvSummaryWriter(summaryPath);
@@ -72,6 +73,18 @@ bool OutputManager::Initialize(const RunMetadata& metadata) noexcept {
     }
 
     _initialized = true;
+
+    // Write environment manifest (Task 8)
+    if (_config.outputPath != nullptr) {
+        if (!WriteManifest(_config.outputPath, _metadata)) {
+            if (_config.verbose) {
+                printf("[OutputManager] Warning: failed to write environment manifest\n");
+            }
+        } else if (_config.verbose) {
+            printf("[OutputManager] Manifest: %s_manifest.json\n", _config.outputPath);
+        }
+    }
+
     return true;
 }
 

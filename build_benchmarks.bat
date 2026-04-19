@@ -42,5 +42,10 @@ start build\benchmarks\coreapp.sln
 echo.
 echo Run with: build\benchmarks\Debug\coreapp_benchmarks.exe --help
 echo.
+echo NOTE: Run from the benchmarks\ directory so config\ paths resolve:
+echo   cd benchmarks
+echo   ..\build\benchmarks\Debug\coreapp_benchmarks.exe --help
+echo   -- or use: benchmarks\run_benchmarks.bat
+echo.
 
 pause
