@@ -33,10 +33,10 @@ TEST(ScenarioLoaderTest, LoadsArticle1Json_Succeeds) {
     EXPECT_TRUE(r.ok) << "errorMessage: " << r.errorMessage;
 }
 
-TEST(ScenarioLoaderTest, LoadsArticle1Json_ExactlyThirtyOneScenarios) {
+TEST(ScenarioLoaderTest, LoadsArticle1Json_ExactlyThirtyNineScenarios) {
     ScenarioLoadResult r = LoadScenariosFromJson(kArticle1JsonPath);
     ASSERT_TRUE(r.ok) << r.errorMessage;
-    EXPECT_EQ(r.count, 31u);
+    EXPECT_EQ(r.count, 39u);
 }
 
 TEST(ScenarioLoaderTest, AllScenariosHaveNonNullName) {

@@ -1,6 +1,6 @@
 // =============================================================================
 // static_matrix_registry.cpp
-// Static definition of all 31 static matrix scenarios + registration.
+// Static definition of all 39 static matrix scenarios + registration.
 //
 // This file is the CODE-LEVEL counterpart of the experiment JSON config
 // (e.g. workspace/config/article1_matrix.json).
@@ -29,14 +29,18 @@ struct Params {
     f32  allocFreeRatio;
 };
 
-static constexpr Params kFixedSmall   = {  32,  32, 100000, 1000, 0.5f };
-static constexpr Params kVariableSize = {   8, 512, 100000, 1000, 0.5f };
-static constexpr Params kChurn        = {  16,  64, 200000,  500, 0.6f };
+static constexpr Params kFixedSmall        = {  32,  32,  100000, 1000, 0.5f };
+static constexpr Params kVariableSize      = {   8, 512,  100000, 1000, 0.5f };
+static constexpr Params kChurn             = {  16,  64,  200000,  500, 0.6f };
+static constexpr Params kFixedSmallLarge   = {  32,  32, 1000000, 10000, 0.5f };
+static constexpr Params kVariableSizeLarge = {   8, 512, 1000000, 10000, 0.5f };
+static constexpr Params kHeavyChurn        = {  16,  64,  200000,  200, 0.9f };
+static constexpr Params kIdealFit32        = {  32,  32,  100000, 1000, 0.5f };
 
 } // namespace profiles
 
 // ============================================================================
-// Static matrix definition — 31 entries, ordered by allocator group
+// Static matrix definition — 39 entries, ordered by allocator group
 // ============================================================================
 
 // Helper macro to build AllocBenchConfig from a profile struct
@@ -108,6 +112,26 @@ static const AllocBenchConfig kStaticMatrix[] = {
     SCENARIO("article1/segregated_list/long_lived/fixed_small",   SegregatedList, LongLived, FixedSmall),
     SCENARIO("article1/segregated_list/long_lived/variable_size", SegregatedList, LongLived, VariableSize),
     SCENARIO("article1/segregated_list/long_lived/churn",         SegregatedList, LongLived, Churn),
+
+    // ------------------------------------------------------------------
+    // v2: scale tests — 5 scenarios (1M ops, 10k live)
+    // ------------------------------------------------------------------
+    SCENARIO("article1/malloc/random/fixed_small_large",            Malloc,         Random, FixedSmallLarge),
+    SCENARIO("article1/malloc/random/variable_size_large",          Malloc,         Random, VariableSizeLarge),
+    SCENARIO("article1/pool_allocator/random/fixed_small_large",    Pool,           Random, FixedSmallLarge),
+    SCENARIO("article1/segregated_list/random/fixed_small_large",   SegregatedList, Random, FixedSmallLarge),
+    SCENARIO("article1/segregated_list/random/variable_size_large", SegregatedList, Random, VariableSizeLarge),
+
+    // ------------------------------------------------------------------
+    // v2: heavy_churn — 2 scenarios (ratio 0.9, 200 live)
+    // ------------------------------------------------------------------
+    SCENARIO("article1/malloc/random/heavy_churn",          Malloc,         Random, HeavyChurn),
+    SCENARIO("article1/segregated_list/random/heavy_churn", SegregatedList, Random, HeavyChurn),
+
+    // ------------------------------------------------------------------
+    // v2: ideal_fit_32 — 1 scenario (segregated best-case)
+    // ------------------------------------------------------------------
+    SCENARIO("article1/segregated_list/random/ideal_fit_32", SegregatedList, Random, IdealFit32),
 };
 
 #undef SCENARIO
@@ -115,9 +139,9 @@ static const AllocBenchConfig kStaticMatrix[] = {
 static constexpr u32 kStaticMatrixCount =
     static_cast<u32>(sizeof(kStaticMatrix) / sizeof(kStaticMatrix[0]));
 
-// Static assert: must stay in sync with the JSON matrix (31 scenarios)
-static_assert(kStaticMatrixCount == 31,
-    "static_matrix: expected exactly 31 scenarios; update JSON and .md if changed");
+// Static assert: must stay in sync with the JSON matrix (39 scenarios)
+static_assert(kStaticMatrixCount == 39,
+    "static_matrix: expected exactly 39 scenarios; update JSON and .md if changed");
 
 // ============================================================================
 // Factory shims — one per scenario index
@@ -133,7 +157,7 @@ IExperiment* ArticleFactory() noexcept {
 }
 
 // Explicit factory table — avoids index_sequence complexity
-static const ExperimentFactory kFactories[31] = {
+static const ExperimentFactory kFactories[39] = {
     ArticleFactory< 0>, ArticleFactory< 1>, ArticleFactory< 2>,
     ArticleFactory< 3>, ArticleFactory< 4>, ArticleFactory< 5>,
     ArticleFactory< 6>, ArticleFactory< 7>, ArticleFactory< 8>,
@@ -144,11 +168,13 @@ static const ExperimentFactory kFactories[31] = {
     ArticleFactory<21>, ArticleFactory<22>, ArticleFactory<23>,
     ArticleFactory<24>, ArticleFactory<25>, ArticleFactory<26>,
     ArticleFactory<27>, ArticleFactory<28>, ArticleFactory<29>,
-    ArticleFactory<30>,
+    ArticleFactory<30>, ArticleFactory<31>, ArticleFactory<32>,
+    ArticleFactory<33>, ArticleFactory<34>, ArticleFactory<35>,
+    ArticleFactory<36>, ArticleFactory<37>, ArticleFactory<38>,
 };
 
-static_assert(sizeof(kFactories)/sizeof(kFactories[0]) == 31,
-    "kFactories must have exactly 31 entries matching kStaticMatrix");
+static_assert(sizeof(kFactories)/sizeof(kFactories[0]) == 39,
+    "kFactories must have exactly 39 entries matching kStaticMatrix");
 
 } // namespace
 

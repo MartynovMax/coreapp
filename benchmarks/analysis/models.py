@@ -85,6 +85,13 @@ class SummaryRecord:
     ops_per_sec_mean: Optional[float] = None
     throughput_bytes_per_sec_mean: Optional[float] = None
 
+    # Extended counter metrics (summary.v5+)
+    failed_alloc_count: Optional[int] = None
+    fallback_count: Optional[int] = None
+    reserved_bytes: Optional[int] = None
+    overhead_ratio: Optional[float] = None
+    overhead_ratio_req: Optional[float] = None
+
 
 @dataclass
 class TimeSeriesRecord:

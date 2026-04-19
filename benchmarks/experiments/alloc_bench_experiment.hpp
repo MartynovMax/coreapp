@@ -32,9 +32,13 @@ enum class AllocatorType {
 // ----------------------------------------------------------------------------
 
 enum class WorkloadProfile {
-    FixedSmall,    // 32×32 bytes, 100k ops, 1000 live, ratio 0.5
-    VariableSize,  // 8–512 bytes, 100k ops, 1000 live, ratio 0.5
-    Churn,         // 16–64 bytes, 200k ops, 500 live, ratio 0.6
+    FixedSmall,         // 32×32 bytes, 100k ops, 1000 live, ratio 0.5
+    VariableSize,       // 8–512 bytes, 100k ops, 1000 live, ratio 0.5
+    Churn,              // 16–64 bytes, 200k ops, 500 live, ratio 0.6
+    FixedSmallLarge,    // 32×32 bytes, 1M ops, 10k live, ratio 0.5 (scale test)
+    VariableSizeLarge,  // 8–512 bytes, 1M ops, 10k live, ratio 0.5 (scale test)
+    HeavyChurn,         // 16–64 bytes, 200k ops, 200 live, ratio 0.9 (extreme churn)
+    IdealFit32,         // 32×32 bytes, 100k ops, 1000 live, ratio 0.5, size_classes=[32]
 };
 
 // ----------------------------------------------------------------------------

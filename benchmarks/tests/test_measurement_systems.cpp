@@ -111,6 +111,7 @@ TEST(MeasurementSystemsTest, TimerSystemPublishesMetrics) {
     evt.phaseName = "phase1";
     evt.repetitionId = 1;
     evt.data.phaseComplete.durationNs = 1000000; // 1ms
+    evt.data.phaseComplete.phaseType = PhaseType::Steady;
 
     timer.OnEvent(evt);
     timer.OnRunEnd();

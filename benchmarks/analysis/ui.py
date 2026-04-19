@@ -8,6 +8,8 @@ Launch:
 
     # or double-click run_ui.bat (Windows) / run_ui.sh (Linux/macOS)
 
+    # or double-click run_ui.bat (Windows) / run_ui.sh (Linux/macOS)
+
 Pages (tab navigation):
   1. Single Run   — load a run, apply filters, view report + latency chart
   2. Compare Runs — load two runs, apply filters, view diff + throughput chart
@@ -734,6 +736,384 @@ class PagePlots(ttk.Frame):
 
 
 # ---------------------------------------------------------------------------
+# Batch run discovery helpers
+# ---------------------------------------------------------------------------
+
+_RUNS_ROOT = (_BENCHMARKS_DIR.parent / "runs").resolve()
+
+
+def _discover_batch_runs(runs_root: Path) -> list[dict]:
+    """
+    Scan runs_root recursively for manifest.json files.
+    Returns list of dicts sorted newest-first (by batch_id desc).
+    """
+    import json as _json
+    results = []
+    if not runs_root.exists():
+        return results
+    for manifest_path in sorted(runs_root.rglob("manifest.json"), reverse=True):
+        try:
+            with open(manifest_path, encoding="utf-8") as f:
+                m = _json.load(f)
+            if m.get("schema_version") != "batch_manifest.v1":
+                continue
+            results.append({
+                "batch_id":       m.get("batch_id", manifest_path.parent.name),
+                "run_prefix":     m.get("run_prefix", ""),
+                "scenario_count": m.get("scenario_count", 0),
+                "duration_ms":    m.get("total_duration_ms", 0),
+                "build_type":     m.get("environment", {}).get("build_type", ""),
+                "cpu":            m.get("environment", {}).get("cpu_model", ""),
+                "dir":            str(manifest_path.parent),
+                "manifest":       m,
+            })
+        except Exception:
+            pass
+    return results
+
+
+def _fmt_ms(ms) -> str:
+    try:
+        ms = int(ms)
+    except Exception:
+        return "?"
+    if ms >= 60000:
+        return f"{ms//60000}m {(ms%60000)//1000}s"
+    if ms >= 1000:
+        return f"{ms/1000:.1f}s"
+    return f"{ms}ms"
+
+
+# ---------------------------------------------------------------------------
+# Page: Batch Runs
+# ---------------------------------------------------------------------------
+
+class PageBatchRuns(ttk.Frame):
+    """Auto-discover and browse all batch runs from the runs/ directory."""
+
+    _SCENARIO_COLS = (
+        "Scenario", "Allocator", "Status", "Duration",
+        "Median", "ops/sec", "Overhead", "Fallback",
+    )
+
+    def __init__(self, parent, **kw):
+        super().__init__(parent, padding=8, **kw)
+        self._runs: list[dict] = []
+        self._current_run: Optional[dict] = None
+        self._scenario_model_cache: dict[str, object] = {}
+        self._build()
+        self.after(100, self._refresh)
+
+    def _build(self):
+        # ── Top bar ───────────────────────────────────────────────────────────
+        top = ttk.Frame(self)
+        top.pack(fill="x", pady=(0, 6))
+        ttk.Label(top, text="Runs root:").pack(side="left")
+        self._root_var = tk.StringVar(value=str(_RUNS_ROOT))
+        ttk.Entry(top, textvariable=self._root_var, width=55).pack(
+            side="left", padx=6, fill="x", expand=True
+        )
+        ttk.Button(top, text="Browse…", command=self._browse_root).pack(side="left", padx=(0,4))
+        ttk.Button(top, text="🔄 Refresh", command=self._refresh,
+                   style="Accent.TButton").pack(side="left")
+        ttk.Button(top, text="▶ Run Benchmark", command=self._run_benchmark,
+                   style="Accent.TButton").pack(side="left", padx=(8,0))
+        self._status = _StatusBar(self, font=_FONT_SM)
+        self._status.pack(anchor="w", pady=(0, 4))
+
+        # ── Main paned: run list | detail ─────────────────────────────────────
+        main_paned = ttk.PanedWindow(self, orient="horizontal")
+        main_paned.pack(fill="both", expand=True)
+
+        # Left: run list
+        left = _Section(self, "Discovered Runs")
+        vsb_l = ttk.Scrollbar(left, orient="vertical")
+        self._run_list = tk.Listbox(
+            left, font=_FONT_SM, bg=_BG2, fg=_FG,
+            selectbackground=_ACCENT, selectforeground=_BG,
+            activestyle="none", yscrollcommand=vsb_l.set, width=30,
+        )
+        vsb_l.config(command=self._run_list.yview)
+        self._run_list.pack(side="left", fill="both", expand=True)
+        vsb_l.pack(side="right", fill="y")
+        self._run_list.bind("<<ListboxSelect>>", self._on_run_select)
+        main_paned.add(left, weight=1)
+
+        # Right: detail panel (notebook)
+        right = ttk.Frame(self)
+        main_paned.add(right, weight=4)
+
+        # Run info cards
+        self._cards_frame = ttk.Frame(right)
+        self._cards_frame.pack(fill="x", pady=(0, 4))
+
+        # Detail notebook: Scenarios | Chart | Drill-down
+        self._detail_nb = ttk.Notebook(right)
+        self._detail_nb.pack(fill="both", expand=True)
+
+        # Tab 1: scenario table
+        tab_table = ttk.Frame(self._detail_nb, padding=4)
+        self._detail_nb.add(tab_table, text="📋  Scenarios")
+        self._build_scenario_table(tab_table)
+
+        # Tab 2: latency chart
+        tab_chart = ttk.Frame(self._detail_nb, padding=4)
+        self._detail_nb.add(tab_chart, text="📊  Latency Chart")
+        self._chart = _ChartFrame(tab_chart, figsize=(10, 4))
+        self._chart.pack(fill="both", expand=True)
+
+        # Tab 3: scenario drill-down
+        tab_drill = ttk.Frame(self._detail_nb, padding=4)
+        self._detail_nb.add(tab_drill, text="🔍  Drill-down")
+        self._build_drilldown(tab_drill)
+
+    def _build_scenario_table(self, parent):
+        vsb = ttk.Scrollbar(parent, orient="vertical")
+        hsb = ttk.Scrollbar(parent, orient="horizontal")
+        self._scen_tree = ttk.Treeview(
+            parent, columns=self._SCENARIO_COLS, show="headings",
+            yscrollcommand=vsb.set, xscrollcommand=hsb.set, selectmode="browse",
+        )
+        vsb.config(command=self._scen_tree.yview)
+        hsb.config(command=self._scen_tree.xview)
+        widths = [260, 120, 60, 70, 90, 90, 80, 80]
+        for col, w in zip(self._SCENARIO_COLS, widths):
+            self._scen_tree.heading(col, text=col)
+            self._scen_tree.column(col, width=w, minwidth=w, anchor="center")
+        self._scen_tree.column("Scenario", anchor="w")
+        self._scen_tree.grid(row=0, column=0, sticky="nsew")
+        vsb.grid(row=0, column=1, sticky="ns")
+        hsb.grid(row=1, column=0, sticky="ew")
+        parent.rowconfigure(0, weight=1)
+        parent.columnconfigure(0, weight=1)
+        self._scen_tree.bind("<<TreeviewSelect>>", self._on_scenario_select)
+
+    def _build_drilldown(self, parent):
+        self._drill_status = _StatusBar(parent, font=_FONT_SM)
+        self._drill_status.pack(anchor="w")
+        self._drill_cards = ttk.Frame(parent)
+        self._drill_cards.pack(fill="x", pady=(0, 4))
+        paned = ttk.PanedWindow(parent, orient="vertical")
+        paned.pack(fill="both", expand=True)
+        tsec = _Section(parent, "Scenario Metrics")
+        self._drill_table = _SummaryTable(tsec)
+        self._drill_table.pack(fill="both", expand=True)
+        paned.add(tsec, weight=1)
+        rsec = _Section(parent, "Report")
+        self._drill_report = scrolledtext.ScrolledText(
+            rsec, height=8, font=_MONO, state="disabled", wrap="none",
+            bg=_BG2, fg=_FG, insertbackground=_FG,
+        )
+        self._drill_report.pack(fill="both", expand=True)
+        paned.add(rsec, weight=1)
+
+    # ── Actions ───────────────────────────────────────────────────────────────
+
+    def _browse_root(self):
+        d = filedialog.askdirectory(title="Select runs root directory",
+                                    initialdir=self._root_var.get())
+        if d:
+            self._root_var.set(d)
+            self._refresh()
+
+    def _refresh(self):
+        self._status.info("Scanning…")
+        self.update_idletasks()
+        root = Path(self._root_var.get())
+        self._runs = _discover_batch_runs(root)
+        self._run_list.delete(0, "end")
+        for r in self._runs:
+            label = f"{r['batch_id']}  [{r['scenario_count']} sc, {_fmt_ms(r['duration_ms'])}]"
+            self._run_list.insert("end", label)
+        if self._runs:
+            self._status.ok(f"Found {len(self._runs)} batch run(s) in {root}")
+        else:
+            self._status.info(f"No batch runs found in {root}")
+
+    def _on_run_select(self, _event=None):
+        sel = self._run_list.curselection()
+        if not sel:
+            return
+        run_info = self._runs[sel[0]]
+        if run_info is self._current_run:
+            return
+        self._current_run = run_info
+        self._scenario_model_cache.clear()
+        self._load_run_detail(run_info)
+
+    def _load_run_detail(self, run_info: dict):
+        self._status.info(f"Loading {run_info['batch_id']}…")
+        self.update_idletasks()
+
+        # Cards
+        for w in self._cards_frame.winfo_children():
+            w.destroy()
+        env = run_info["manifest"].get("environment", {})
+        _MetricCards(self._cards_frame, [
+            ("Batch ID",    run_info["batch_id"]),
+            ("Prefix",      run_info["run_prefix"]),
+            ("Scenarios",   run_info["scenario_count"]),
+            ("Duration",    _fmt_ms(run_info["duration_ms"])),
+            ("Build",       env.get("build_type", "?")),
+            ("CPU",         env.get("cpu_model", "?")[:40]),
+            ("Compiler",    f"{env.get('compiler_name','')} {env.get('compiler_version','')}"),
+            ("Git SHA",     env.get("git_sha", "?")[:12]),
+        ]).pack(fill="x")
+
+        # Populate scenario table from manifest
+        self._scen_tree.delete(*self._scen_tree.get_children())
+        scenarios = run_info["manifest"].get("scenarios", [])
+
+        # Try to load summary.csv for rich metrics
+        summary_map: dict = {}
+        summary_path = str(Path(run_info["dir"]) / "summary")
+        try:
+            with warnings.catch_warnings(record=True):
+                warnings.simplefilter("always")
+                batch_run = assemble_run_from_files(summary_path, validate=False)
+            for rec in batch_run.summary:
+                key = rec.metadata.experiment_name or ""
+                summary_map[key] = rec
+        except Exception:
+            pass
+
+        for sc in scenarios:
+            name = sc.get("name", "")
+            status = sc.get("status", "")
+            dur = _fmt_ms(sc.get("duration_ms", 0))
+            rec = summary_map.get(name)
+            allocator = ""
+            median = ""
+            ops = ""
+            overhead = ""
+            fallback = ""
+            if rec:
+                # allocator from name segment
+                parts = name.split("/")
+                allocator = parts[1] if len(parts) > 1 else (rec.metadata.allocator or "")
+                median = _ns_fmt(rec.repetition_median_ns)
+                ops_val = getattr(rec, "ops_per_sec_mean", None)
+                ops = f"{ops_val/1e6:.1f}M" if ops_val else ""
+                oh = getattr(rec, "overhead_ratio", None)
+                overhead = f"{oh:.2f}×" if oh else ""
+                fb = getattr(rec, "fallback_count", None)
+                fallback = str(int(fb)) if fb else ""
+            else:
+                parts = name.split("/")
+                allocator = parts[1] if len(parts) > 1 else ""
+
+            tag = "ok" if status == "success" else ("fail" if status else "")
+            self._scen_tree.insert("", "end", iid=name, values=(
+                name, allocator, status, dur, median, ops, overhead, fallback,
+            ), tags=(tag,))
+
+        self._scen_tree.tag_configure("ok",   foreground=_GREEN)
+        self._scen_tree.tag_configure("fail", foreground=_RED)
+
+        # Latency chart from batch summary
+        self._chart.clear()
+        if summary_map:
+            import tempfile
+            try:
+                with tempfile.NamedTemporaryFile(suffix=".png", delete=False) as tmp:
+                    tmp_path = tmp.name
+                with warnings.catch_warnings(record=True):
+                    warnings.simplefilter("always")
+                    plot_latency_summary(batch_run, tmp_path)
+                _embed_png(self._chart, tmp_path)
+            except Exception as exc:
+                self._status.info(f"Chart unavailable: {exc}")
+            finally:
+                try:
+                    os.unlink(tmp_path)
+                except Exception:
+                    pass
+
+        self._status.ok(
+            f"Loaded {run_info['batch_id']} — "
+            f"{len(scenarios)} scenarios, {len(summary_map)} with metrics"
+        )
+
+    def _on_scenario_select(self, _event=None):
+        sel = self._scen_tree.selection()
+        if not sel:
+            return
+        name = sel[0]  # iid == scenario name
+        self._load_scenario_drilldown(name)
+        self._detail_nb.select(2)  # switch to drill-down tab
+
+    def _load_scenario_drilldown(self, name: str):
+        if not self._current_run:
+            return
+
+        self._drill_status.info(f"Loading {name}…")
+        self.update_idletasks()
+
+        # Find output_dir from manifest
+        output_dir = None
+        for sc in self._current_run["manifest"].get("scenarios", []):
+            if sc.get("name") == name:
+                output_dir = sc.get("output_dir")
+                break
+
+        if not output_dir:
+            self._drill_status.err(f"No output_dir for {name!r}")
+            return
+
+        base_path = str(Path(self._current_run["dir"]) / output_dir / "data")
+
+        # Lazy cache
+        if name in self._scenario_model_cache:
+            run = self._scenario_model_cache[name]
+        else:
+            try:
+                with warnings.catch_warnings(record=True):
+                    warnings.simplefilter("always")
+                    run = assemble_run_from_files(base_path, validate=False)
+                self._scenario_model_cache[name] = run
+            except Exception as exc:
+                self._drill_status.err(str(exc))
+                return
+
+        # Cards
+        for w in self._drill_cards.winfo_children():
+            w.destroy()
+        if run.summary:
+            r = run.summary[0]
+            ops = getattr(r, "ops_per_sec_mean", None)
+            oh  = getattr(r, "overhead_ratio", None)
+            fb  = getattr(r, "fallback_count", None)
+            reserved = getattr(r, "reserved_bytes", None)
+            _MetricCards(self._drill_cards, [
+                ("Scenario",      name.split("/", 1)[-1]),
+                ("Allocator",     r.metadata.allocator or "—"),
+                ("Median",        _ns_fmt(r.repetition_median_ns)),
+                ("ops/sec",       f"{ops/1e6:.2f}M" if ops else "NA"),
+                ("Overhead",      f"{oh:.3f}×" if oh else "NA"),
+                ("Fallback",      str(int(fb)) if fb else "0"),
+                ("Reserved mem",  _bytes_fmt(reserved) if reserved else "NA"),
+            ]).pack(fill="x")
+
+        # Table + report
+        self._drill_table.populate(run.summary)
+        try:
+            from analysis.report import report_run
+            md = report_run(run, None)
+        except Exception:
+            md = traceback.format_exc()
+        self._drill_report.config(state="normal")
+        self._drill_report.delete("1.0", "end")
+        self._drill_report.insert("end", md)
+        self._drill_report.config(state="disabled")
+
+        self._drill_status.ok(f"Scenario: {name}")
+
+    def _run_benchmark(self):
+        """Placeholder for the benchmark execution logic."""
+        messagebox.showinfo("Run Benchmark", "Benchmark execution is not yet implemented.")
+
+
+# ---------------------------------------------------------------------------
 # Page: Help
 # ---------------------------------------------------------------------------
 
@@ -890,7 +1270,7 @@ class App(tk.Tk):
         help_menu = tk.Menu(menubar, bg=_BG2, fg=_FG,
                             activebackground=_ACCENT, activeforeground=_BG,
                             tearoff=False)
-        help_menu.add_command(label="Help", command=lambda: self._notebook.select(3))
+        help_menu.add_command(label="Help", command=lambda: self._notebook.select(4))
         help_menu.add_command(label="About", command=self._about)
         menubar.add_cascade(label="Help", menu=help_menu)
         self.config(menu=menubar)
@@ -899,15 +1279,9 @@ class App(tk.Tk):
         self._notebook = ttk.Notebook(self)
         self._notebook.pack(fill="both", expand=True, padx=8, pady=8)
 
-        self._page_single  = PageSingleRun(self._notebook)
-        self._page_compare = PageCompare(self._notebook)
-        self._page_plots   = PagePlots(self._notebook)
-        self._page_help    = PageHelp(self._notebook)
-
-        self._notebook.add(self._page_single,  text="📄  Single Run")
-        self._notebook.add(self._page_compare, text="⚖️  Compare Runs")
-        self._notebook.add(self._page_plots,   text="📈  Plots")
-        self._notebook.add(self._page_help,    text="ℹ️  Help")
+        self._page_batch = PageBatchRuns(self._notebook)
+        self._notebook.add(self._page_batch, text="🗂️  Batch Runs")
+        self._notebook.select(0)
 
     def _open_run(self):
         path = filedialog.askopenfilename(

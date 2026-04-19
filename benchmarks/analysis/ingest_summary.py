@@ -174,6 +174,13 @@ def _parse_record(row: dict[str, str]) -> SummaryRecord:
         throughput_bytes_per_sec_mean=_parse_float(
             row.get("throughput_bytes_per_sec_mean", ""), "throughput_bytes_per_sec_mean"
         ),
+
+        # Extended counter metrics (summary.v5+) — opportunistically parsed
+        failed_alloc_count=_parse_int(row.get("failed_alloc_count", ""), "failed_alloc_count"),
+        fallback_count=_parse_int(row.get("fallback_count", ""), "fallback_count"),
+        reserved_bytes=_parse_int(row.get("reserved_bytes", ""), "reserved_bytes"),
+        overhead_ratio=_parse_float(row.get("overhead_ratio", ""), "overhead_ratio"),
+        overhead_ratio_req=_parse_float(row.get("overhead_ratio_req", ""), "overhead_ratio_req"),
     )
 
 

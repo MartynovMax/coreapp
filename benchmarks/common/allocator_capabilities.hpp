@@ -116,7 +116,9 @@ inline const char* ValidateScenarioCompatibility(
     // Fixed-size-only allocators cannot run variable_size workloads
     if (!HasCap(caps, AllocatorCaps::VariableSize)) {
         if (workload == WorkloadProfile::VariableSize ||
-            workload == WorkloadProfile::Churn) {
+            workload == WorkloadProfile::VariableSizeLarge ||
+            workload == WorkloadProfile::Churn ||
+            workload == WorkloadProfile::HeavyChurn) {
             return "Allocator does not support variable-size allocations";
         }
     }

@@ -38,9 +38,13 @@ bool ParseLifetimeModel(const std::string& s, LifetimeModel& out) noexcept {
 }
 
 bool ParseWorkloadProfile(const std::string& s, WorkloadProfile& out) noexcept {
-    if (s == "fixed_small")   { out = WorkloadProfile::FixedSmall;   return true; }
-    if (s == "variable_size") { out = WorkloadProfile::VariableSize;  return true; }
-    if (s == "churn")         { out = WorkloadProfile::Churn;         return true; }
+    if (s == "fixed_small")        { out = WorkloadProfile::FixedSmall;        return true; }
+    if (s == "variable_size")      { out = WorkloadProfile::VariableSize;      return true; }
+    if (s == "churn")              { out = WorkloadProfile::Churn;             return true; }
+    if (s == "fixed_small_large")  { out = WorkloadProfile::FixedSmallLarge;   return true; }
+    if (s == "variable_size_large"){ out = WorkloadProfile::VariableSizeLarge;  return true; }
+    if (s == "heavy_churn")        { out = WorkloadProfile::HeavyChurn;        return true; }
+    if (s == "ideal_fit_32")       { out = WorkloadProfile::IdealFit32;        return true; }
     return false;
 }
 
