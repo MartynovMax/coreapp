@@ -42,6 +42,7 @@ private:
         u64 finalLiveBytes;
         u64 failedAllocCount;
         u64 fallbackCount;   // segregated_list: times routed to fallback allocator
+        bool hasFallbackTracking; // true if allocator supports fallback counting
         u64 reservedBytes;
         f64 throughputOpsPerSec;
         f64 throughputBytesPerSec;

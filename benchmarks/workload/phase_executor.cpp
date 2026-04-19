@@ -427,6 +427,7 @@ void PhaseExecutor::Execute() {
         evt.data.phaseComplete.fallbackCount = _desc.fallbackCountCallback
             ? _desc.fallbackCountCallback(_desc.userData)
             : 0u;
+        evt.data.phaseComplete.hasFallbackTracking = (_desc.fallbackCountCallback != nullptr);
         evt.data.phaseComplete.reservedBytes = _desc.footprintCallback
             ? _desc.footprintCallback(_desc.userData)
             : 0u;

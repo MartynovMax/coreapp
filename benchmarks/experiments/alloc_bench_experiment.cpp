@@ -23,6 +23,16 @@ namespace core::bench {
 
 namespace {
 
+// Adapter: bridges EventBus (multi-sink dispatcher) to IEventSink interface
+// so PhaseExecutor can use it as its single eventSink parameter.
+class BusBroadcastSink final : public IEventSink {
+public:
+    explicit BusBroadcastSink(EventBus& bus) noexcept : _bus(bus) {}
+    void OnEvent(const Event& event) noexcept override { _bus.Emit(event); }
+private:
+    EventBus& _bus;
+};
+
 // Default size classes for SegregatedListAllocator
 static const core::SizeClassConfig kSegSizeClasses[] = {
     {  16, 2048 },
@@ -273,6 +283,9 @@ void AllocBenchExperiment::Warmup() {
     ASSERT(_allocator != nullptr);
     if (_warmupIterations == 0) return;
 
+    BusBroadcastSink busSink(_eventBus);
+    IEventSink* sink = _hasEventSinks ? &busSink : nullptr;
+
     for (u32 i = 0; i < _warmupIterations; ++i) {
         WorkloadParams warm{};
         warm.seed              = _seed + 1 + i;
@@ -288,7 +301,7 @@ void AllocBenchExperiment::Warmup() {
         warm.lifetimeModel  = LifetimeModel::Fifo;
         warm.tickInterval   = 0;
 
-        RunPhaseOnce(_allocator, _eventSink, "Warmup", Name(),
+        RunPhaseOnce(_allocator, sink, "Warmup", Name(),
                      PhaseType::RampUp, 0, warm, ReclaimMode::FreeAll);
     }
 }
@@ -296,6 +309,9 @@ void AllocBenchExperiment::Warmup() {
 void AllocBenchExperiment::RunPhases(u32 repetitionIndex) {
     ASSERT(_allocator != nullptr);
     ASSERT(_sharedTracker != nullptr && _sharedTracker->isValid());
+
+    BusBroadcastSink busSink(_eventBus);
+    IEventSink* sink = _hasEventSinks ? &busSink : nullptr;
 
     const bool isResetOnly = IsResetOnly(_config.allocatorType);
     const bool isLongLived = (_config.lifetime == LifetimeModel::LongLived);
@@ -345,11 +361,11 @@ void AllocBenchExperiment::RunPhases(u32 repetitionIndex) {
         _segregated->ResetFallbackCount();
     }
 
-    RunPhaseOnce(_allocator, _eventSink, "RampUp", Name(),
+    RunPhaseOnce(_allocator, sink, "RampUp", Name(),
                  PhaseType::RampUp, repetitionIndex,
                  ramp, ReclaimMode::None, _sharedTracker);
 
-    RunPhaseOnce(_allocator, _eventSink, "Steady", Name(),
+    RunPhaseOnce(_allocator, sink, "Steady", Name(),
                  PhaseType::Steady, repetitionIndex,
                  steady, ReclaimMode::None, _sharedTracker,
                  /*reclaimCallback=*/nullptr,
@@ -362,7 +378,7 @@ void AllocBenchExperiment::RunPhases(u32 repetitionIndex) {
 
     if (isResetOnly) {
         // Arena reclaim: capture metrics, clear tracker, then Reset()
-        RunPhaseOnce(_allocator, _eventSink, "BulkReclaim", Name(),
+        RunPhaseOnce(_allocator, sink, "BulkReclaim", Name(),
                      PhaseType::BulkReclaim, repetitionIndex,
                      bulk, ReclaimMode::Custom,
                      /*externalTracker=*/nullptr,
@@ -372,7 +388,7 @@ void AllocBenchExperiment::RunPhases(u32 repetitionIndex) {
                      /*userData=*/this);
     } else {
         // Standard reclaim: FreeAll via LifetimeTracker
-        RunPhaseOnce(_allocator, _eventSink, "BulkReclaim", Name(),
+        RunPhaseOnce(_allocator, sink, "BulkReclaim", Name(),
                      PhaseType::BulkReclaim, repetitionIndex,
                      bulk, ReclaimMode::Custom,
                      /*externalTracker=*/nullptr,
@@ -400,7 +416,7 @@ void AllocBenchExperiment::Teardown() noexcept {
 
     TeardownAllocator();
 
-    _eventSink  = nullptr;
+    _hasEventSinks = false;
     _seed       = 0;
     _rng        = SeededRNG{0};
     _trackerRng = SeededRNG{0};

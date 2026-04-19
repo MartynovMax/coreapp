@@ -4,6 +4,23 @@
 namespace core {
 namespace bench {
 
+namespace {
+
+// Write a CSV-safe quoted string field followed by a comma.
+// RFC 4180: wrap in double quotes, escape internal " as "".
+void WriteCsvQuotedField(FILE* f, const char* str) noexcept {
+    fputc('"', f);
+    if (str != nullptr) {
+        for (const char* p = str; *p != '\0'; ++p) {
+            if (*p == '"') fputc('"', f); // escape " → ""
+            fputc(*p, f);
+        }
+    }
+    fprintf(f, "\",");
+}
+
+} // anonymous namespace
+
 CsvSummaryWriter::CsvSummaryWriter(const char* filePath) noexcept
     : _filePath(filePath), _file(nullptr), _metadata{}, _headerWritten(false) {
 }
@@ -113,65 +130,39 @@ void CsvSummaryWriter::WriteHeader() noexcept {
 
     // Overhead proxy metrics (fragmentation / memory amplification)
     fprintf(_file, "overhead_ratio,");         // reserved_bytes / peak_live_bytes
-    fprintf(_file, "overhead_ratio_req");      // reserved_bytes / requested_bytes
-
-    fprintf(_file, "\n");
+    fprintf(_file, "overhead_ratio_req\n");    // reserved_bytes / requested_bytes (last column)
 }
 
 void CsvSummaryWriter::WriteRow(const MetricCollector& collector) noexcept {
     // Schema version
-    fprintf(_file, "summary.v4,");
+    fprintf(_file, "summary.v5,");
 
     // Run validity (protocol requirement)
-    fprintf(_file, "%s,", RunStatusToString(_metadata.status));
-    fprintf(_file, "%s,", FailureClassToString(_metadata.failureClass));
+    WriteCsvQuotedField(_file, RunStatusToString(_metadata.status));
+    WriteCsvQuotedField(_file, FailureClassToString(_metadata.failureClass));
 
-    // Run identifiers
-    if (_metadata.runId != nullptr) {
-        fprintf(_file, "%s,", _metadata.runId);
-    } else {
-        fprintf(_file, ",");
-    }
-
-    if (_metadata.scenarioId != nullptr) {
-        fprintf(_file, "%s,", _metadata.scenarioId);
-    } else {
-        fprintf(_file, ",");
-    }
-
-    if (_metadata.experimentName != nullptr) {
-        fprintf(_file, "%s,", _metadata.experimentName);
-    } else {
-        fprintf(_file, ",");
-    }
-
-    if (_metadata.experimentCategory != nullptr) {
-        fprintf(_file, "%s,", _metadata.experimentCategory);
-    } else {
-        fprintf(_file, ",");
-    }
-
-    if (_metadata.allocatorName != nullptr) {
-        fprintf(_file, "%s,", _metadata.allocatorName);
-    } else {
-        fprintf(_file, ",");
-    }
+    // Run identifiers (quoted for CSV safety)
+    WriteCsvQuotedField(_file, _metadata.runId);
+    WriteCsvQuotedField(_file, _metadata.scenarioId);
+    WriteCsvQuotedField(_file, _metadata.experimentName);
+    WriteCsvQuotedField(_file, _metadata.experimentCategory);
+    WriteCsvQuotedField(_file, _metadata.allocatorName);
 
     fprintf(_file, "%llu,", static_cast<unsigned long long>(_metadata.seed));
     fprintf(_file, "%u,", _metadata.warmupIterations);
     fprintf(_file, "%u,", _metadata.measuredRepetitions);
     fprintf(_file, "%08x,", static_cast<unsigned int>(_metadata.paramsHash));
 
-    // Environment and build metadata
-    fprintf(_file, "%s,", _metadata.runTimestampUtc);
-    fprintf(_file, "%s,", _metadata.osName);
-    fprintf(_file, "%s,", _metadata.osVersion);
-    fprintf(_file, "%s,", _metadata.arch);
-    fprintf(_file, "%s,", _metadata.compilerName);
-    fprintf(_file, "%s,", _metadata.compilerVersion);
-    fprintf(_file, "%s,", _metadata.buildType);
-    fprintf(_file, "%s,", _metadata.buildFlags);
-    fprintf(_file, "%s,", _metadata.cpuModel);
+    // Environment and build metadata (quoted for CSV safety — cpu_model, build_flags may contain commas)
+    WriteCsvQuotedField(_file, _metadata.runTimestampUtc);
+    WriteCsvQuotedField(_file, _metadata.osName);
+    WriteCsvQuotedField(_file, _metadata.osVersion);
+    WriteCsvQuotedField(_file, _metadata.arch);
+    WriteCsvQuotedField(_file, _metadata.compilerName);
+    WriteCsvQuotedField(_file, _metadata.compilerVersion);
+    WriteCsvQuotedField(_file, _metadata.buildType);
+    WriteCsvQuotedField(_file, _metadata.buildFlags);
+    WriteCsvQuotedField(_file, _metadata.cpuModel);
     fprintf(_file, "%u,", _metadata.cpuCoresLogical);
     fprintf(_file, "%u,", _metadata.cpuCoresPhysical);
 
@@ -204,17 +195,9 @@ void CsvSummaryWriter::WriteRow(const MetricCollector& collector) noexcept {
     // Footprint metrics
     WriteMetricValue(collector, "counter.reserved_bytes");
 
-    // Overhead proxy metrics (last two columns — no trailing comma after the last)
+    // Overhead proxy metrics
     WriteMetricValue(collector, "counter.overhead_ratio");
-    {
-        const MetricEntry* entry = collector.FindMetric("counter.overhead_ratio_req");
-        if (entry != nullptr && !entry->value.IsNA()) {
-            if (entry->value.IsF64()) {
-                fprintf(_file, "%.6f", entry->value.AsF64());
-            }
-        }
-        // else: empty (NA)
-    }
+    WriteLastMetricValue(collector, "counter.overhead_ratio_req");
 
     fprintf(_file, "\n");
 }
@@ -236,6 +219,21 @@ void CsvSummaryWriter::WriteMetricValue(const MetricCollector& collector, const 
         // NA or not found
         fprintf(_file, ",");
     }
+}
+
+void CsvSummaryWriter::WriteLastMetricValue(const MetricCollector& collector, const char* metricName) noexcept {
+    const MetricEntry* entry = collector.FindMetric(metricName);
+
+    if (entry != nullptr && !entry->value.IsNA()) {
+        if (entry->value.IsU64()) {
+            fprintf(_file, "%llu", static_cast<unsigned long long>(entry->value.AsU64()));
+        } else if (entry->value.IsI64()) {
+            fprintf(_file, "%lld", static_cast<long long>(entry->value.AsI64()));
+        } else if (entry->value.IsF64()) {
+            fprintf(_file, "%.6f", entry->value.AsF64());
+        }
+    }
+    // else: empty (NA) — no comma, no value
 }
 
 } // namespace bench

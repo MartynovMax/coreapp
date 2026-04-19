@@ -78,12 +78,18 @@ const char* StoreName(const std::string& str) noexcept {
 
 } // anonymous namespace
 
+// Forward declaration — full definition after the second anonymous namespace
+void ResetLoaderState() noexcept;
+
 // ============================================================================
 // LoadScenariosFromJson
 // ============================================================================
 
 ScenarioLoadResult LoadScenariosFromJson(const char* path) noexcept {
     ScenarioLoadResult result{};
+
+    // Reset global loader state to avoid accumulation across repeated loads.
+    ResetLoaderState();
 
     if (path == nullptr) {
         snprintf(result.errorMessage, sizeof(result.errorMessage),
@@ -411,6 +417,19 @@ static const ExperimentFactory kDynamicFactories[kMaxDynamicFactories] = {
 #undef F
 
 } // anonymous namespace
+
+// ============================================================================
+// ResetLoaderState
+// ============================================================================
+
+void ResetLoaderState() noexcept {
+    s_nameStorageUsed = 0;
+    s_dynamicCount = 0;
+}
+
+// ============================================================================
+// RegisterLoadedScenario
+// ============================================================================
 
 void RegisterLoadedScenario(ExperimentRegistry& registry,
                              const AllocBenchConfig& cfg,

@@ -75,6 +75,12 @@ void TimerMeasurementSystem::OnEvent(const Event& event) noexcept {
 
     switch (event.type) {
         case EventType::PhaseComplete: {
+            // Only measure Steady phase (main measurement phase)
+            // RampUp and BulkReclaim are setup/teardown — not part of timing data.
+            if (event.data.phaseComplete.phaseType != PhaseType::Steady) {
+                break;
+            }
+
             // Capture phase duration
             _currentPhaseDuration = event.data.phaseComplete.durationNs;
             _hasCurrentPhase = true;

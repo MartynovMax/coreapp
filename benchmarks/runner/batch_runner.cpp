@@ -278,6 +278,7 @@ bool BatchRunner::WriteBatchManifest(const char* batchDir, const char* timestamp
         JsonEscape(r.scenarioName ? r.scenarioName : "", esc_name, sizeof(esc_name));
         JsonEscape(r.sanitizedName, esc_sanitized, sizeof(esc_sanitized));
         fprintf(f, "    {\n");
+        fprintf(f, "      \"execution_order\": %u,\n", i);
         fprintf(f, "      \"name\": \"%s\",\n", esc_name);
         fprintf(f, "      \"status\": \"%s\",\n", r.exitCode == kSuccess ? "success" : "failed");
         fprintf(f, "      \"exit_code\": %d,\n", r.exitCode);
@@ -322,7 +323,7 @@ bool BatchRunner::MergeSummaries(const char* batchDir) noexcept {
         FILE* in = fopen(csvPath, "r");
         if (in == nullptr) continue;
 
-        char line[4096];
+        char line[8192];
         bool isFirstLine = true;
         while (fgets(line, sizeof(line), in) != nullptr) {
             if (isFirstLine) {

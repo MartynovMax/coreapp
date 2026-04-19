@@ -131,42 +131,58 @@ void CounterMeasurementSystem::OnEvent(const Event& event) noexcept {
 
     switch (event.type) {
         case EventType::PhaseComplete: {
-            // Extract counters from PhaseComplete payload
+            // Accumulate counters across all phases (RampUp + Steady + BulkReclaim).
+            // Peak metrics use max(); additive counters use +=.
             const auto& payload = event.data.phaseComplete;
 
-            _counters.allocOps = payload.allocCount;
-            _counters.freeOps = payload.freeCount;
-            _counters.bytesAllocated = payload.bytesAllocated;
-            _counters.bytesFreed = payload.bytesFreed;
-            _counters.peakLiveCount = payload.peakLiveCount;
-            _counters.peakLiveBytes = payload.peakLiveBytes;
+            _counters.allocOps       += payload.allocCount;
+            _counters.freeOps        += payload.freeCount;
+            _counters.bytesAllocated += payload.bytesAllocated;
+            _counters.bytesFreed     += payload.bytesFreed;
+            _counters.failedAllocCount += payload.failedAllocCount;
+            _counters.sanityCheckFailures += payload.sanityCheckFailures;
+
+            // Peak metrics: take max across all phases
+            if (payload.peakLiveCount > _counters.peakLiveCount)
+                _counters.peakLiveCount = payload.peakLiveCount;
+            if (payload.peakLiveBytes > _counters.peakLiveBytes)
+                _counters.peakLiveBytes = payload.peakLiveBytes;
+
+            // Final live-set: always use the latest phase's final values
             _counters.finalLiveCount = payload.finalLiveCount;
             _counters.finalLiveBytes = payload.finalLiveBytes;
-            _counters.failedAllocCount = payload.failedAllocCount;
-            _counters.fallbackCount = payload.fallbackCount;
-            _counters.reservedBytes = payload.reservedBytes;
-            _counters.throughputOpsPerSec = payload.opsPerSec;
-            _counters.throughputBytesPerSec = payload.throughput;
-            _counters.sanityCheckFailures = payload.sanityCheckFailures;
 
-            // Compute overhead proxy 1: reserved / peak_live (if both available)
-            if (payload.reservedBytes > 0 && payload.peakLiveBytes > 0) {
-                _counters.overheadRatio = static_cast<f64>(payload.reservedBytes)
-                                        / static_cast<f64>(payload.peakLiveBytes);
-            } else {
-                _counters.overheadRatio = 0.0;
-            }
+            // Fallback: accumulate (only meaningful for segregated_list Steady phase)
+            _counters.fallbackCount += payload.fallbackCount;
+            if (payload.hasFallbackTracking) _counters.hasFallbackTracking = true;
 
-            // Compute overhead proxy 2: reserved / requested_bytes (if both available)
-            if (payload.reservedBytes > 0 && payload.bytesAllocated > 0) {
-                _counters.overheadRatioReq = static_cast<f64>(payload.reservedBytes)
-                                           / static_cast<f64>(payload.bytesAllocated);
-            } else {
-                _counters.overheadRatioReq = 0.0;
+            // Reserved bytes: use the latest non-zero value (footprint at end of phase)
+            if (payload.reservedBytes > 0)
+                _counters.reservedBytes = payload.reservedBytes;
+
+            // Throughput: use the Steady phase values (highest ops/sec with real work)
+            if (payload.opsPerSec > _counters.throughputOpsPerSec) {
+                _counters.throughputOpsPerSec = payload.opsPerSec;
+                _counters.throughputBytesPerSec = payload.throughput;
             }
 
             // Check if peak metrics are valid (non-zero indicates tracking was active)
-            _counters.hasPeakMetrics = (payload.peakLiveCount > 0 || payload.peakLiveBytes > 0);
+            if (payload.peakLiveCount > 0 || payload.peakLiveBytes > 0)
+                _counters.hasPeakMetrics = true;
+
+            // --- Runtime invariant checks (Task 10) ---
+            // peak_live_bytes must be >= final_live_bytes
+            if (_counters.hasPeakMetrics && payload.peakLiveBytes < payload.finalLiveBytes) {
+                ++_counters.sanityCheckFailures;
+            }
+            // peak_live_count must be >= final_live_count
+            if (_counters.hasPeakMetrics && payload.peakLiveCount < payload.finalLiveCount) {
+                ++_counters.sanityCheckFailures;
+            }
+            // final_live_bytes cannot exceed total bytes ever allocated
+            if (payload.finalLiveBytes > payload.bytesAllocated && payload.bytesAllocated > 0) {
+                ++_counters.sanityCheckFailures;
+            }
 
             _hasData = true;
             break;
@@ -190,6 +206,16 @@ void CounterMeasurementSystem::PublishMetrics(MetricCollector& collector) noexce
             collector.RegisterMetric(_descriptors[i]);
         }
         return;
+    }
+
+    // Compute overhead ratios from accumulated totals
+    if (_counters.reservedBytes > 0 && _counters.peakLiveBytes > 0) {
+        _counters.overheadRatio = static_cast<f64>(_counters.reservedBytes)
+                                / static_cast<f64>(_counters.peakLiveBytes);
+    }
+    if (_counters.reservedBytes > 0 && _counters.bytesAllocated > 0) {
+        _counters.overheadRatioReq = static_cast<f64>(_counters.reservedBytes)
+                                   / static_cast<f64>(_counters.bytesAllocated);
     }
 
     // Publish exact metrics (always available)
@@ -218,8 +244,9 @@ void CounterMeasurementSystem::PublishMetrics(MetricCollector& collector) noexce
     // Publish failure count
     collector.PublishFromDescriptor(_descriptors[10], MetricValue::FromU64(_counters.failedAllocCount));
 
-    // Publish fallback count (optional: NA if allocator doesn't use fallback)
-    if (_counters.fallbackCount > 0) {
+    // Publish fallback count: 0 is valid for allocators with fallback tracking (e.g. SegregatedList),
+    // NA for allocators that don't support fallback (e.g. Malloc, Arena, Pool).
+    if (_counters.hasFallbackTracking) {
         collector.PublishFromDescriptor(_descriptors[11], MetricValue::FromU64(_counters.fallbackCount));
     } else {
         collector.RegisterMetric(_descriptors[11]); // NA

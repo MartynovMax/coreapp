@@ -8,6 +8,7 @@
 #include "../runner/experiment_interface.hpp"
 #include "../workload/workload_params.hpp"
 #include "../common/seeded_rng.hpp"
+#include "../events/event_bus.hpp"
 #include "core/memory/bump_arena.hpp"
 #include "core/memory/arena.hpp"
 #include "core/memory/pool_allocator.hpp"
@@ -87,7 +88,10 @@ public:
     [[nodiscard]] const char* Description()   const noexcept override;
     [[nodiscard]] const char* AllocatorName() const noexcept override;
 
-    void AttachEventSink(IEventSink* sink) noexcept override { _eventSink = sink; }
+    void AttachEventSink(IEventSink* sink) noexcept override {
+        _eventBus.Attach(sink);
+        _hasEventSinks = true;
+    }
 
     // Returns allocator-specific reserved/capacity bytes; 0 if not available.
     [[nodiscard]] u64 QueryFootprint() const noexcept;
@@ -105,7 +109,8 @@ private:
     AllocBenchConfig _config;
 
     core::IAllocator* _allocator = nullptr;
-    IEventSink*       _eventSink = nullptr;
+    EventBus          _eventBus;
+    bool              _hasEventSinks = false;
 
     u64       _seed             = 0;
     SeededRNG _rng{0};

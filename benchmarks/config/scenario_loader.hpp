@@ -36,7 +36,13 @@ struct ScenarioLoadResult {
 
 // Load scenarios from a JSON file.
 // Never throws — all exceptions are caught and converted to errorMessage.
+// NOTE: Implicitly resets internal loader state. Only one matrix can be loaded at a time.
 ScenarioLoadResult LoadScenariosFromJson(const char* path) noexcept;
+
+// Reset internal loader state (name storage + dynamic factory table).
+// Called automatically by LoadScenariosFromJson(). Only call manually if you need to
+// release name storage without loading a new matrix.
+void ResetLoaderState() noexcept;
 
 // Register a single AllocBenchConfig into an ExperimentRegistry.
 // category is used as ExperimentDescriptor::category (e.g. "article1").

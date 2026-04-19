@@ -299,6 +299,9 @@ ExitCode ExperimentRunner::Run(const RunConfig& config) noexcept {
             updatedMetadata.filter = config.filter;
             updatedMetadata.status = _currentRunStatus;
             updatedMetadata.failureClass = _currentFailureClass;
+            updatedMetadata.commandLine = config.commandLine;
+            updatedMetadata.configPath = config.scenarioConfigPath ? config.scenarioConfigPath : "";
+            CollectEnvironmentMetadata(updatedMetadata);
             outputManager->SetMetadata(updatedMetadata);
         }
 

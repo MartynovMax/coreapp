@@ -38,6 +38,7 @@ private:
     void WriteRow(const MetricCollector& collector) noexcept;
 
     void WriteMetricValue(const MetricCollector& collector, const char* metricName) noexcept;
+    void WriteLastMetricValue(const MetricCollector& collector, const char* metricName) noexcept;
 };
 
 } // namespace bench
