@@ -10,6 +10,7 @@
 #include "experiments/null_experiment.hpp"
 #include "experiments/simple_alloc_experiment.hpp"
 #include "experiments/article1_registry.hpp"
+#include "config/scenario_loader.hpp"
 #include "measurement/measurement_factory.hpp"
 #include <stdio.h>
 
@@ -59,8 +60,24 @@ int main(int argc, char** argv) {
     registry.Register(simpleAllocDesc);
 
     // Register Article 1 matrix — 31 scenarios: article1/{allocator}/{lifetime}/{workload}
-    // Run all: coreapp_benchmarks --filter=article1/*
-    RegisterArticle1Matrix(registry);
+    // If --config is given the JSON file replaces (not extends) the built-in table.
+    if (config.hasExplicitConfig) {
+        ScenarioLoadResult loaded = LoadScenariosFromJson(config.scenarioConfigPath);
+        if (!loaded.ok) {
+            printf("Error: failed to load scenario config '%s': %s\n",
+                   config.scenarioConfigPath, loaded.errorMessage);
+            return kInvalidArgs;
+        }
+        for (u32 i = 0; i < loaded.count; ++i) {
+            RegisterLoadedScenario(registry, loaded.scenarios[i]);
+        }
+        printf("[main] Loaded %u scenario(s) from %s\n",
+               loaded.count, config.scenarioConfigPath);
+    } else {
+        // Default: use the built-in C++ table
+        // Run all: coreapp_benchmarks --filter=article1/*
+        RegisterArticle1Matrix(registry);
+    }
 
     if (config.showList) {
         u32 count = 0;

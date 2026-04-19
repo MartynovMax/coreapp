@@ -99,7 +99,7 @@ TEST(SimpleAllocExperimentTest, RunPhasesExecutesAllThreePhases) {
 
     experiment.Setup(params);
     experiment.Warmup();
-    experiment.RunPhases();
+    experiment.RunPhases(0);
     experiment.Teardown();
 
     bool hasRampUp = false;
@@ -128,7 +128,7 @@ TEST(SimpleAllocExperimentTest, DeterminismSameSeedIdenticalResults) {
     exp1.AttachEventSink(&sink1);
     exp1.Setup(params);
     exp1.Warmup();
-    exp1.RunPhases();
+    exp1.RunPhases(0);
     exp1.Teardown();
 
     SimpleAllocExperiment exp2;
@@ -136,7 +136,7 @@ TEST(SimpleAllocExperimentTest, DeterminismSameSeedIdenticalResults) {
     exp2.AttachEventSink(&sink2);
     exp2.Setup(params);
     exp2.Warmup();
-    exp2.RunPhases();
+    exp2.RunPhases(0);
     exp2.Teardown();
 
     Event ramp1 = FindPhaseComplete(sink1.events, "RampUp");
@@ -166,7 +166,7 @@ TEST(SimpleAllocExperimentTest, MallocAllocatorBulkReclaimFreesAll) {
 
     experiment.Setup(params);
     experiment.Warmup();
-    experiment.RunPhases();
+    experiment.RunPhases(0);
     experiment.Teardown();
 
     Event bulk = FindPhaseComplete(sink.events, "BulkReclaim");
@@ -195,7 +195,7 @@ TEST(SimpleAllocExperimentTest, BumpArenaResetCallbackWorks) {
 
     experiment.Setup(params);
     experiment.Warmup();
-    experiment.RunPhases();
+    experiment.RunPhases(0);
     experiment.Teardown();
 
     EXPECT_EQ(arena.Used(), 0u);
@@ -215,7 +215,7 @@ TEST(SimpleAllocExperimentTest, DifferentSeedsProduceDifferentBehavior) {
     exp1.AttachEventSink(&sink1);
     exp1.Setup(params1);
     exp1.Warmup();
-    exp1.RunPhases();
+    exp1.RunPhases(0);
     exp1.Teardown();
 
     SimpleAllocExperiment exp2;
@@ -223,7 +223,7 @@ TEST(SimpleAllocExperimentTest, DifferentSeedsProduceDifferentBehavior) {
     exp2.AttachEventSink(&sink2);
     exp2.Setup(params2);
     exp2.Warmup();
-    exp2.RunPhases();
+    exp2.RunPhases(0);
     exp2.Teardown();
 
     Event ramp1 = FindPhaseComplete(sink1.events, "RampUp");
@@ -244,7 +244,7 @@ TEST(SimpleAllocExperimentTest, EventSinkCapturesAllPhaseEvents) {
 
     experiment.Setup(params);
     experiment.Warmup();
-    experiment.RunPhases();
+    experiment.RunPhases(0);
     experiment.Teardown();
 
     u32 phaseBeginCount = 0;
@@ -274,7 +274,7 @@ TEST(SimpleAllocExperimentTest, PhaseStatsMatchExpectedValues) {
 
     experiment.Setup(params);
     experiment.Warmup();
-    experiment.RunPhases();
+    experiment.RunPhases(0);
     experiment.Teardown();
 
     Event ramp = FindPhaseComplete(sink.events, "RampUp");
@@ -306,7 +306,7 @@ TEST(SimpleAllocExperimentTest, StressRunHundredSeeds) {
         params.measuredRepetitions = 1;
         experiment.Setup(params);
         experiment.Warmup();
-        experiment.RunPhases();
+        experiment.RunPhases(0);
         experiment.Teardown();
     }
     SUCCEED();

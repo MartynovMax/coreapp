@@ -28,10 +28,10 @@ class IExperiment {
 public:
     virtual ~IExperiment() = default;
     
-    // Lifecycle: called in order: Setup → Warmup × N → RunPhases × M → Teardown
+    // Lifecycle: called in order: Setup → Warmup × N → RunPhases(i) × M → Teardown
     virtual void Setup(const ExperimentParams& params) = 0;
     virtual void Warmup() = 0;
-    virtual void RunPhases() = 0;
+    virtual void RunPhases(u32 repetitionIndex) = 0;
     virtual void Teardown() noexcept = 0;
     
     // Metadata for filtering and reporting

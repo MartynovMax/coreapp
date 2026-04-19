@@ -10,7 +10,7 @@ void NullExperiment::Setup(const ExperimentParams& params) {
 void NullExperiment::Warmup() {
 }
 
-void NullExperiment::RunPhases() {
+void NullExperiment::RunPhases(u32 /*repetitionIndex*/) {
 }
 
 void NullExperiment::Teardown() noexcept {

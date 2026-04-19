@@ -28,7 +28,7 @@ public:
 
     void Setup(const ExperimentParams& params) override;
     void Warmup() override;
-    void RunPhases() override;
+    void RunPhases(u32 repetitionIndex) override;
     void Teardown() noexcept override;
 
     [[nodiscard]] const char* Name() const noexcept override;

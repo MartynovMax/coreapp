@@ -82,6 +82,8 @@ void JsonlTimeSeriesWriter::WriteEventRecord(const Event& event) noexcept {
                     static_cast<unsigned long long>(event.data.phaseComplete.allocCount));
             fprintf(_file, "\"free_count\":%llu,",
                     static_cast<unsigned long long>(event.data.phaseComplete.freeCount));
+            fprintf(_file, "\"forced_free_count\":%llu,",
+                    static_cast<unsigned long long>(event.data.phaseComplete.forcedFreeCount));
             fprintf(_file, "\"bytes_allocated\":%llu,",
                     static_cast<unsigned long long>(event.data.phaseComplete.bytesAllocated));
             fprintf(_file, "\"bytes_freed\":%llu,",

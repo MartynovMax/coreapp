@@ -15,7 +15,7 @@ namespace bench {
 
 namespace {
 
-// Generate unique run identifier
+// Generate unique run identifier (timestamp-based, for file/run correlation)
 void GenerateRunId(char* buffer, size_t bufferSize, u64 seed) noexcept {
     HighResTimer timer;
     u64 timestampNs = timer.Now();
@@ -24,6 +24,18 @@ void GenerateRunId(char* buffer, size_t bufferSize, u64 seed) noexcept {
     snprintf(buffer, bufferSize, "run_%llu_seed%llu",
              static_cast<unsigned long long>(timestampSec),
              static_cast<unsigned long long>(seed));
+}
+
+// Build stable deterministic scenario identifier.
+// Format: "<scenario_name>|seed=<effective_seed>|reps=<measured_repetitions>"
+// All callers must use this function — never construct the string inline.
+void BuildScenarioId(char* buffer, size_t bufferSize,
+                     const char* scenarioName, u64 effectiveSeed,
+                     u32 measuredRepetitions) noexcept {
+    snprintf(buffer, bufferSize, "%s|seed=%llu|reps=%u",
+             scenarioName ? scenarioName : "unknown",
+             static_cast<unsigned long long>(effectiveSeed),
+             measuredRepetitions);
 }
 
 } // anonymous namespace
@@ -113,44 +125,53 @@ ExitCode ExperimentRunner::Run(const RunConfig& config) noexcept {
         return kNoExperiments;
     }
 
+    // Per-run and per-scenario string buffers (stack-local: no shared state between Run() calls)
+    char runIdBuffer[128];
+    char scenarioIdBuffer[256];
+
     // Setup OutputManager if structured outputs enabled
     OutputManager* outputManager = nullptr;
-    static char runIdBuffer[128];
 
     if (config.enableTimeSeriesOutput || config.enableSummaryOutput) {
-        GenerateRunId(runIdBuffer, sizeof(runIdBuffer), config.seed);
-
-        OutputConfig outputConfig;
-        outputConfig.enableTextOutput = config.enableTextOutput;
-        outputConfig.enableTimeSeriesOutput = config.enableTimeSeriesOutput;
-        outputConfig.enableSummaryOutput = config.enableSummaryOutput;
-        outputConfig.outputPath = config.outputPath;
-        outputConfig.verbose = config.verbose;
-
-        outputManager = new OutputManager(outputConfig);
-
-        // Initialize with first experiment metadata (will be updated per experiment)
-        HighResTimer timer;
-        RunMetadata metadata;
-        metadata.runId = runIdBuffer;
-        metadata.experimentName = experiments[0]->name;
-        metadata.experimentCategory = experiments[0]->category;
-        metadata.allocatorName = experiments[0]->allocatorName;
-        metadata.seed = config.seed;
-        metadata.warmupIterations = config.warmupIterations;
-        metadata.measuredRepetitions = config.measuredRepetitions;
-        metadata.filter = config.filter;
-        metadata.startTimestampNs = timer.Now();
-
-        // Collect environment and build metadata
-        CollectEnvironmentMetadata(metadata);
-
-        if (!outputManager->Initialize(metadata)) {
+        if (config.outputPath == nullptr) {
             if (config.verbose) {
-                printf("[ExperimentRunner] Failed to initialize OutputManager\n");
+                printf("[ExperimentRunner] Structured output requested but no --out path\n");
             }
-            delete outputManager;
-            outputManager = nullptr;
+        } else {
+            // runId is timestamp-based (for file correlation); scenarioId is set per-experiment
+            GenerateRunId(runIdBuffer, sizeof(runIdBuffer), config.seed);
+
+            OutputConfig outputConfig;
+            outputConfig.enableTextOutput = config.enableTextOutput;
+            outputConfig.enableTimeSeriesOutput = config.enableTimeSeriesOutput;
+            outputConfig.enableSummaryOutput = config.enableSummaryOutput;
+            outputConfig.outputPath = config.outputPath;
+            outputConfig.verbose = config.verbose;
+
+            outputManager = new OutputManager(outputConfig);
+
+            HighResTimer timer;
+            RunMetadata metadata;
+            metadata.runId = runIdBuffer;
+            metadata.scenarioId = nullptr;       // set per-experiment below
+            metadata.experimentName = nullptr;   // set per-experiment by SetMetadata
+            metadata.experimentCategory = nullptr;
+            metadata.allocatorName = nullptr;
+            metadata.seed = 0;                   // set per-experiment by SetMetadata
+            metadata.warmupIterations = config.warmupIterations;
+            metadata.measuredRepetitions = config.measuredRepetitions;
+            metadata.filter = config.filter;
+            metadata.startTimestampNs = timer.Now();
+
+            CollectEnvironmentMetadata(metadata);
+
+            if (!outputManager->Initialize(metadata)) {
+                if (config.verbose) {
+                    printf("[ExperimentRunner] Failed to initialize OutputManager\n");
+                }
+                delete outputManager;
+                outputManager = nullptr;
+            }
         }
     }
 
@@ -167,6 +188,28 @@ ExitCode ExperimentRunner::Run(const RunConfig& config) noexcept {
         if (desc == nullptr || desc->factory == nullptr) {
             ++failureCount;
             continue;
+        }
+
+        // --- Three-level priority resolution ---
+        // 1. explicit CLI flag  → config.hasExplicitSeed / hasExplicitRepetitions
+        // 2. per-scenario value → desc->scenarioSeed / scenarioRepetitions (non-zero)
+        // 3. built-in default   → config.seed=0, config.measuredRepetitions=5
+        params.seed = config.hasExplicitSeed
+            ? config.seed
+            : (desc->scenarioSeed != 0 ? desc->scenarioSeed : config.seed);
+
+        params.measuredRepetitions = config.hasExplicitRepetitions
+            ? config.measuredRepetitions
+            : (desc->scenarioRepetitions != 0 ? desc->scenarioRepetitions : config.measuredRepetitions);
+
+        params.warmupIterations = config.warmupIterations;
+
+        // --- Stable scenario_id (deterministic, not timestamp-based) ---
+        BuildScenarioId(scenarioIdBuffer, sizeof(scenarioIdBuffer),
+                        desc->name, params.seed, params.measuredRepetitions);
+
+        if (config.verbose || config.enableTextOutput) {
+            printf("[run] scenario_id = %s\n", scenarioIdBuffer);
         }
 
         IExperiment* experiment = desc->factory();
@@ -192,8 +235,8 @@ ExitCode ExperimentRunner::Run(const RunConfig& config) noexcept {
             }
         }
 
-        // Notify measurement systems: run start
-        NotifyRunStart(desc->name, config.seed, config.measuredRepetitions);
+        // Notify measurement systems: run start (use resolved params, not raw config)
+        NotifyRunStart(desc->name, params.seed, params.measuredRepetitions);
 
         // Emit ExperimentBegin event
         if (_eventSink != nullptr) {
@@ -239,12 +282,13 @@ ExitCode ExperimentRunner::Run(const RunConfig& config) noexcept {
         if (outputManager != nullptr) {
             RunMetadata updatedMetadata;
             updatedMetadata.runId = runIdBuffer;
+            updatedMetadata.scenarioId = scenarioIdBuffer;
             updatedMetadata.experimentName = desc->name;
             updatedMetadata.experimentCategory = desc->category;
             updatedMetadata.allocatorName = desc->allocatorName;
-            updatedMetadata.seed = config.seed;
-            updatedMetadata.warmupIterations = config.warmupIterations;
-            updatedMetadata.measuredRepetitions = config.measuredRepetitions;
+            updatedMetadata.seed = params.seed;
+            updatedMetadata.warmupIterations = params.warmupIterations;
+            updatedMetadata.measuredRepetitions = params.measuredRepetitions;
             updatedMetadata.filter = config.filter;
             updatedMetadata.status = _currentRunStatus;
             updatedMetadata.failureClass = _currentFailureClass;
@@ -296,8 +340,13 @@ bool ExperimentRunner::RunExperiment(IExperiment* experiment, const ExperimentPa
                 experiment->Warmup();
             }
 
+            // Create a mutable copy so repetitionIndex is kept in sync with the loop counter.
+            // RunPhases already receives `i` directly; iterParams.repetitionIndex makes the
+            // current index available to any code that inspects ExperimentParams.
+            ExperimentParams iterParams = params;
             for (u32 i = 0; i < params.measuredRepetitions; ++i) {
-                experiment->RunPhases();
+                iterParams.repetitionIndex = i;
+                experiment->RunPhases(i);
             }
         } catch (...) {
             _currentRunStatus = RunStatus::Invalid;

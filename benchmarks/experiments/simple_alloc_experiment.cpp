@@ -191,7 +191,7 @@ void SimpleAllocExperiment::Warmup() {
     }
 }
 
-void SimpleAllocExperiment::RunPhases() {
+void SimpleAllocExperiment::RunPhases(u32 repetitionIndex) {
     ASSERT(_allocator != nullptr);
     ASSERT(_sharedTracker != nullptr && _sharedTracker->isValid());
 
@@ -218,7 +218,7 @@ void SimpleAllocExperiment::RunPhases() {
         "RampUp",
         Name(),
         PhaseType::RampUp,
-        /*repetitionId=*/0,
+        repetitionIndex,
         ramp,
         ReclaimMode::None,
         /*externalTracker=*/_sharedTracker);
@@ -229,7 +229,7 @@ void SimpleAllocExperiment::RunPhases() {
         "Steady",
         Name(),
         PhaseType::Steady,
-        /*repetitionId=*/0,
+        repetitionIndex,
         steady,
         ReclaimMode::None,
         /*externalTracker=*/_sharedTracker);
@@ -244,7 +244,7 @@ void SimpleAllocExperiment::RunPhases() {
         "BulkReclaim",
         Name(),
         PhaseType::BulkReclaim,
-        /*repetitionId=*/0,
+        repetitionIndex,
         bulk,
         ReclaimMode::Custom,
         /*externalTracker=*/nullptr,

@@ -23,6 +23,10 @@ struct ExperimentDescriptor {
     const char* allocatorName = nullptr;    // Allocator under test
     const char* description = nullptr;      // Human-readable description
     ExperimentFactory factory = nullptr;    // Factory function
+
+    // Per-scenario defaults (0 = use global RunConfig value / built-in default)
+    u64 scenarioSeed        = 0;            // Default seed for this scenario
+    u32 scenarioRepetitions = 0;            // Default repetition count for this scenario
 };
 
 } // namespace bench

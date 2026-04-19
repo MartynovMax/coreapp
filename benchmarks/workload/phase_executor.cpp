@@ -7,6 +7,7 @@
 
 #include "tick_manager.hpp"
 #include "core/base/core_assert.hpp"
+#include "core/memory/core_allocator.hpp"
 
 #include "events/event_sink.hpp"
 #include "events/event_types.hpp"
@@ -157,6 +158,10 @@ void PhaseExecutor::Execute() {
                         break;
                     case OpReason::NoopFreeEmptyLive:
                         _stats.noopFreeCount++;
+                        break;
+                    case OpReason::ForcedFreeFullLive:
+                        _stats.forcedFreeCount++;
+                        ExecuteOperationFree(opIndex);
                         break;
                     case OpReason::Normal:
                         if (op.type == OpType::Alloc) {
@@ -346,6 +351,7 @@ void PhaseExecutor::Execute() {
         evt.data.phaseComplete.issuedOpCount = _stats.issuedOpCount;
         evt.data.phaseComplete.forcedAllocCount = _stats.forcedAllocCount;
         evt.data.phaseComplete.noopFreeCount = _stats.noopFreeCount;
+        evt.data.phaseComplete.forcedFreeCount = _stats.forcedFreeCount;
         evt.data.phaseComplete.bytesAllocated = _stats.bytesAllocated;
         evt.data.phaseComplete.bytesFreed = _stats.bytesFreed;
         evt.data.phaseComplete.peakLiveCount = _stats.peakLiveCount;
@@ -576,8 +582,9 @@ void PhaseExecutor::SetupLifetimeTracker() noexcept {
             if (!mem) {
                 FATAL("Failed to allocate memory for LifetimeTracker");
             }
-
-            _tracker = new (mem) LifetimeTracker(trackerCapacity, _desc.params.lifetimeModel, *_ctx.callbackRng, _ctx.allocator);
+            _tracker = new (mem) LifetimeTracker(trackerCapacity, _desc.params.lifetimeModel,
+                                                  *_ctx.callbackRng, _ctx.allocator,
+                                                  &core::GetDefaultAllocator());
             if (!_tracker || !_tracker->isValid()) {
                 core::AllocationInfo info{};
                 info.ptr = mem;

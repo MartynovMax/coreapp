@@ -12,6 +12,7 @@ struct PhaseStats {
     u64 issuedOpCount;      
     u64 forcedAllocCount; 
     u64 noopFreeCount;    
+    u64 forcedFreeCount;
     u64 bytesAllocated;
     u64 bytesFreed;
     u64 peakLiveCount;
@@ -43,6 +44,7 @@ struct PhaseCompletePayload {
     u64 issuedOpCount; 
     u64 forcedAllocCount;
     u64 noopFreeCount;
+    u64 forcedFreeCount;
     u64 bytesAllocated;
     u64 bytesFreed;
     u64 peakLiveCount;

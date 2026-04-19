@@ -31,7 +31,8 @@ const char* RunStatusToString(RunStatus status) noexcept;
 const char* FailureClassToString(FailureClass fc) noexcept;
 
 struct RunMetadata {
-    const char* runId = nullptr;              // Unique run identifier
+    const char* runId = nullptr;              // Unique run identifier (timestamp-based)
+    const char* scenarioId = nullptr;         // Stable deterministic id: "<name>|seed=<N>|reps=<R>"
     const char* experimentName = nullptr;     // Experiment name
     const char* experimentCategory = nullptr; // Experiment category
     const char* allocatorName = nullptr;      // Allocator being tested

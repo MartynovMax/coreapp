@@ -176,6 +176,9 @@ void RegisterArticle1Matrix(ExperimentRegistry& registry) noexcept {
         desc.description = "Article 1 matrix scenario: allocator x lifetime x workload";
         desc.factory     = kFactories[i];
 
+        desc.scenarioSeed        = cfg.seed;        // 0 = use global default
+        desc.scenarioRepetitions = cfg.repetitions; // 0 = use global default (5)
+
         registry.Register(desc);
     }
 }

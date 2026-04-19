@@ -24,10 +24,13 @@ namespace {
     }
 }
 
-LifetimeTracker::LifetimeTracker(u32 capacity, LifetimeModel model, SeededRNG& rng, IAllocator* allocator) noexcept
+LifetimeTracker::LifetimeTracker(u32 capacity, LifetimeModel model, SeededRNG& rng,
+                                 IAllocator* allocator,
+                                 IAllocator* bufferAllocator) noexcept
     : _model(model)
     , _rng(rng)
     , _allocator(allocator)
+    , _bufferAllocator(bufferAllocator ? bufferAllocator : allocator)
     , _buffer(nullptr)
     , _bufferTag(0)
     , _capacity(NextPowerOfTwo(capacity))
@@ -40,14 +43,15 @@ LifetimeTracker::LifetimeTracker(u32 capacity, LifetimeModel model, SeededRNG& r
     , _peakLiveCount(0)
 {
     ASSERT(_allocator != nullptr);
+    ASSERT(_bufferAllocator != nullptr);
     ASSERT(_capacity > 0);
-    if (_allocator && _capacity > 0) {
+    if (_bufferAllocator && _capacity > 0) {
         core::AllocationRequest req{};
         req.size = sizeof(AllocInfo) * _capacity;
         req.alignment = static_cast<core::memory_alignment>(alignof(AllocInfo));
         req.tag = 0;
         _bufferTag = req.tag;
-        if (void* mem = _allocator->Allocate(req)) {
+        if (void* mem = _bufferAllocator->Allocate(req)) {
             _buffer = static_cast<AllocInfo*>(mem);
         }
     }
@@ -59,13 +63,13 @@ LifetimeTracker::~LifetimeTracker() noexcept {
         FreeAll();
     }
     
-    if (_allocator && _buffer) {
+    if (_bufferAllocator && _buffer) {
         core::AllocationInfo info{};
         info.ptr = _buffer;
         info.size = sizeof(AllocInfo) * _capacity;
         info.alignment = static_cast<core::memory_alignment>(alignof(AllocInfo));
         info.tag = _bufferTag;
-        _allocator->Deallocate(info);
+        _bufferAllocator->Deallocate(info);
         _buffer = nullptr;
         _capacity = 0;
         _count = 0;

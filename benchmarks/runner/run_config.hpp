@@ -30,6 +30,12 @@ struct RunConfig {
     u32 measuredRepetitions = 5;
     u32 minRepetitions = 5;
 
+    bool hasExplicitSeed        = false;
+    bool hasExplicitRepetitions = false;
+
+    const char* scenarioConfigPath = nullptr;  // path passed via --config=<path>
+    bool hasExplicitConfig         = false;
+
     OutputFormat format = OutputFormat::Text;
     const char* outputPath = nullptr;
     const char* measurements = nullptr;

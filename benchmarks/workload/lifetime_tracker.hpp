@@ -39,8 +39,9 @@ struct TrackResult {
 class LifetimeTracker {
 public:
     using TrackResult = ::core::bench::TrackResult;
-
-    LifetimeTracker(u32 capacity, LifetimeModel model, SeededRNG& rng, IAllocator* allocator) noexcept;
+    LifetimeTracker(u32 capacity, LifetimeModel model, SeededRNG& rng,
+                    IAllocator* allocator,
+                    IAllocator* bufferAllocator = nullptr) noexcept;
     ~LifetimeTracker() noexcept;
 
     // Register a new allocation
@@ -76,6 +77,7 @@ private:
     u32 _capacity;
     SeededRNG& _rng;
     IAllocator* _allocator;
+    IAllocator* _bufferAllocator;
 
     AllocInfo* _buffer = nullptr;
     core::memory_tag _bufferTag = 0;

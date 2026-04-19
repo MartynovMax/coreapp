@@ -32,6 +32,7 @@ enum class OpReason {
     Normal,                  // Normal operation based on ratio
     ForcedAllocEmptyLive,   // Forced alloc when live-set empty
     NoopFreeEmptyLive,      // No-op free when live-set empty
+    ForcedFreeFullLive,     // Forced free when live-set reached maxLiveObjects
 };
 
 // ----------------------------------------------------------------------------

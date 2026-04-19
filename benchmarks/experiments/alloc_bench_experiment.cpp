@@ -191,9 +191,13 @@ void AllocBenchExperiment::Setup(const ExperimentParams& params) {
 
     SetupAllocator();
 
-    // Pre-allocate LifetimeTracker from the default allocator (not the allocator
-    // under test) to avoid interference with benchmark measurements.
-    const u32 trackerCapacity = _config.maxLiveObjects + (_config.maxLiveObjects / 2) + 512;
+    const bool _isLongLivedOrArena =
+        (_config.lifetime == LifetimeModel::LongLived) ||
+        (_config.allocatorType == AllocatorType::MonotonicArena);
+    const u64 _totalAllocCapacity = (u64)_config.maxLiveObjects + _config.operationCount + 512;
+    const u32 trackerCapacity = _isLongLivedOrArena
+        ? static_cast<u32>(_totalAllocCapacity > 0x7FFFFFFFu ? 0x7FFFFFFFu : _totalAllocCapacity)
+        : _config.maxLiveObjects + (_config.maxLiveObjects / 2) + 512;
     _trackerMem = core::GetDefaultAllocator().Allocate(core::AllocationRequest{
         .size      = sizeof(LifetimeTracker),
         .alignment = static_cast<core::memory_alignment>(alignof(LifetimeTracker)),
@@ -204,7 +208,8 @@ void AllocBenchExperiment::Setup(const ExperimentParams& params) {
         trackerCapacity,
         _config.lifetime,
         _trackerRng,
-        _allocator);
+        _allocator,
+        &core::GetDefaultAllocator());
 
     if (!_sharedTracker->isValid()) { FATAL("AllocBenchExperiment: LifetimeTracker init failed"); }
 }
@@ -233,14 +238,13 @@ void AllocBenchExperiment::Warmup() {
     }
 }
 
-void AllocBenchExperiment::RunPhases() {
+void AllocBenchExperiment::RunPhases(u32 repetitionIndex) {
     ASSERT(_allocator != nullptr);
     ASSERT(_sharedTracker != nullptr && _sharedTracker->isValid());
 
-    // For MonotonicArena, force alloc-only: individual frees are no-ops
-    // so there's no point generating free operations.
-    const bool isArena = (_config.allocatorType == AllocatorType::MonotonicArena);
-    const f32 steadyRatio = isArena ? 1.0f : _config.allocFreeRatio;
+    const bool isArena    = (_config.allocatorType == AllocatorType::MonotonicArena);
+    const bool isLongLived = (_config.lifetime == LifetimeModel::LongLived);
+    const f32  steadyRatio = (isArena || isLongLived) ? 1.0f : _config.allocFreeRatio;
 
     // --- Phase 1: RampUp — fill the live set ---
     WorkloadParams ramp{};
@@ -261,7 +265,7 @@ void AllocBenchExperiment::RunPhases() {
     WorkloadParams steady{};
     steady.seed           = _seed + 100;
     steady.operationCount = _config.operationCount;
-    steady.maxLiveObjects = _config.maxLiveObjects;
+    steady.maxLiveObjects = (isLongLived || isArena) ? 0u : _config.maxLiveObjects;
     steady.allocFreeRatio = steadyRatio;
     steady.lifetimeModel  = _config.lifetime;
     steady.sizeDistribution = SizeDistribution{
@@ -281,17 +285,17 @@ void AllocBenchExperiment::RunPhases() {
     _sharedTracker->Clear();
 
     RunPhaseOnce(_allocator, _eventSink, "RampUp", Name(),
-                 PhaseType::RampUp, 0,
+                 PhaseType::RampUp, repetitionIndex,
                  ramp, ReclaimMode::None, _sharedTracker);
 
     RunPhaseOnce(_allocator, _eventSink, "Steady", Name(),
-                 PhaseType::Steady, 0,
+                 PhaseType::Steady, repetitionIndex,
                  steady, ReclaimMode::None, _sharedTracker);
 
     if (isArena) {
         // Arena reclaim: capture metrics, clear tracker, then Reset()
         RunPhaseOnce(_allocator, _eventSink, "BulkReclaim", Name(),
-                     PhaseType::BulkReclaim, 0,
+                     PhaseType::BulkReclaim, repetitionIndex,
                      bulk, ReclaimMode::Custom,
                      /*externalTracker=*/nullptr,
                      ArenaReclaimCallback,
@@ -301,13 +305,13 @@ void AllocBenchExperiment::RunPhases() {
     } else {
         // Standard reclaim: FreeAll via LifetimeTracker
         RunPhaseOnce(_allocator, _eventSink, "BulkReclaim", Name(),
-                     PhaseType::BulkReclaim, 0,
+                     PhaseType::BulkReclaim, repetitionIndex,
                      bulk, ReclaimMode::Custom,
                      /*externalTracker=*/nullptr,
                      StandardReclaimCallback,
                      NoOpOperation,
                      ImmediateCompletion,
-                     /*userData=*/_sharedTracker);
+                      /*userData=*/_sharedTracker);
     }
 }
 

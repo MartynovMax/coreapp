@@ -241,6 +241,9 @@ Operation OperationStream::Next(u64 liveCount) noexcept {
                 op.reason = OpReason::NoopFreeEmptyLive;
             }
         }
+    } else if (_params.maxLiveObjects > 0 && liveCount >= _params.maxLiveObjects) {
+        op.type = OpType::Free;
+        op.reason = OpReason::ForcedFreeFullLive;
     } else {
         op.type = DecideOperation();
     }

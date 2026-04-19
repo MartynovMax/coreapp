@@ -108,6 +108,7 @@ bool CLIParser::Parse(int argc, char** argv, RunConfig& outConfig) noexcept {
                 _errorMessage = "--seed: invalid numeric value";
                 return false;
             }
+            outConfig.hasExplicitSeed = true;
             continue;
         }
 
@@ -136,6 +137,7 @@ bool CLIParser::Parse(int argc, char** argv, RunConfig& outConfig) noexcept {
                 _errorMessage = "--repetitions: invalid numeric value";
                 return false;
             }
+            outConfig.hasExplicitRepetitions = true;
             continue;
         }
 
@@ -189,6 +191,18 @@ bool CLIParser::Parse(int argc, char** argv, RunConfig& outConfig) noexcept {
             continue;
         }
 
+        // --config=<path>
+        const char* configValue = ExtractValue(arg, "--config");
+        if (configValue != nullptr) {
+            if (*configValue == '\0') {
+                _errorMessage = "--config requires a file path";
+                return false;
+            }
+            outConfig.scenarioConfigPath = configValue;
+            outConfig.hasExplicitConfig  = true;
+            continue;
+        }
+
         // --help or -h
         if (StringsEqual(arg, "--help") || StringsEqual(arg, "-h")) {
             outConfig.showHelp = true;
@@ -236,6 +250,7 @@ void CLIParser::PrintHelp() noexcept {
     printf("  --format=<mode>           Output format: none, text, jsonl, summary, all (default: text)\n");
     printf("  --out=<path>              Output file path\n");
     printf("  --measurements=<list>     Measurement systems: timer,counter,snapshot (default: none)\n");
+    printf("  --config=<path>           Load scenario matrix from JSON file\n");
     printf("  --help, -h                Show this help message\n");
     printf("  --verbose, -v             Enable verbose output\n");
 }

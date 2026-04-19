@@ -30,7 +30,7 @@ list(FILTER BENCHMARK_HEADERS EXCLUDE REGEX ".*/tests/.*")
 
 add_executable(coreapp_benchmarks ${BENCHMARK_SOURCES})
 
-target_link_libraries(coreapp_benchmarks PRIVATE coreapp)
+target_link_libraries(coreapp_benchmarks PRIVATE coreapp nlohmann_json::nlohmann_json)
 
 target_include_directories(coreapp_benchmarks PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}
@@ -96,10 +96,15 @@ if(BENCHMARK_TEST_SOURCES)
         ${BENCHMARK_LIB_SOURCES}
     )
     
-    target_link_libraries(benchmark_tests PRIVATE coreapp gtest_main)
-    
+    target_link_libraries(benchmark_tests PRIVATE coreapp gtest_main nlohmann_json::nlohmann_json)
+
     target_include_directories(benchmark_tests PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
     
+    # Provide absolute path to the config directory so tests can load JSON fixtures.
+    target_compile_definitions(benchmark_tests PRIVATE
+        BENCHMARK_CONFIG_DIR="${CMAKE_CURRENT_SOURCE_DIR}/config"
+    )
+
     # Apply same metadata definitions to tests
     if(CMAKE_CXX_COMPILER_VERSION)
         target_compile_definitions(benchmark_tests PRIVATE

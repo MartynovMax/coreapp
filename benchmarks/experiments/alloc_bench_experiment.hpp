@@ -51,6 +51,10 @@ struct AllocBenchConfig {
     u32             sizeMin        = 32;
     u32             sizeMax        = 32;
 
+    // Per-scenario reproducibility (0 = not set; fallback to global default or CLI override)
+    u64 seed        = 0;   // Deterministic seed for this scenario
+    u32 repetitions = 0;   // Number of measured repetitions for this scenario
+
     // PoolAllocator: 0 = derive from sizeMax / maxLiveObjects respectively
     u32 poolBlockSize  = 0;
     u32 poolBlockCount = 0;
@@ -71,7 +75,7 @@ public:
 
     void Setup(const ExperimentParams& params) override;
     void Warmup() override;
-    void RunPhases() override;
+    void RunPhases(u32 repetitionIndex) override;
     void Teardown() noexcept override;
 
     [[nodiscard]] const char* Name()          const noexcept override;

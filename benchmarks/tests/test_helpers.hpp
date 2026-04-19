@@ -29,7 +29,7 @@ class NullExperiment : public IExperiment {
 public:
     void Setup(const ExperimentParams& params) override { (void)params; }
     void Warmup() override {}
-    void RunPhases() override {}
+    void RunPhases(u32 /*repetitionIndex*/) override {}
     void Teardown() noexcept override {}
     const char* Name() const noexcept override { return "null"; }
     const char* Category() const noexcept override { return "test"; }
@@ -58,7 +58,7 @@ public:
         ++warmupCalls;
     }
 
-    void RunPhases() override {
+    void RunPhases(u32 /*repetitionIndex*/) override {
         ++runPhasesCalls;
     }
 
@@ -83,7 +83,7 @@ public:
     void Setup(const ExperimentParams& params) override { (void)params; }
     void Warmup() override {}
     
-    void RunPhases() override {
+    void RunPhases(u32 /*repetitionIndex*/) override {
         throw 1; // Simulate failure
     }
     
@@ -106,7 +106,7 @@ public:
         throw 1; // Simulate setup failure
     }
     void Warmup() override {}
-    void RunPhases() override {}
+    void RunPhases(u32 /*repetitionIndex*/) override {}
     void Teardown() noexcept override {}
     const char* Name() const noexcept override { return "failing_setup"; }
     const char* Category() const noexcept override { return "test"; }
@@ -125,6 +125,31 @@ public:
     void OnEvent(const Event& event) noexcept override {
         events.push_back(event);
     }
+};
+
+// ----------------------------------------------------------------------------
+// ParamCapturingExperiment - Captures ExperimentParams from Setup and
+// repetitionIndex values from each RunPhases call
+// ----------------------------------------------------------------------------
+
+class ParamCapturingExperiment : public IExperiment {
+public:
+    ExperimentParams capturedSetupParams{};
+    std::vector<u32> runPhasesIndices;
+
+    void Setup(const ExperimentParams& params) override {
+        capturedSetupParams = params;
+    }
+    void Warmup() override {}
+    void RunPhases(u32 repetitionIndex) override {
+        runPhasesIndices.push_back(repetitionIndex);
+    }
+    void Teardown() noexcept override {}
+    const char* Name()          const noexcept override { return "param_capturing"; }
+    const char* Category()      const noexcept override { return "test"; }
+    const char* Description()   const noexcept override { return "Param capturing experiment"; }
+    const char* AllocatorName() const noexcept override { return "none"; }
+    static IExperiment* Create() noexcept { return new ParamCapturingExperiment(); }
 };
 
 // ----------------------------------------------------------------------------
