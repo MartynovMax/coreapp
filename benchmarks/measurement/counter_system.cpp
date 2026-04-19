@@ -104,6 +104,13 @@ const MetricDescriptor CounterMeasurementSystem::_descriptors[] = {
         .classification = MetricClassification::Proxy,
         .capability = Capabilities::FootprintTracking,
     },
+    // Sanity check failures
+    {
+        .name = "counter.sanity_check_failures",
+        .unit = "count",
+        .classification = MetricClassification::Exact,
+        .capability = nullptr,
+    },
 };
 
 CounterMeasurementSystem::CounterMeasurementSystem() noexcept
@@ -140,6 +147,7 @@ void CounterMeasurementSystem::OnEvent(const Event& event) noexcept {
             _counters.reservedBytes = payload.reservedBytes;
             _counters.throughputOpsPerSec = payload.opsPerSec;
             _counters.throughputBytesPerSec = payload.throughput;
+            _counters.sanityCheckFailures = payload.sanityCheckFailures;
 
             // Compute overhead proxy 1: reserved / peak_live (if both available)
             if (payload.reservedBytes > 0 && payload.peakLiveBytes > 0) {
@@ -237,6 +245,9 @@ void CounterMeasurementSystem::PublishMetrics(MetricCollector& collector) noexce
     } else {
         collector.RegisterMetric(_descriptors[14]); // NA
     }
+
+    // Publish sanity check failure count
+    collector.PublishFromDescriptor(_descriptors[15], MetricValue::FromU64(_counters.sanityCheckFailures));
 }
 
 } // namespace bench

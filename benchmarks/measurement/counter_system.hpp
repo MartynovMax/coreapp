@@ -48,13 +48,14 @@ private:
         f64 overheadRatio;          // reserved_bytes / peak_live_bytes (0 if unavailable)
         f64 overheadRatioReq;       // reserved_bytes / requested_bytes (0 if unavailable)
         bool hasPeakMetrics;
+        u32 sanityCheckFailures;
     };
 
     Counters _counters;
     bool _hasData;
 
     static const MetricDescriptor _descriptors[];
-    static constexpr u32 _descriptorCount = 15;
+    static constexpr u32 _descriptorCount = 16;
 };
 
 } // namespace bench

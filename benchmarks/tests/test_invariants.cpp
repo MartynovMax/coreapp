@@ -188,3 +188,110 @@ TEST(Invariants, OpCountZero_DoWhileRunsOnceEvenIfComplete) {
     EXPECT_EQ(s_customOpCallCount, 1u) 
         << "customOperation should be called exactly once";
 }
+
+// ===========================================================================
+// Test: Runtime Sanity Checks
+// ===========================================================================
+
+TEST(Invariants, SanityChecks_ZeroFailuresForHealthyRun) {
+    WorkloadParams params;
+    params.seed = 42ULL;
+    params.operationCount = 200;
+    params.sizeDistribution = SizePresets::SmallObjects();
+    params.allocFreeRatio = 0.5f;
+    params.lifetimeModel = LifetimeModel::Fifo;
+    params.maxLiveObjects = 200;
+
+    PhaseDescriptor desc{};
+    desc.name = "SanityHealthy";
+    desc.type = PhaseType::Steady;
+    desc.params = params;
+    desc.reclaimMode = ReclaimMode::FreeAll;
+    desc.enableSanityChecks = true;
+
+    SeededRNG rng(123ULL);
+    IAllocator* alloc = &core::GetDefaultAllocator();
+
+    PhaseContext ctx{};
+    ctx.allocator = alloc;
+    ctx.callbackRng = &rng;
+    ctx.phaseName = desc.name;
+
+    PhaseExecutor executor(desc, ctx, nullptr);
+    executor.Execute();
+
+    const PhaseStats& stats = executor.GetStats();
+    EXPECT_EQ(stats.sanityCheckFailures, 0u)
+        << "Healthy run must have zero sanity check failures";
+    EXPECT_LE(stats.finalLiveBytes, stats.peakLiveBytes)
+        << "peak_live_bytes >= final_live_bytes";
+    EXPECT_LE(stats.finalLiveCount, stats.peakLiveCount)
+        << "peak_live_count >= final_live_count";
+}
+
+TEST(Invariants, SanityChecks_DisabledWhenFlagOff) {
+    WorkloadParams params;
+    params.seed = 42ULL;
+    params.operationCount = 50;
+    params.sizeDistribution = SizePresets::SmallObjects();
+    params.allocFreeRatio = 0.5f;
+    params.lifetimeModel = LifetimeModel::Fifo;
+    params.maxLiveObjects = 100;
+
+    PhaseDescriptor desc{};
+    desc.name = "SanityDisabled";
+    desc.type = PhaseType::Steady;
+    desc.params = params;
+    desc.reclaimMode = ReclaimMode::FreeAll;
+    desc.enableSanityChecks = false;
+
+    SeededRNG rng(123ULL);
+    IAllocator* alloc = &core::GetDefaultAllocator();
+
+    PhaseContext ctx{};
+    ctx.allocator = alloc;
+    ctx.callbackRng = &rng;
+    ctx.phaseName = desc.name;
+
+    PhaseExecutor executor(desc, ctx, nullptr);
+    executor.Execute();
+
+    const PhaseStats& stats = executor.GetStats();
+    EXPECT_EQ(stats.sanityCheckFailures, 0u)
+        << "sanityCheckFailures must be 0 when enableSanityChecks is false";
+}
+
+TEST(Invariants, SanityChecks_AllocOnlyPeakEqualsAllocated) {
+    WorkloadParams params;
+    params.seed = 99ULL;
+    params.operationCount = 100;
+    params.sizeDistribution = SizePresets::SmallObjects();
+    params.allocFreeRatio = 1.0f; // Alloc-only
+    params.lifetimeModel = LifetimeModel::LongLived;
+    params.maxLiveObjects = 200;
+
+    PhaseDescriptor desc{};
+    desc.name = "SanityAllocOnly";
+    desc.type = PhaseType::Steady;
+    desc.params = params;
+    desc.reclaimMode = ReclaimMode::FreeAll;
+    desc.enableSanityChecks = true;
+
+    SeededRNG rng(123ULL);
+    IAllocator* alloc = &core::GetDefaultAllocator();
+
+    PhaseContext ctx{};
+    ctx.allocator = alloc;
+    ctx.callbackRng = &rng;
+    ctx.phaseName = desc.name;
+
+    PhaseExecutor executor(desc, ctx, nullptr);
+    executor.Execute();
+
+    const PhaseStats& stats = executor.GetStats();
+    EXPECT_EQ(stats.sanityCheckFailures, 0u);
+    EXPECT_EQ(stats.peakLiveBytes, stats.bytesAllocated)
+        << "With alloc-only workload, peak should equal total allocated";
+    EXPECT_EQ(stats.finalLiveCount, 0u)
+        << "FreeAll reclaim should leave zero live objects";
+}

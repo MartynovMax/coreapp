@@ -75,6 +75,11 @@ struct PhaseDescriptor {
     // Enable in tests to enforce correct metric handling
     bool strictMetricsValidation = false;
     
+    // Runtime sanity checks for metric invariants after phase execution.
+    // Detects broken harness behavior (peak < final, free count mismatch, etc.)
+    // Enabled by default; disable only for raw performance measurement.
+    bool enableSanityChecks = true;
+
     void* userData = nullptr;
 };
 

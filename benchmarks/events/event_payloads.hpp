@@ -28,6 +28,7 @@ struct PhaseStats {
     u64 totalFreeCount;
     u64 totalBytesFreed;
     u64 failedAllocCount;
+    u32 sanityCheckFailures;
 };
 
 struct PhaseCompletePayload {
@@ -64,6 +65,7 @@ struct PhaseCompletePayload {
     u64 reservedBytes;   // allocator footprint at phase end; 0 = not available
     f64 opsPerSec;
     f64 throughput;
+    u32 sanityCheckFailures;
 };
 
 struct TickPayload {
@@ -106,6 +108,7 @@ enum class FailureReason : u32 {
     AssertionFailed,
     MaxIterationsReached,
     InvalidState,
+    SanityCheckViolation,
     Custom,
 };
 

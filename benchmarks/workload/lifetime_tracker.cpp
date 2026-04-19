@@ -143,6 +143,8 @@ void LifetimeTracker::RemoveIndex(u32 idx) noexcept {
         return;
     }
     
+    ASSERT(_totalLiveBytes >= _buffer[idx].size &&
+           "LifetimeTracker: live bytes underflow detected");
     _totalLiveBytes -= _buffer[idx].size;
     
     if (_ringMode) {

@@ -331,6 +331,63 @@ void PhaseExecutor::Execute() {
     _stats.totalBytesFreed =
         SaturatingAdd(_stats.bytesFreed, SaturatingAdd(_stats.internalBytesFreed, _stats.reclaimBytesFreed));
 
+    // Runtime sanity validation — catch obviously broken harness behavior
+    // before data reaches analysis.
+    _stats.sanityCheckFailures = 0;
+    if (_desc.enableSanityChecks) {
+        auto sanityFail = [&](const char* msg) {
+            _stats.sanityCheckFailures++;
+            if (busSink) {
+                HighResTimer failTimer;
+                Event evt{};
+                evt.type = EventType::PhaseFailure;
+                evt.experimentName = _ctx.experimentName;
+                evt.phaseName = _ctx.phaseName;
+                evt.repetitionId = _ctx.repetitionId;
+                evt.timestamp = failTimer.Now();
+                evt.data.failure.reason = FailureReason::SanityCheckViolation;
+                evt.data.failure.message = msg;
+                evt.data.failure.opIndex = _stats.issuedOpCount;
+                evt.data.failure.isRecoverable = true;
+                busSink->OnEvent(evt);
+            }
+        };
+
+        // Invariant: finalLiveCount <= peakLiveCount
+        if (_stats.finalLiveCount > _stats.peakLiveCount) {
+            sanityFail("Sanity: finalLiveCount > peakLiveCount");
+        }
+        // Invariant: finalLiveBytes <= peakLiveBytes
+        if (_stats.finalLiveBytes > _stats.peakLiveBytes) {
+            sanityFail("Sanity: finalLiveBytes > peakLiveBytes");
+        }
+        // Invariant: totalFreeCount == freeCount + internalFreeCount + reclaimFreeCount
+        {
+            u64 expectedTotal = SaturatingAdd(_stats.freeCount,
+                SaturatingAdd(_stats.internalFreeCount, _stats.reclaimFreeCount));
+            if (_stats.totalFreeCount != expectedTotal) {
+                sanityFail("Sanity: totalFreeCount != sum of free counts");
+            }
+        }
+        // Invariant: totalBytesFreed == bytesFreed + internalBytesFreed + reclaimBytesFreed
+        {
+            u64 expectedTotal = SaturatingAdd(_stats.bytesFreed,
+                SaturatingAdd(_stats.internalBytesFreed, _stats.reclaimBytesFreed));
+            if (_stats.totalBytesFreed != expectedTotal) {
+                sanityFail("Sanity: totalBytesFreed != sum of freed bytes");
+            }
+        }
+        // Invariant: FreeAll reclaim must leave live-set empty
+        if (_desc.reclaimMode == ReclaimMode::FreeAll) {
+            if (_stats.finalLiveCount != 0) {
+                sanityFail("Sanity: FreeAll reclaim but finalLiveCount != 0");
+            }
+            if (_stats.finalLiveBytes != 0) {
+                sanityFail("Sanity: FreeAll reclaim but finalLiveBytes != 0");
+            }
+        }
+    }
+
     if (busSink) {
         Event evt{};
         evt.type = EventType::PhaseComplete;
@@ -375,6 +432,7 @@ void PhaseExecutor::Execute() {
             : 0u;
         evt.data.phaseComplete.opsPerSec = durationNs > 0 ? static_cast<f64>(_stats.issuedOpCount) * 1e9 / static_cast<f64>(durationNs) : 0.0;
         evt.data.phaseComplete.throughput = durationNs > 0 ? static_cast<f64>(_stats.bytesAllocated) * 1e9 / static_cast<f64>(durationNs) : 0.0;
+        evt.data.phaseComplete.sanityCheckFailures = _stats.sanityCheckFailures;
         busSink->OnEvent(evt);
     }
 
