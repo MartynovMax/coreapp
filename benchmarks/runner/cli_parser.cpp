@@ -123,6 +123,7 @@ bool CLIParser::Parse(int argc, char** argv, RunConfig& outConfig) noexcept {
                 _errorMessage = "--warmup: invalid numeric value";
                 return false;
             }
+            outConfig.hasExplicitWarmup = true;
             continue;
         }
 
@@ -244,7 +245,7 @@ void CLIParser::PrintHelp() noexcept {
     printf("  --list                    List all available experiments\n");
     printf("  --filter=<pattern>        Run experiments matching pattern (wildcards: *, ?)\n");
     printf("  --seed=<u64>              Set deterministic seed (default: 0)\n");
-    printf("  --warmup=<n>              Number of warmup iterations (default: 0)\n");
+    printf("  --warmup=<n>              Number of warmup iterations (default: 3)\n");
     printf("  --repetitions=<n>         Number of measured repetitions (default: 5)\n");
     printf("  --min-repetitions=<n>     Minimum repetitions for valid run (default: 5)\n");
     printf("  --format=<mode>           Output format: none, text, jsonl, summary, all (default: text)\n");

@@ -31,8 +31,9 @@ Run with options:
 - `--list` - List all available experiments
 - `--filter=<pattern>` - Run experiments matching pattern (wildcards: *, ?)
 - `--seed=<u64>` - Set deterministic seed (default: 0)
-- `--warmup=<n>` - Number of warmup iterations (default: 0)
-- `--repetitions=<n>` - Number of measured repetitions (default: 1)
+- `--warmup=<n>` - Number of warmup iterations (default: 3)
+- `--repetitions=<n>` - Number of measured repetitions (default: 5)
+- `--min-repetitions=<n>` - Minimum repetitions for valid run (default: 5)
 - `--format=<mode>` - Output format (default: text)
   - `none` - Silent (no output)
   - `text` - Human-readable console output

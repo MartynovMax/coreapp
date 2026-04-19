@@ -191,9 +191,9 @@ ExitCode ExperimentRunner::Run(const RunConfig& config) noexcept {
         }
 
         // --- Three-level priority resolution ---
-        // 1. explicit CLI flag  → config.hasExplicitSeed / hasExplicitRepetitions
-        // 2. per-scenario value → desc->scenarioSeed / scenarioRepetitions (non-zero)
-        // 3. built-in default   → config.seed=0, config.measuredRepetitions=5
+        // 1. explicit CLI flag  → config.hasExplicitSeed / hasExplicitRepetitions / hasExplicitWarmup
+        // 2. per-scenario value → desc->scenarioSeed / scenarioRepetitions / scenarioWarmup (non-zero)
+        // 3. built-in default   → config.seed=0, config.measuredRepetitions=5, config.warmupIterations=3
         params.seed = config.hasExplicitSeed
             ? config.seed
             : (desc->scenarioSeed != 0 ? desc->scenarioSeed : config.seed);
@@ -202,7 +202,9 @@ ExitCode ExperimentRunner::Run(const RunConfig& config) noexcept {
             ? config.measuredRepetitions
             : (desc->scenarioRepetitions != 0 ? desc->scenarioRepetitions : config.measuredRepetitions);
 
-        params.warmupIterations = config.warmupIterations;
+        params.warmupIterations = config.hasExplicitWarmup
+            ? config.warmupIterations
+            : (desc->scenarioWarmup != 0 ? desc->scenarioWarmup : config.warmupIterations);
 
         // --- Stable scenario_id (deterministic, not timestamp-based) ---
         BuildScenarioId(scenarioIdBuffer, sizeof(scenarioIdBuffer),

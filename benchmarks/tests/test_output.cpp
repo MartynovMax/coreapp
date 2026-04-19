@@ -418,7 +418,7 @@ TEST(OutputTest, CsvSummaryIncludesEnvironmentMetadata) {
     fclose(f);
 
     // Check schema version in data row
-    EXPECT_TRUE(strncmp(dataRow, "summary.v2,", 11) == 0);
+    EXPECT_TRUE(strncmp(dataRow, "summary.v4,", 11) == 0);
 
     // Check header contains environment metadata columns
     EXPECT_NE(strstr(header, "run_timestamp_utc"), nullptr);
@@ -473,9 +473,9 @@ TEST(OutputTest, MetadataPresentWithNAMetrics) {
     ASSERT_NE(fgets(dataRow, sizeof(dataRow), f), nullptr);
     fclose(f);
 
-    // Verify schema version, status, failure_class, run_id, and experiment_name are present
-    // Format: summary.v2,valid,none,test_na,test,,alloc, (42 chars total)
-    EXPECT_TRUE(strncmp(dataRow, "summary.v2,valid,none,test_na,test,,alloc,", 42) == 0);
+    // Verify schema version, status, failure_class, run_id, scenario_id, experiment_name, category, allocator
+    // Format: summary.v4,valid,none,test_na,,test,,alloc, (scenario_id and category are empty)
+    EXPECT_TRUE(strncmp(dataRow, "summary.v4,valid,none,test_na,,test,,alloc,", 43) == 0);
 
     // Verify environment fields are populated (not empty)
     // Count commas to ensure all fields are present

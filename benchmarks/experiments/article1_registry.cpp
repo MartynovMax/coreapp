@@ -178,6 +178,7 @@ void RegisterArticle1Matrix(ExperimentRegistry& registry) noexcept {
 
         desc.scenarioSeed        = cfg.seed;        // 0 = use global default
         desc.scenarioRepetitions = cfg.repetitions; // 0 = use global default (5)
+        desc.scenarioWarmup      = cfg.warmup;      // 0 = use global default (3)
         desc.paramsHash          = ComputeAllocBenchParamsHash(cfg);
 
         registry.Register(desc);

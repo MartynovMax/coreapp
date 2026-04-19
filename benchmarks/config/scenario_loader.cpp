@@ -144,15 +144,23 @@ ScenarioLoadResult LoadScenariosFromJson(const char* path) noexcept {
         // ----------------------------------------------------------------
         // 2. Parse top-level defaults (seed, repetitions)
         // ----------------------------------------------------------------
+        // NOTE: seed=0 is treated as "not set" throughout the loader.
+        // A JSON value of "default_seed": 0 (or per-scenario "seed": 0) will be
+        // ignored and the runner's built-in default (or CLI --seed) will be used.
+        // Use any non-zero seed value (e.g. 1, 42, 0xDEAD) to pin reproducibility.
 
         u64 defaultSeed        = 0;
         u32 defaultRepetitions = 0;
+        u32 defaultWarmup      = 0;
 
         if (root.contains("default_seed") && root["default_seed"].is_number_unsigned()) {
             defaultSeed = root["default_seed"].get<u64>();
         }
         if (root.contains("default_repetitions") && root["default_repetitions"].is_number_unsigned()) {
             defaultRepetitions = root["default_repetitions"].get<u32>();
+        }
+        if (root.contains("default_warmup") && root["default_warmup"].is_number_unsigned()) {
+            defaultWarmup = root["default_warmup"].get<u32>();
         }
 
         // ----------------------------------------------------------------
@@ -284,6 +292,8 @@ ScenarioLoadResult LoadScenariosFromJson(const char* path) noexcept {
             }
 
             // --- optional overrides ---
+            // NOTE: seed=0 is treated as "not set" — a per-scenario "seed": 0 falls back
+            // to default_seed (if non-zero), then to the runner's global default/CLI value.
             if (item.contains("seed") && item["seed"].is_number_unsigned()) {
                 cfg.seed = item["seed"].get<u64>();
             } else if (defaultSeed != 0) {
@@ -293,6 +303,11 @@ ScenarioLoadResult LoadScenariosFromJson(const char* path) noexcept {
                 cfg.repetitions = item["repetitions"].get<u32>();
             } else if (defaultRepetitions != 0) {
                 cfg.repetitions = defaultRepetitions;
+            }
+            if (item.contains("warmup") && item["warmup"].is_number_unsigned()) {
+                cfg.warmup = item["warmup"].get<u32>();
+            } else if (defaultWarmup != 0) {
+                cfg.warmup = defaultWarmup;
             }
             if (item.contains("pool_block_size") && item["pool_block_size"].is_number_unsigned()) {
                 cfg.poolBlockSize = item["pool_block_size"].get<u32>();
@@ -396,6 +411,7 @@ void RegisterLoadedScenario(ExperimentRegistry& registry,
     desc.factory         = kDynamicFactories[idx];
     desc.scenarioSeed        = cfg.seed;
     desc.scenarioRepetitions = cfg.repetitions;
+    desc.scenarioWarmup      = cfg.warmup;
     desc.paramsHash          = ComputeAllocBenchParamsHash(cfg);
 
     registry.Register(desc);

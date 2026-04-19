@@ -26,12 +26,13 @@ struct RunConfig {
     const char* filter = nullptr;
 
     u64 seed = 0;
-    u32 warmupIterations = 0;
+    u32 warmupIterations = 3;
     u32 measuredRepetitions = 5;
     u32 minRepetitions = 5;
 
     bool hasExplicitSeed        = false;
     bool hasExplicitRepetitions = false;
+    bool hasExplicitWarmup      = false;
 
     const char* scenarioConfigPath = nullptr;  // path passed via --config=<path>
     bool hasExplicitConfig         = false;

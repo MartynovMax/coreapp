@@ -57,6 +57,7 @@ struct AllocBenchConfig {
     // Per-scenario reproducibility (0 = not set; fallback to global default or CLI override)
     u64 seed        = 0;   // Deterministic seed for this scenario
     u32 repetitions = 0;   // Number of measured repetitions for this scenario
+    u32 warmup      = 0;   // Number of warmup iterations for this scenario
 
     // PoolAllocator: 0 = derive from sizeMax / maxLiveObjects respectively
     u32 poolBlockSize  = 0;
